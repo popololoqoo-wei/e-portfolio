@@ -1021,13 +1021,65 @@ function downloadPDF(id){
 }
 
 function getFieldNames(id){
+  // F02 臨床表現自我學後評值表
+  const f02Items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
+  const f02Names={};
+  f02Items.forEach((item,i)=>f02Names[`f02_${i}`]=`第${i+1}題：${item}`);
+
+  // F05 對臨床實習老師評值表
+  const f05Items=['具備專業知識及臨床工作能力','創造生動活潑的教學環境與學習氣氛','教學時態度熱心、誠懇、積極、詳盡指導學員','教學內容考量學員需要，充實合宜','事實刺激學員主動學習與發問','引導學員思考問題與解答問題','重視學員感受與反應、有技巧的糾正學員的缺失','對於學員的學習情況能及時給予回饋','能與學員互相討論，有達到教學相長的成效','讓學員了解跨領域團隊合作的溝通與協調'];
+  const f05Names={};
+  f05Items.forEach((item,i)=>f05Names[`f05_${i}`]=`第${i+1}題：${item}`);
+
+  // F06 CbD
+  const f06Items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
+  const f06Names={};
+  f06Items.forEach((item,i)=>f06Names[`f06_${i}`]=`CbD評項${i+1}：${item}`);
+
+  // F03 滿意度
+  const f03tItems=['教學主題明確','內容條理分明','內容難易適中','表達能力良好','投影片製作及內涵','時間掌控良好','講義可讀性','與學員互動良好','說話音量適中'];
+  const f03cItems=['課後對我的未知的知識技能有幫助','課後對我的已知的知識技能有幫助','課程內容有符合我的需求'];
+  const f03Names={};
+  f03tItems.forEach((item,i)=>f03Names[`f03t_${i}`]=`對授課老師-${item}`);
+  f03cItems.forEach((item,i)=>f03Names[`f03c_${i}`]=`對課程內容-${item}`);
+
+  // F15 課程評值表
+  const f15attItems=['能確立個人學習目標','能主動參與所有教學活動','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
+  const f15sklItems=['能利用適當工具執行病人評估','能依病人問題擬定適當治療計劃','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器','具備病人照護基本知識與技能','具備邏輯思考能力'];
+  const f15comItems=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
+  const f15Names={};
+  f15attItems.forEach((item,i)=>f15Names[`f15_att_${i}`]=`學習態度${i+1}：${item}`);
+  f15sklItems.forEach((item,i)=>f15Names[`f15_skl_${i}`]=`專業技能${i+1}：${item}`);
+  f15comItems.forEach((item,i)=>f15Names[`f15_com_${i}`]=`溝通態度${i+1}：${item}`);
+
   return {
-    s_name:'學生姓名',school:'實習學校',date:'日期',s_date:'實習日期',t_name:'老師姓名',
-    s_sign:'學生簽名',t_sign:'老師簽名',s_sign_date:'學生簽名日期',t_sign_date:'老師簽名日期',
-    t_fb:'老師回饋',s_comment:'學生心得',diagnosis:'診斷',
-    topic:'課程主題',speaker:'演講者',overall:'整體分數',
-    goal:'學習目標',motivation:'學習動機',strategy:'學習策略',
-    t_fb:'老師回饋',s_note:'學生觀察紀錄',
+    // 基本欄位
+    s_name:'學生姓名', school:'實習學校', date:'日期', s_date:'實習日期',
+    t_name:'老師姓名', s_sign:'學生簽名', t_sign:'老師簽名',
+    s_sign_date:'學生簽名日期', t_sign_date:'老師簽名日期',
+    t_fb:'老師回饋', s_comment:'學生心得', s_fb:'學生回饋',
+    diagnosis:'診斷', topic:'課程主題', speaker:'演講者', overall:'整體分數',
+    goal:'學習目標', motivation:'學習動機', strategy:'學習策略',
+    difficulty:'可能困難', criteria:'評估指標', timeline:'預計時程',
+    t_note:'老師備註', s_note:'學生觀察紀錄', s_feeling:'學生心得感受',
+    env_review:'工作環境與學習成效', teacher_review:'臨床老師教學與互動',
+    self_review:'自我學習評估與感言', t_comment:'老師綜合意見',
+    case_title:'個案報告題目', pt_name:'病人姓名', bed:'病床號',
+    s_date:'實習日期', mode:'呼吸器 Mode', fio2:'FiO₂(%)',
+    peep:'PEEP(cmH₂O)', vt:'Vt set/exp', rr:'RR set/total',
+    peak_plat:'Peak/Plateau', medical_focus:'目前醫療重點', rt_plan:'呼吸治療計畫',
+    teacher_name:'臨床實習老師姓名', period:'教學期間', comment:'綜合評語及建議',
+    score:'評分分數', result:'評量結果', complexity:'技術複雜度',
+    epa_level:'EPA 可信賴等級', leave_pub:'公假(天)', leave_sick:'病假(天)',
+    leave_priv:'事假(天)', late_cnt:'遲到(次)', bonus:'加分項目',
+    ilp_fb:'老師回饋', host_sign:'計畫主持人簽名', host_date:'主持人簽名日期',
+    follow_date:'建議追蹤日期', c1:'我的專業可以提供', c2:'請求協助事項', c3:'我可以幫助的部分',
+    peer_good:'同儕優點', peer_suggest:'同儕建議', director_fb:'指導教師綜合評語',
+    s1:'整體架構(5分)', s2a:'前言(5分)', s2b:'評估(20分)', s2c:'問題確立(10分)',
+    s2d:'治療計畫與措施(20分)', s2e:'結果評值(5分)', s2f:'文獻查證(15分)',
+    s2g:'結論與討論(15分)', s2h:'參考資料(5分)',
+    // 動態欄位
+    ...f02Names, ...f05Names, ...f06Names, ...f03Names, ...f15Names,
   };
 }
 
