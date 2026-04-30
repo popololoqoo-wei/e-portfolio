@@ -1631,7 +1631,7 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">Google Sheets 同步設定</div>
       <div class="admin-card-body">
-        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">儲存表單時，資料將同步上傳至 Google Sheets。需先完成 OAuth 授權。</div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">儲存表單時，資料將同步上傳至 Google Sheets。需先完成 OAuth 授權。<br><span style="color:var(--green);font-size:11px;">✓ 帳號管理（新增/刪除學生老師）不需要 OAuth，直接操作即可。</span></div>
         <div class="admin-row">
           <span style="font-size:12px;">試算表網址：</span>
           <a href="${SHEETS_URL}" target="_blank" style="font-size:11px;color:var(--blue);">開啟 Google Sheet ↗</a>
@@ -1797,12 +1797,17 @@ async function saveConfigToSheets(){
 async function loadConfigFromSheets(){
   const local=localStorage.getItem('app_config');
   if(local){try{applyConfig(JSON.parse(local));}catch(e){}}
-  if(!GS.isReady||!GS.accessToken)return;
+  // 用 GAS 讀取（不需要 OAuth）
   try{
-    const resp=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A1',{headers:{Authorization:'Bearer '+GS.accessToken}});
+    const resp=await fetch(GAS_URL+'?t='+Date.now(),{cache:'no-cache'});
     const data=await resp.json();
-    const val=data.values?.[0]?.[0];
-    if(val){applyConfig(JSON.parse(val));localStorage.setItem('app_config',val);toast('設定已從 Google Sheets 載入 ✓');if(APP.currentRole==='admin')renderAdmin();}
+    const val=data.config;
+    if(val){
+      applyConfig(JSON.parse(val));
+      localStorage.setItem('app_config',val);
+      toast('設定已從 Google Sheets 載入 ✓');
+      if(APP.currentRole==='admin')renderAdmin();
+    }
   }catch(e){console.warn('Config load:',e);}
 }
 
