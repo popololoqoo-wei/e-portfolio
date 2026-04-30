@@ -1751,16 +1751,16 @@ async function saveConfigToSheets(){
   const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers};
   // 永遠先存 localStorage
   localStorage.setItem('app_config',JSON.stringify(config));
-  // 用 GET + 參數方式寫入 GAS（避免 CORS 問題）
+  // 用 form-data 方式 POST 到 GAS（繞過 CORS 限制）
   try{
-    const encoded = encodeURIComponent(JSON.stringify(config));
-    const url = GAS_URL + '?action=saveConfig&config=' + encoded + '&t=' + Date.now();
-    const resp = await fetch(url, {method:'GET', mode:'no-cors'});
-    // no-cors 模式下無法讀取回應，但請求已送出
+    const form = new FormData();
+    form.append('action','saveConfig');
+    form.append('config', JSON.stringify(config));
+    await fetch(GAS_URL, {method:'POST', body:form, mode:'no-cors'});
     toast('設定已儲存並同步至所有裝置 ✓');
   }catch(e){
     console.warn('GAS save error:',e);
-    toast('已儲存至本機（請確認網路連線）');
+    toast('已儲存至本機');
   }
 }
 
