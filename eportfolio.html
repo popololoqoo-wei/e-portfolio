@@ -71,15 +71,23 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .sidebar{width:200px;background:var(--paper);border-right:1px solid var(--border);padding:1.25rem 0;flex-shrink:0;}
 @media(max-width:768px){
   .app-body{flex-direction:column;}
-  .sidebar{width:100%;border-right:none;border-bottom:1px solid var(--border);padding:.5rem 0;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;}
-  .sidebar-section{display:none;}
-  .sidebar-item{padding:8px 12px;font-size:11px;white-space:nowrap;border-left:none;border-bottom:2px solid transparent;flex-shrink:0;}
-  .sidebar-item.active{border-left:none;border-bottom-color:var(--gold);}
-  .main-content{min-height:calc(100vh - 54px - 80px);}
-  .form-detail-view{padding:.75rem;}
-  .g2,.g3{grid-template-columns:1fr;}
+  .sidebar{display:none !important;}
+  .main-content{width:100% !important;min-height:calc(100vh - 54px);}
+  .form-detail-view{padding:.6rem;}
+  .form-list-view{padding:.75rem;}
+  .g2,.g3{grid-template-columns:1fr !important;}
   .card-body{padding:.75rem;}
+  .form-grid{grid-template-columns:1fr !important;}
+  .mobile-nav{display:flex !important;}
+  .admin-section{padding:.75rem;}
+  .admin-row{flex-wrap:wrap;}
+  .rating-table th,.rating-table td{padding:4px 3px;font-size:10px;}
+  .r-btn{width:22px;height:22px;font-size:9px;}
 }
+.mobile-nav{display:none;background:var(--paper);border-bottom:1px solid var(--border);padding:8px 12px;gap:6px;overflow-x:auto;align-items:center;position:sticky;top:54px;z-index:40;}
+.mobile-nav-btn{padding:6px 12px;border:1px solid var(--border);border-radius:999px;font-size:11px;white-space:nowrap;cursor:pointer;color:var(--ink2);background:var(--cream);flex-shrink:0;transition:all .15s;}
+.mobile-nav-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.mobile-menu-select{flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--paper);color:var(--ink);max-width:100%;}
 .sidebar-section{padding:0 1rem .5rem;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:1px;text-transform:uppercase;margin-top:1rem;}
 .sidebar-item{padding:8px 1.25rem;font-size:12px;color:var(--ink2);cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;border-left:2px solid transparent;}
 .sidebar-item:hover{background:var(--cream);color:var(--ink);}
@@ -307,6 +315,8 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
+  <!-- 手機版導覽列 -->
+  <div class="mobile-nav" id="mobile-nav"></div>
   <div class="app-body">
     <div class="sidebar" id="sidebar"></div>
     <div class="main-content" id="main-content"></div>
@@ -640,6 +650,8 @@ function getStatus(id){
 /* ═══════════ SIDEBAR ═══════════ */
 function renderSidebar(){
   const sb=document.getElementById('sidebar');
+  // 同步更新手機版導覽列
+  renderMobileNav();
   if(APP.currentRole==='admin'){
     sb.innerHTML=`
       <div class="sidebar-section">管理功能</div>
@@ -678,6 +690,41 @@ function renderSidebar(){
   });
   sb.innerHTML=html;
 }
+function renderMobileNav(){
+  const mn=document.getElementById('mobile-nav');
+  if(!mn)return;
+  if(APP.currentRole==='admin'){
+    mn.innerHTML='<button class="mobile-nav-btn" onclick="renderAdmin()">⚙ 系統管理</button><button class="mobile-nav-btn" onclick="renderFormList()">📋 表單</button>';
+    return;
+  }
+  const unfilledCount=typeof getUnfilledForms==='function'?getUnfilledForms().length:0;
+  const groups=[
+    {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'個案報告',ids:['F13','F14']},
+    {label:'DOPS',ids:['D01','D02','D03','D04']},
+    {label:'EPA',ids:['E01','E02','E03']},
+    {label:'總評值',ids:['F15']},
+  ];
+  let html='<button class="mobile-nav-btn" onclick="renderFormList()">📋 總覽</button>';
+  if(APP.currentRole==='student'){
+    html+=`<button class="mobile-nav-btn" onclick="renderUnfilledSection();APP.currentFormId='__unfilled__';renderSidebar();">⚠ 未填 <span style="background:var(--red);color:#fff;padding:0 5px;border-radius:999px;font-size:10px;">${unfilledCount}</span></button>`;
+  }
+  html+='<select class="mobile-menu-select" onchange="if(this.value){openForm(this.value);this.value=\'\';}">' +
+    '<option value="">── 選擇表單 ──</option>';
+  groups.forEach(g=>{
+    html+=`<optgroup label="${g.label}">`;
+    g.ids.forEach(id=>{
+      const f=findForm(id);if(!f)return;
+      const st=getStatus(id);
+      const mark=st==='done'?'✓ ':st==='new'?'○ ':'';
+      html+=`<option value="${id}">${mark}${f.num}. ${f.name}</option>`;
+    });
+    html+='</optgroup>';
+  });
+  html+='</select>';
+  mn.innerHTML=html;
+}
+
 
 /* ═══════════ FORM LIST ═══════════ */
 function renderFormList(){
