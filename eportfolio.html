@@ -316,6 +316,35 @@ const SHEETS_ID='15hCQQvQhKxGTPC7ZH6u9C-v5b6Ii-zU1Y3xrw2Agmgg';
 // Authorized origin: https://popololoqoo-wei.github.io
 const _storedClientId = localStorage.getItem('gs_client_id');
 const GOOGLE_CLIENT_ID = _storedClientId || '416198803583-raro6tl5kbp1582m27heqc4m22bhsspk.apps.googleusercontent.com';
+
+// ── 公開讀取設定（不需要 OAuth，任何裝置開啟即自動載入帳號）──
+// 使用 Google Sheets 已發布的 CSV 功能，管理員儲存設定後自動同步到所有裝置
+// 設定分頁 gid 會在第一次儲存後自動更新
+let CONFIG_GID = localStorage.getItem('config_gid') || '0';
+
+async function autoLoadConfig() {
+  // 1. 先從 localStorage 讀取（速度最快）
+  const local = localStorage.getItem('app_config');
+  if (local) {
+    try { applyConfig(JSON.parse(local)); } catch(e) {}
+  }
+  // 2. 嘗試從 Google Sheets 公開 CSV 讀取最新設定
+  try {
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('_系統設定')}`;
+    const resp = await fetch(csvUrl, {cache:'no-cache'});
+    if (!resp.ok) return;
+    const text = await resp.text();
+    // CSV 第一格是 JSON 設定，去除引號
+    const jsonStr = text.trim().replace(/^"+|"+$/g, '').replace(/""/g, '"');
+    if (jsonStr && jsonStr.startsWith('{')) {
+      const cfg = JSON.parse(jsonStr);
+      applyConfig(cfg);
+      localStorage.setItem('app_config', JSON.stringify(cfg));
+    }
+  } catch(e) {
+    console.log('Auto-load config (no auth):', e.message);
+  }
+}
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 let GS = {
   tokenClient: null,
@@ -1573,6 +1602,15 @@ function renderAdmin(){
         <button class="btn-update" onclick="connectGoogleSheets()">🔗 連接 Google Sheets（OAuth）</button>
         <div class="gs-status gs-info" id="gs-status-admin" style="margin-top:6px;">${GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com' ? '⚠ 請填入 Client ID 後啟用' : '尚未授權，請點擊上方按鈕'}</div>
         <div id="gs-status-bar"></div>
+        <div style="margin-top:10px;background:#EEF5E8;border:1px solid #C8E0C0;border-radius:var(--r);padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px;">📱 讓手機自動載入帳號（重要！一次設定）</div>
+          <div style="font-size:11px;color:#3A6030;line-height:1.6;">
+            1. 開啟 <a href="https://docs.google.com/spreadsheets/d/15hCQQvQhKxGTPC7ZH6u9C-v5b6Ii-zU1Y3xrw2Agmgg" target="_blank" style="color:var(--blue);">Google Sheet ↗</a><br>
+            2. 點上方「檔案」→「共用」→「發布到網路」<br>
+            3. 選擇「_系統設定」分頁 → 格式選「CSV」→ 點「發布」<br>
+            4. 完成後所有裝置開啟網站時自動載入最新帳號
+          </div>
+        </div>
         <div style="margin-top:12px;background:var(--cream);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;">
           <div style="font-size:11px;font-weight:700;color:var(--ink3);margin-bottom:6px;">設定 Client ID（填完後重新整理頁面）</div>
           <div class="admin-row">
@@ -1657,10 +1695,9 @@ function renderAdmin(){
   refreshStudentTable();refreshTeacherTable();refreshTopicList();refreshSpeakerList();
 }
 
-// Load config from localStorage on startup
+// 頁面載入時自動從 Google Sheets 讀取最新帳號設定（不需要 OAuth）
 window.addEventListener('DOMContentLoaded', ()=>{
-  const local=localStorage.getItem('app_config');
-  if(local){try{applyConfig(JSON.parse(local));}catch(e){}}
+  autoLoadConfig();
 });
 
 // Auto-init Google Auth when page loads (if Client ID is set)
@@ -1685,6 +1722,8 @@ async function saveConfigToSheets(){
     }
     await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A1:update?valueInputOption=RAW',{method:'PUT',headers:{Authorization:'Bearer '+GS.accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:[[JSON.stringify(config)]]})});
     toast('設定已儲存至 Google Sheets ✓');
+    // 同步更新 localStorage 讓其他裝置下次載入時也能讀到
+    localStorage.setItem('app_config', JSON.stringify(config));
   }catch(e){toast('已儲存至本機（Sheets暫時無法連線）');}
 }
 
