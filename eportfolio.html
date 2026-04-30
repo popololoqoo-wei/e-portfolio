@@ -500,10 +500,14 @@ function changeStudentPwd(){
 }
 function doLogout(){
   APP.currentRole=null;APP.currentUser=null;APP.teacherUnlocked=false;APP.currentFormId=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-screen').style.display='none';
   document.getElementById('login-screen').classList.add('active');
   document.getElementById('app-screen').classList.remove('active');
 }
 function enterApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
   document.getElementById('login-screen').classList.remove('active');
   document.getElementById('app-screen').classList.add('active');
   const u=APP.currentUser;
