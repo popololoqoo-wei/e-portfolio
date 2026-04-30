@@ -972,17 +972,23 @@ function ta(fid,key,rows,disabled,ph){
 function dateField(fid,key,disabled,label){
   const v=(APP.formData[fid]||{})[key]||'';
   const dis=disabled?'disabled':'';
-  return`<div class="field"><label>${label||'日期'}${disabled?`<span class="t-badge">老師</span>`:''}</label><input type="date" value="${v}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);"></div>`;
+  const tBadge = disabled ? '<span class="t-badge">老師</span>' : '';
+  return`<div class="field"><label>${label||'日期'}${tBadge}</label><input type="date" value="${v}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);"></div>`;
 }
 function signRow(fid,sKey,tKey,canT){
-  // Separate signature and date fields
+  const sDateKey=sKey+'_date';
+  const tDateKey=tKey+'_date';
+  const sDateVal=(APP.formData[fid]||{})[sDateKey]||'';
+  const tDateVal=(APP.formData[fid]||{})[tDateKey]||'';
+  const tBg=!canT?'var(--cream)':'#fff';
+  const tDis=!canT?'disabled':'';
   return`<div class="g2">
     <div class="field"><label>學生簽名</label>${fi(fid,sKey,'text',false,'姓名')}</div>
-    <div class="field"><label>學生簽名日期</label><input type="date" value="${(APP.formData[fid]||{})[sKey+'_date']||''}" data-fid="${fid}" data-key="${sKey+'_date'}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${sKey+'_date}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+    <div class="field"><label>學生簽名日期</label><input type="date" value="${sDateVal}" data-fid="${fid}" data-key="${sDateKey}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${sDateKey}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
   </div>
   <div class="g2">
     <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(fid,tKey,'text',!canT,'姓名')}</div>
-    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${(APP.formData[fid]||{})[tKey+'_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${tKey+'_date'}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${tKey+'_date}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${tDateVal}" ${tDis} data-fid="${fid}" data-key="${tDateKey}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${tDateKey}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${tBg};color:var(--ink);font-size:13px;"></div>
   </div>`;
 }
 
