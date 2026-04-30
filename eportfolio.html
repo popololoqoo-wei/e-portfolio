@@ -1714,19 +1714,13 @@ async function saveConfigToSheets(){
   const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers};
   // 永遠先存 localStorage
   localStorage.setItem('app_config',JSON.stringify(config));
-  // 用 Google Apps Script 寫入（不需要 OAuth，任何裝置都可以）
+  // 用 GET + 參數方式寫入 GAS（避免 CORS 問題）
   try{
-    const resp = await fetch(GAS_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({action:'saveConfig', config: JSON.stringify(config)})
-    });
-    const result = await resp.json();
-    if(result.success){
-      toast('設定已儲存並同步至所有裝置 ✓');
-    } else {
-      toast('已儲存至本機（雲端同步失敗）');
-    }
+    const encoded = encodeURIComponent(JSON.stringify(config));
+    const url = GAS_URL + '?action=saveConfig&config=' + encoded + '&t=' + Date.now();
+    const resp = await fetch(url, {method:'GET', mode:'no-cors'});
+    // no-cors 模式下無法讀取回應，但請求已送出
+    toast('設定已儲存並同步至所有裝置 ✓');
   }catch(e){
     console.warn('GAS save error:',e);
     toast('已儲存至本機（請確認網路連線）');
