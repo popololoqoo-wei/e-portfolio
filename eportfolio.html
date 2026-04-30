@@ -775,11 +775,21 @@ function renderFormList(){
 }
 
 /* ═══════════ OPEN FORM ═══════════ */
-function openForm(id){
+async function openForm(id){
   APP.currentFormId=id;
   renderSidebar();
   const mc=document.getElementById('main-content');
   const f=findForm(id);if(!f)return;
+
+  // 顯示載入中
+  mc.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--ink3);">
+    <div style="font-size:24px;margin-bottom:8px;">⏳</div>
+    <div style="font-size:13px;">載入表單資料中...</div>
+  </div>`;
+
+  // 從 GAS 讀取共享資料
+  await loadFormFromSheets(id);
+
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
   const d=APP.formData[id]||{};
 
@@ -832,17 +842,23 @@ function inlineUnlock(){
 
 /* ═══════════ SAVE ═══════════ */
 function saveForm(id){
-  // Collect all inputs
+  // Collect all inputs (only editable fields for current role)
   if(!APP.formData[id])APP.formData[id]={};
   document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(el=>{
     if(!el.disabled){
-      APP.formData[id][el.dataset.key]=el.value;
+      APP.formData[id][el.dataset.key] = el.type==='checkbox' ? el.checked : el.value;
     }
   });
+
   // Record history
   if(!APP.historyLog[id])APP.historyLog[id]=[];
   const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
-  APP.historyLog[id].unshift({ts:new Date().toISOString(),role:APP.currentRole,roleLabel,name:APP.currentUser.name});
+  const now = new Date();
+  const ts = now.toISOString();
+  APP.historyLog[id].unshift({ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name});
+
+  // Save to shared storage (GAS)
+  saveFormToSheets(id);
 
   // Show saved
   const msg=document.getElementById('saved-msg');
@@ -854,9 +870,63 @@ function saveForm(id){
   const histWrap=document.getElementById('history-wrap');
   if(histWrap)histWrap.innerHTML=buildHistoryItems(id);
 
-  // Upload to Google Sheets
+  // Also upload summary to sheets tab
   uploadToSheets(id);
-  toast('表單已儲存');
+  toast('表單已儲存 ✓');
+  renderSidebar(); // update status dots
+}
+
+/* ── 將表單資料存到 GAS（共享給所有人） ── */
+async function saveFormToSheets(id){
+  const payload = {
+    action: 'saveForm',
+    formId: id,
+    data: JSON.stringify(APP.formData[id]||{}),
+    history: JSON.stringify(APP.historyLog[id]||[]),
+    studentId: APP.currentRole==='student' ? APP.currentUser.sid : (APP.currentRole==='teacher'?APP.currentUser.card:'admin')
+  };
+  const configStr = JSON.stringify(payload);
+  // Use iframe form submit
+  try{
+    const iframeId='_gas_form_'+Date.now();
+    const iframe=document.createElement('iframe');
+    iframe.name=iframeId;iframe.id=iframeId;iframe.style.display='none';
+    document.body.appendChild(iframe);
+    const form=document.createElement('form');
+    form.method='POST';form.action=GAS_URL;form.target=iframeId;form.style.display='none';
+    Object.entries(payload).forEach(([k,v])=>{
+      const inp=document.createElement('input');
+      inp.type='hidden';inp.name=k;inp.value=v;
+      form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(()=>{
+      try{document.body.removeChild(form);document.body.removeChild(iframe);}catch(e){}
+    },3000);
+  }catch(e){console.warn('saveFormToSheets error:',e);}
+}
+
+/* ── 從 GAS 讀取表單資料（載入時呼叫） ── */
+async function loadFormFromSheets(id){
+  try{
+    const url=GAS_URL+'?action=loadForm&formId='+encodeURIComponent(id)+'&t='+Date.now();
+    const resp=await fetch(url,{cache:'no-cache'});
+    if(!resp.ok)return;
+    const data=await resp.json();
+    if(data.formData){
+      // Merge: don't overwrite current role's fields
+      if(!APP.formData[id])APP.formData[id]={};
+      const loaded=JSON.parse(data.formData);
+      // Merge all fields (both student and teacher)
+      APP.formData[id]=Object.assign({},loaded,APP.formData[id]);
+      // Actually for shared viewing, just use the loaded data entirely
+      APP.formData[id]=loaded;
+    }
+    if(data.history){
+      APP.historyLog[id]=JSON.parse(data.history);
+    }
+  }catch(e){console.warn('loadFormFromSheets:',e);}
 }
 
 /* ═══════════ HISTORY ═══════════ */
