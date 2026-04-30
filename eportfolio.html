@@ -439,6 +439,7 @@ let APP={
   currentUser:null,
   teacherUnlocked:false,
   currentFormId:null,
+  currentStudentId:null,  // 老師查看的學生ID
   formData:{},            // {formId:{key:val,...}}
   historyLog:{},          // {formId:[{ts,role,user},...]}
   students:{},            // {sid:{name,school,pwd}}
@@ -641,6 +642,17 @@ const FORMS=[
 ];
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
+function getFormKey(id){
+  // 每位學生有獨立的表單資料
+  if(APP.currentRole==='student' && APP.currentUser){
+    return id+'_'+APP.currentUser.sid;
+  }
+  if((APP.currentRole==='teacher'||APP.currentRole==='admin') && APP.currentStudentId){
+    return id+'_'+APP.currentStudentId;
+  }
+  return id; // fallback
+}
+
 function getStatus(id){
   const d=APP.formData[id];
   if(!d||Object.keys(d).length===0)return'new';
@@ -658,6 +670,32 @@ function renderSidebar(){
       <div class="sidebar-item active" onclick="renderAdmin()">⚙ 系統管理</div>
       <div class="sidebar-item" onclick="renderFormList()">📋 表單總覽</div>
     `;return;
+  }
+  if(APP.currentRole==='teacher'){
+    const groups=[
+      {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+      {label:'個案報告',ids:['F13','F14']},
+      {label:'DOPS',ids:['D01','D02','D03','D04']},
+      {label:'EPA',ids:['E01','E02','E03']},
+      {label:'總評值',ids:['F15']},
+    ];
+    let thtml='';
+    if(APP.currentStudentId){
+      const stu=APP.students[APP.currentStudentId];
+      thtml+=`<div style="padding:8px 1rem;background:var(--cream);border-bottom:1px solid var(--border2);font-size:11px;font-weight:600;color:var(--gold);">👤 ${stu?stu.name:'未知學生'}</div>`;
+    }
+    groups.forEach(g=>{
+      thtml+=`<div class="sidebar-section">${g.label}</div>`;
+      g.ids.forEach(id=>{
+        const f=findForm(id);if(!f)return;
+        const shortName=f.name.length>13?f.name.slice(0,13)+'…':f.name;
+        thtml+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
+          <span class="sidebar-dot dot-new"></span>${shortName}
+        </div>`;
+      });
+    });
+    sb.innerHTML=thtml;
+    return;
   }
   const groups=[
     {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
@@ -690,11 +728,92 @@ function renderSidebar(){
   });
   sb.innerHTML=html;
 }
+/* ── 老師在表單內切換學生 ── */
+async function switchStudent(sid, formId){
+  if(!sid) return;
+  APP.currentStudentId = sid;
+  APP.teacherUnlocked = true;
+  renderSidebar();
+  // Reload the same form with the new student's data
+  await openForm(formId);
+}
+
+/* ── 老師選擇學生（從側邊欄）── */
+function selectStudent(sid){
+  APP.currentStudentId = sid;
+  APP.currentFormId = null;
+  APP.teacherUnlocked = true;
+  renderSidebar();
+  // Show student overview
+  const mc = document.getElementById('main-content');
+  const acc = APP.students[sid];
+  const allForms = FORMS;
+  let html = '<div class="form-list-view">';
+  html += `<div class="form-detail-header" style="margin-bottom:1.25rem;">
+    <h1>📋 ${acc.name} 的學習護照</h1>
+    <div class="fh-meta">${acc.school} ｜ 學號：${sid}</div>
+  </div>`;
+  const groups=[
+    {label:'學習評估表單',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'個案報告評分',ids:['F13','F14']},
+    {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
+    {label:'EPA 即時評量',ids:['E01','E02','E03']},
+    {label:'實習課程總評值',ids:['F15']},
+  ];
+  groups.forEach(g=>{
+    html+=`<div class="section-header"><h2>${g.label}</h2></div><div class="form-grid">`;
+    g.ids.forEach(id=>{
+      const f=findForm(id);if(!f)return;
+      const st=getStudentFormStatus(id,sid);
+      const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':'dot-new';
+      const stLabel=st==='done'?'已填寫':st==='wait'?'待老師評分':'未填寫';
+      html+=`<div class="form-card" onclick="openForm('${id}')">
+        <div class="form-card-num">${f.num}</div>
+        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-sub">${f.sub}</div>
+        <div class="form-card-meta"><span class="sidebar-dot ${dotC}" style="display:inline-block;"></span><span class="form-card-status">${stLabel}</span></div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  mc.innerHTML=html;
+}
+
+function getStudentFormStatus(formId, sid){
+  const key = formId+'_'+sid;
+  const d = APP.formData[key]||{};
+  if(Object.keys(d).length===0) return 'new';
+  const f = findForm(formId);if(!f)return'new';
+  const allT = f.tFields ? f.tFields.every(k=>d[k]&&String(d[k]).trim()) : true;
+  if(Object.keys(d).length>0 && !allT) return 'wait';
+  return 'done';
+}
+
+
 function renderMobileNav(){
   const mn=document.getElementById('mobile-nav');
   if(!mn)return;
   if(APP.currentRole==='admin'){
     mn.innerHTML='<button class="mobile-nav-btn" onclick="renderAdmin()">⚙ 系統管理</button><button class="mobile-nav-btn" onclick="renderFormList()">📋 表單</button>';
+    return;
+  }
+  if(APP.currentRole==='teacher'){
+    let thtml='<button class="mobile-nav-btn" onclick="renderFormList()">🏠 首頁</button>';
+    thtml+='<select class="mobile-menu-select" onchange="if(this.value){selectStudent(this.value);this.value=\'\';}" style="max-width:150px;"><option value="">選學生...</option>';
+    Object.entries(APP.students).forEach(([sid,acc])=>{
+      thtml+=`<option value="${sid}">${acc.name}</option>`;
+    });
+    thtml+='</select>';
+    if(APP.currentStudentId){
+      thtml+='<select class="mobile-menu-select" onchange="if(this.value){openForm(this.value);this.value=\'\';}">' +
+        '<option value="">選表單...</option>';
+      FORMS.forEach(f=>{
+        thtml+=`<option value="${f.id}">${f.num}. ${f.name}</option>`;
+      });
+      thtml+='</select>';
+    }
+    mn.innerHTML=thtml;
     return;
   }
   const unfilledCount=typeof getUnfilledForms==='function'?getUnfilledForms().length:0;
@@ -787,17 +906,39 @@ async function openForm(id){
     <div style="font-size:13px;">載入表單資料中...</div>
   </div>`;
 
+  const formKey = getFormKey(id);
   // 從 GAS 讀取共享資料
-  await loadFormFromSheets(id);
+  await loadFormFromSheets(formKey);
 
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
-  const d=APP.formData[id]||{};
+  const d=APP.formData[formKey]||{};
+
+  // 老師端：顯示學生選擇器
+  let studentBanner='';
+  if(APP.currentRole==='teacher'||APP.currentRole==='admin'){
+    const stuOpts=Object.entries(APP.students).map(([sid,acc])=>
+      `<option value="${sid}" ${APP.currentStudentId===sid?'selected':''}>${acc.name}（${sid}）</option>`
+    ).join('');
+    const curStu=APP.currentStudentId?APP.students[APP.currentStudentId]:null;
+    studentBanner=`<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--r2);padding:12px 1rem;margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:6px;">👤 選擇要評分的學生</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <select id="student-selector" onchange="switchStudent(this.value,'${id}')" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;color:var(--ink);">
+          <option value="">── 請選擇學生 ──</option>
+          ${stuOpts}
+        </select>
+        ${curStu?`<span style="font-size:11px;color:var(--ink3);">學校：${curStu.school}</span>`:''}
+      </div>
+      ${!APP.currentStudentId?'<div style="font-size:11px;color:var(--red);margin-top:6px;">⚠ 請先選擇學生才能填寫表單</div>':''}
+    </div>`;
+  }
 
   let html=`<div class="form-detail-view">`;
   html+=`<div class="form-detail-header">
     <h1>${f.num}、${f.name}</h1>
     <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
   </div>`;
+  html+=studentBanner;
 
   // Lock bar for student viewing teacher-only form
   if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
@@ -842,23 +983,24 @@ function inlineUnlock(){
 
 /* ═══════════ SAVE ═══════════ */
 function saveForm(id){
+  const formKey = getFormKey(id);
   // Collect all inputs (only editable fields for current role)
-  if(!APP.formData[id])APP.formData[id]={};
+  if(!APP.formData[formKey])APP.formData[formKey]={};
   document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(el=>{
     if(!el.disabled){
-      APP.formData[id][el.dataset.key] = el.type==='checkbox' ? el.checked : el.value;
+      APP.formData[formKey][el.dataset.key] = el.type==='checkbox' ? el.checked : el.value;
     }
   });
 
   // Record history
-  if(!APP.historyLog[id])APP.historyLog[id]=[];
+  if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
   const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
   const now = new Date();
   const ts = now.toISOString();
-  APP.historyLog[id].unshift({ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name});
+  APP.historyLog[formKey].unshift({ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name});
 
   // Save to shared storage (GAS)
-  saveFormToSheets(id);
+  saveFormToSheets(formKey);
 
   // Show saved
   const msg=document.getElementById('saved-msg');
@@ -868,7 +1010,7 @@ function saveForm(id){
 
   // Update history display
   const histWrap=document.getElementById('history-wrap');
-  if(histWrap)histWrap.innerHTML=buildHistoryItems(id);
+  if(histWrap)histWrap.innerHTML=buildHistoryItems(formKey);
 
   // Also upload summary to sheets tab
   uploadToSheets(id);
@@ -933,9 +1075,10 @@ async function loadFormFromSheets(id){
 function buildHistoryLog(id){
   const logs=APP.historyLog[id]||[];
   if(logs.length===0)return'';
+  const formKey2=getFormKey(id);
   return`<div class="history-log">
     <div class="history-title">歷次修改紀錄</div>
-    <div id="history-wrap">${buildHistoryItems(id)}</div>
+    <div id="history-wrap">${buildHistoryItems(formKey2)}</div>
   </div>`;
 }
 function buildHistoryItems(id){
