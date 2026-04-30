@@ -1750,46 +1750,43 @@ const CONFIG_SHEET='_系統設定';
 async function saveConfigToSheets(){
   const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers};
   const configStr = JSON.stringify(config);
-  // 永遠先存 localStorage
   localStorage.setItem('app_config', configStr);
 
-  // 用隱藏表單方式 POST 到 GAS（最可靠，完全繞過 CORS）
   try {
-    await new Promise((resolve, reject) => {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = GAS_URL;
-      form.target = '_gas_iframe';
-      form.style.display = 'none';
+    // 每次建立全新的 iframe，避免重複使用問題
+    const iframeId = '_gas_iframe_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeId;
+    iframe.id = iframeId;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
 
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'config';
-      input.value = configStr;
-      form.appendChild(input);
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = GAS_URL;
+    form.target = iframeId;
+    form.style.display = 'none';
 
-      const action = document.createElement('input');
-      action.type = 'hidden';
-      action.name = 'action';
-      action.value = 'saveConfig';
-      form.appendChild(action);
+    const inputConfig = document.createElement('input');
+    inputConfig.type = 'hidden';
+    inputConfig.name = 'config';
+    inputConfig.value = configStr;
+    form.appendChild(inputConfig);
 
-      let iframe = document.getElementById('_gas_iframe');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.name = '_gas_iframe';
-        iframe.id = '_gas_iframe';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-      }
+    const inputAction = document.createElement('input');
+    inputAction.type = 'hidden';
+    inputAction.name = 'action';
+    inputAction.value = 'saveConfig';
+    form.appendChild(inputAction);
 
-      iframe.onload = () => resolve();
-      setTimeout(resolve, 4000); // 最多等4秒
+    document.body.appendChild(form);
+    form.submit();
 
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
-    });
+    // 等待完成後清理
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    document.body.removeChild(form);
+    document.body.removeChild(iframe);
+
     toast('設定已儲存並同步至所有裝置 ✓');
   } catch(e) {
     console.warn('GAS save error:', e);
