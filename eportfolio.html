@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>臺中榮總 — 實習學習護照 e-Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#F9F6F0; --paper:#FDFBF7; --ink:#1A1612; --ink2:#3D3530; --ink3:#7A706A;
+  --gold:#B8860B; --gold2:#D4A017; --red:#8B2020; --green:#2D5A27; --blue:#1A3A5C;
+  --border:#D4C9BB; --border2:#EAE2D8; --shadow:rgba(26,22,18,.08);
+  --ff-serif:'Noto Serif TC',serif; --ff-sans:'Noto Sans TC',sans-serif;
+  --r:6px; --r2:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--ff-sans);background:var(--cream);color:var(--ink);min-height:100vh;font-size:14px;}
+
+/* ─── WATERMARK TEXTURE ─── */
+body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(180,160,130,.06) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(180,160,130,.06) 40px);pointer-events:none;z-index:0;}
+
+/* ─── SCREENS ─── */
+.screen{display:none;position:relative;z-index:1;}
+.screen.active{display:block;}
+
+/* ─── LOGIN ─── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+.login-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);box-shadow:0 4px 24px var(--shadow),0 0 0 1px rgba(180,160,130,.2);width:100%;max-width:460px;overflow:hidden;}
+.login-header{background:var(--ink);padding:2rem;text-align:center;position:relative;}
+.login-header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2),var(--gold));}
+.login-header .hosp{font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;margin-bottom:8px;font-family:var(--ff-sans);}
+.login-header .title{font-family:var(--ff-serif);font-size:20px;color:#fff;font-weight:600;line-height:1.4;}
+.login-header .sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:6px;letter-spacing:.5px;}
+.login-body{padding:2rem;}
+.role-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.5rem;}
+.role-tab{flex:1;padding:10px;text-align:center;cursor:pointer;font-size:13px;font-weight:500;color:var(--ink3);background:var(--cream);transition:all .2s;border:none;}
+.role-tab.active{background:var(--ink);color:#fff;}
+.role-tab:first-child{border-right:1px solid var(--border);}
+.fg{margin-bottom:1.1rem;}
+.fg label{display:block;font-size:11px;font-weight:600;color:var(--ink3);margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase;}
+.fg input,.fg select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;font-family:var(--ff-sans);outline:none;transition:border-color .2s;}
+.fg input:focus,.fg select:focus{border-color:var(--ink);}
+.login-err{font-size:12px;color:var(--red);margin-top:6px;display:none;}
+.btn-primary{width:100%;padding:11px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--ff-sans);letter-spacing:.5px;transition:opacity .2s;margin-top:.25rem;}
+.btn-primary:hover{opacity:.85;}
+.btn-ghost{width:100%;padding:10px;background:transparent;color:var(--ink3);border:1px solid var(--border);border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--ff-sans);margin-top:8px;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--ink);color:var(--ink);}
+.divider{display:flex;align-items:center;gap:10px;margin:1rem 0;}
+.divider-line{flex:1;height:1px;background:var(--border2);}
+.divider-text{font-size:11px;color:var(--ink3);}
+.strength-bar{height:3px;border-radius:3px;background:var(--border2);margin-top:5px;overflow:hidden;}
+.strength-fill{height:100%;border-radius:3px;transition:width .3s,background .3s;width:0;}
+
+/* ─── MAIN APP ─── */
+#app-screen{min-height:100vh;}
+.topbar{background:var(--ink);color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.topbar-title{font-family:var(--ff-serif);font-size:15px;font-weight:600;}
+.topbar-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.user-badge{font-size:11px;background:rgba(255,255,255,.12);padding:4px 10px;border-radius:999px;color:rgba(255,255,255,.8);}
+.role-chip{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;}
+.chip-s{background:rgba(45,90,39,.8);color:#A8E6A0;}
+.chip-t{background:rgba(139,32,32,.7);color:#F5C5C5;}
+.chip-a{background:rgba(184,134,11,.7);color:#FFF0A0;}
+.logout-btn{padding:5px 12px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:var(--r);color:rgba(255,255,255,.65);font-size:11px;cursor:pointer;transition:all .2s;}
+.logout-btn:hover{background:rgba(255,255,255,.1);}
+
+/* ─── BODY LAYOUT ─── */
+.app-body{display:flex;min-height:calc(100vh - 54px);}
+.sidebar{width:230px;background:var(--paper);border-right:1px solid var(--border);padding:1.25rem 0;flex-shrink:0;}
+.sidebar-section{padding:0 1rem .5rem;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:1px;text-transform:uppercase;margin-top:1rem;}
+.sidebar-item{padding:8px 1.25rem;font-size:12px;color:var(--ink2);cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;border-left:2px solid transparent;}
+.sidebar-item:hover{background:var(--cream);color:var(--ink);}
+.sidebar-item.active{background:var(--cream);border-left-color:var(--gold);color:var(--ink);font-weight:500;}
+.sidebar-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dot-done{background:var(--green);}
+.dot-wait{background:var(--gold);}
+.dot-new{background:var(--border);}
+.main-content{flex:1;overflow-y:auto;}
+
+/* ─── FORM LIST (dashboard) ─── */
+.form-list-view{padding:1.5rem;}
+.section-header{display:flex;align-items:baseline;gap:10px;margin:1.5rem 0 .8rem;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.section-header:first-child{margin-top:0;}
+.section-header h2{font-family:var(--ff-serif);font-size:16px;font-weight:600;color:var(--ink);}
+.section-header span{font-size:11px;color:var(--ink3);}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+.form-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);padding:1rem 1.1rem;cursor:pointer;transition:all .2s;position:relative;}
+.form-card:hover{border-color:var(--gold);box-shadow:0 2px 12px var(--shadow);}
+.form-card-num{font-size:10px;color:var(--ink3);margin-bottom:3px;font-weight:600;letter-spacing:.5px;}
+.form-card-name{font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;}
+.form-card-sub{font-size:11px;color:var(--ink3);margin-top:4px;}
+.form-card-meta{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tag{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:500;}
+.tag-both{background:#EEF3E8;color:var(--green);border:1px solid #C8DFC0;}
+.tag-student{background:#E8F0EE;color:var(--blue);border:1px solid #BFD4D0;}
+.tag-teacher{background:#F5EBE8;color:var(--red);border:1px solid #E0C8C0;}
+.form-card-status{font-size:10px;color:var(--ink3);}
+
+/* ─── FORM DETAIL ─── */
+.form-detail-view{padding:1.5rem;max-width:860px;}
+.form-detail-header{background:var(--ink);color:#fff;border-radius:var(--r2);padding:1.25rem 1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden;}
+.form-detail-header::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),var(--gold2));}
+.form-detail-header h1{font-family:var(--ff-serif);font-size:17px;font-weight:600;}
+.form-detail-header .fh-meta{font-size:11px;color:rgba(255,255,255,.5);margin-top:4px;}
+
+/* ─── LOCK BAR ─── */
+.lock-bar{background:#FFF8E8;border:1px solid #E8D080;border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#7A6020;}
+.lock-bar input{padding:5px 9px;border:1px solid #D4B840;border-radius:var(--r);font-size:12px;background:#fff;width:90px;color:var(--ink);}
+.lock-bar .unlock-btn{padding:5px 12px;background:#7A6020;color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;}
+
+/* ─── CARDS ─── */
+.card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:1rem;overflow:hidden;}
+.card-head{background:var(--cream);border-bottom:1px solid var(--border2);padding:9px 1.1rem;display:flex;align-items:center;gap:8px;}
+.card-head-title{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.2px;}
+.card-body{padding:1.1rem;}
+
+/* ─── FIELDS ─── */
+.field{margin-bottom:.9rem;}
+.field:last-child{margin-bottom:0;}
+.field>label{display:block;font-size:11px;font-weight:600;color:var(--ink3);margin-bottom:5px;letter-spacing:.3px;}
+.field input[type=text],.field input[type=number],.field input[type=date],.field textarea,.field select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;font-family:var(--ff-sans);outline:none;transition:border-color .2s;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--gold);}
+.field input:disabled,.field textarea:disabled,.field select:disabled{background:var(--cream);color:var(--ink3);cursor:not-allowed;}
+.field textarea{resize:vertical;min-height:68px;}
+.t-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:999px;background:#F5EBE8;color:var(--red);border:1px solid #E8C8C0;margin-left:4px;font-weight:600;}
+.s-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:999px;background:#E8F0EE;color:var(--blue);border:1px solid #C0D4D0;margin-left:4px;font-weight:600;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media(max-width:560px){.g2,.g3{grid-template-columns:1fr;}}
+
+/* ─── RATING ─── */
+.rating-table{width:100%;border-collapse:collapse;font-size:12px;}
+.rating-table th,.rating-table td{padding:6px 7px;border:1px solid var(--border2);vertical-align:middle;}
+.rating-table th{background:var(--cream);font-size:10px;font-weight:600;color:var(--ink3);text-align:center;}
+.rating-table td.row-label{font-size:12px;color:var(--ink);text-align:left;}
+.r-btn{width:28px;height:28px;border-radius:4px;border:1px solid var(--border);background:#fff;font-size:10px;cursor:pointer;color:var(--ink3);transition:all .12s;}
+.r-btn.sel-s{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600;}
+.r-btn.sel-t{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
+.r-btn.sel-a{background:var(--gold);border-color:var(--gold);color:#fff;font-weight:600;}
+.r-btn:disabled{cursor:not-allowed;opacity:.3;}
+
+/* ─── DOPS TABLE ─── */
+.dops-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.dops-tbl th{background:var(--ink);color:#fff;padding:5px 4px;text-align:center;font-size:10px;}
+.dops-tbl td{padding:5px 4px;border:1px solid var(--border2);vertical-align:middle;}
+.dops-tbl .item-cell{font-size:11px;color:var(--ink);padding-right:8px;}
+.d-btn{width:22px;height:22px;border-radius:3px;border:1px solid var(--border);background:#fff;font-size:9px;cursor:pointer;color:var(--ink3);}
+.d-btn.sel{background:var(--red);border-color:var(--red);color:#fff;}
+.d-btn:disabled{cursor:not-allowed;opacity:.3;}
+
+/* ─── EPA levels ─── */
+.epa-level{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;margin-bottom:6px;transition:all .2s;}
+.epa-level.sel{border-color:var(--red);background:#FDF5F5;}
+.epa-level:hover:not(.sel){border-color:var(--border);background:var(--cream);}
+.epa-lv-num{width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.epa-lv-desc{font-size:12px;color:var(--ink2);}
+
+/* ─── CHECK / RADIO ─── */
+.check-group{display:flex;flex-wrap:wrap;gap:8px;}
+.check-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink2);}
+.check-item input{accent-color:var(--gold);}
+
+/* ─── FORM FOOTER ─── */
+.form-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:1rem 0 .5rem;flex-wrap:wrap;}
+.form-footer-right{display:flex;gap:8px;align-items:center;}
+.saved-msg{font-size:11px;color:var(--green);font-weight:500;display:none;}
+.btn-save{padding:9px 22px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.btn-save:hover{opacity:.85;}
+.btn-pdf{padding:9px 18px;background:var(--red);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;display:none;transition:opacity .2s;}
+.btn-pdf:hover{opacity:.85;}
+.btn-back{padding:9px 16px;background:transparent;color:var(--ink3);border:1px solid var(--border);border-radius:var(--r);font-size:12px;cursor:pointer;}
+
+/* ─── HISTORY LOG ─── */
+.history-log{margin-top:1rem;}
+.history-title{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;}
+.history-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;background:#fff;font-size:11px;}
+.history-time{color:var(--ink3);font-family:monospace;}
+.history-who{padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;}
+.hw-s{background:#E8F0EE;color:var(--blue);}
+.hw-t{background:#F5EBE8;color:var(--red);}
+.hw-a{background:#FFF8E0;color:var(--gold);}
+
+/* ─── ADMIN PANEL ─── */
+.admin-section{padding:1.5rem;}
+.admin-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:1rem;overflow:hidden;}
+.admin-card-head{background:var(--ink);color:#fff;padding:10px 1.25rem;font-family:var(--ff-serif);font-size:14px;font-weight:600;}
+.admin-card-body{padding:1.25rem;}
+.admin-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.admin-row input{flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;color:var(--ink);}
+.admin-row select{flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;color:var(--ink);}
+.btn-add{padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;}
+.btn-del{padding:5px 10px;background:var(--red);color:#fff;border:none;border-radius:var(--r);font-size:11px;cursor:pointer;}
+.btn-update{padding:7px 14px;background:var(--gold);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;}
+.accounts-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.accounts-table th{background:var(--cream);padding:6px 8px;text-align:left;border:1px solid var(--border2);font-size:11px;font-weight:700;color:var(--ink3);}
+.accounts-table td{padding:6px 8px;border:1px solid var(--border2);color:var(--ink);}
+.gs-status{font-size:12px;padding:6px 10px;border-radius:var(--r);margin-top:6px;}
+.gs-ok{background:#EEF5E8;color:var(--green);border:1px solid #C8E0C0;}
+.gs-err{background:#F5EAEA;color:var(--red);border:1px solid #E0C0C0;}
+.gs-info{background:#F0F4F8;color:var(--blue);border:1px solid #C0D0E0;}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--ink);color:#fff;padding:10px 18px;border-radius:var(--r);font-size:12px;font-weight:500;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+/* ─── PDF ─── */
+@media print{
+  .topbar,.sidebar,.form-footer,.lock-bar,.history-log,.btn-back,.btn-save,.btn-pdf,.toast{display:none !important;}
+  .app-body{display:block;}
+  .form-detail-view{padding:.5rem;}
+  .main-content{overflow:visible;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="login-screen" class="screen active">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="hosp">TAICHUNG VETERANS GENERAL HOSPITAL</div>
+      <div class="title">胸腔部呼吸治療科<br>實習學習護照 e-Portfolio</div>
+      <div class="sub">重症呼吸照護 UGY 實習系統</div>
+    </div>
+    <div class="login-body">
+      <div class="role-tabs">
+        <div class="role-tab active" id="tab-s" onclick="setLoginRole('student')">實習學生</div>
+        <div class="role-tab" id="tab-t" onclick="setLoginRole('teacher')">臨床老師</div>
+        <div class="role-tab" id="tab-a" onclick="setLoginRole('admin')">管理員</div>
+      </div>
+
+      <!-- STUDENT -->
+      <div id="panel-student">
+        <div id="student-login-panel">
+          <div class="fg"><label>學號</label><input id="s-sid" placeholder="請輸入學號"></div>
+          <div class="fg"><label>密碼</label><input id="s-pwd" type="password" placeholder="預設密碼：123"></div>
+          <button class="btn-primary" onclick="doLogin('student')">登入</button>
+          <div class="login-err" id="s-err">學號或密碼錯誤</div>
+          <div class="divider"><div class="divider-line"></div><div class="divider-text">首次登入</div><div class="divider-line"></div></div>
+          <button class="btn-ghost" onclick="showPanel('student-reg-panel')">建立帳號</button>
+        </div>
+        <div id="student-reg-panel" style="display:none;">
+          <div class="fg"><label>學號</label><input id="r-sid" placeholder="請輸入學號"></div>
+          <div class="fg"><label>姓名</label><input id="r-name" placeholder="請輸入姓名"></div>
+          <div class="fg"><label>實習學校</label><input id="r-school" placeholder="例：長庚科技大學"></div>
+          <div class="fg"><label>設定密碼（至少6碼）</label><input id="r-pwd" type="password" oninput="checkPwdStrength(this.value)"><div class="strength-bar"><div class="strength-fill" id="r-strength"></div></div></div>
+          <div class="fg"><label>確認密碼</label><input id="r-pwd2" type="password"></div>
+          <button class="btn-primary" onclick="doRegister()">建立帳號並登入</button>
+          <div class="login-err" id="r-err">請確認所有欄位</div>
+          <button class="btn-ghost" onclick="showPanel('student-login-panel')">← 返回登入</button>
+        </div>
+        <div id="student-change-panel" style="display:none;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:1rem;">修改密碼</div>
+          <div class="fg"><label>舊密碼</label><input id="cp-old" type="password"></div>
+          <div class="fg"><label>新密碼</label><input id="cp-new" type="password"></div>
+          <div class="fg"><label>確認新密碼</label><input id="cp-new2" type="password"></div>
+          <button class="btn-primary" onclick="changeStudentPwd()">儲存新密碼</button>
+          <div class="login-err" id="cp-err">密碼修改失敗</div>
+          <button class="btn-ghost" onclick="showPanel('student-login-panel')">← 返回</button>
+        </div>
+      </div>
+
+      <!-- TEACHER -->
+      <div id="panel-teacher" style="display:none;">
+        <div class="fg"><label>教師卡號</label><input id="t-card" placeholder="請輸入卡號"></div>
+        <div class="fg"><label>密碼</label><input id="t-pwd" type="password" placeholder="預設：000"></div>
+        <button class="btn-primary" onclick="doLogin('teacher')">登入</button>
+        <div class="login-err" id="t-err">卡號或密碼錯誤</div>
+      </div>
+
+      <!-- ADMIN -->
+      <div id="panel-admin" style="display:none;">
+        <div class="fg"><label>管理員帳號</label><input id="a-id" placeholder="popololoqoo@gmail.com"></div>
+        <div class="fg"><label>管理員密碼</label><input id="a-pwd" type="password"></div>
+        <button class="btn-primary" onclick="doLogin('admin')">登入</button>
+        <div class="login-err" id="a-err">帳號或密碼錯誤</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div id="app-screen" class="screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div>
+        <div class="topbar-title">臺中榮總 — e-Portfolio</div>
+        <div class="topbar-sub">胸腔部 呼吸治療科</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="topbar-user" class="user-badge"></span>
+      <span id="topbar-role" class="role-chip"></span>
+      <button class="logout-btn" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main-content" id="main-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════ STATE ═══════════ */
+const ADMIN_EMAIL='popololoqoo@gmail.com';
+const SHEETS_URL='https://docs.google.com/spreadsheets/d/15hCQQvQhKxGTPC7ZH6u9C-v5b6Ii-zU1Y3xrw2Agmgg/edit?gid=0#gid=0';
+const SHEETS_ID='15hCQQvQhKxGTPC7ZH6u9C-v5b6Ii-zU1Y3xrw2Agmgg';
+
+// ── Google OAuth 設定 ──────────────────────────────────────────────
+// 申請完成後，將您的 Client ID 填入下方 GOOGLE_CLIENT_ID
+// 或直接透過管理員面板的輸入框填入（儲存於 localStorage）
+// Authorized origin: https://popololoqoo-wei.github.io
+const _storedClientId = localStorage.getItem('gs_client_id');
+const GOOGLE_CLIENT_ID = _storedClientId || '416198803583-raro6tl5kbp1582m27heqc4m22bhsspk.apps.googleusercontent.com';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+let GS = {
+  tokenClient: null,
+  accessToken: null,
+  isReady: false,
+};
+
+function saveClientId() {
+  const val = document.getElementById('clientid-input')?.value?.trim();
+  if (!val || !val.includes('apps.googleusercontent.com')) {
+    alert('請輸入有效的 Client ID（結尾應為 .apps.googleusercontent.com）');
+    return;
+  }
+  localStorage.setItem('gs_client_id', val);
+  toast('Client ID 已儲存，正在重新載入…');
+  setTimeout(() => location.reload(), 1200);
+}
+
+// 載入 Google Identity Services (GIS)
+function loadGoogleIdentity() {
+  return new Promise((resolve) => {
+    if (window.google && window.google.accounts) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
+
+async function initGoogleAuth() {
+  if (GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com') {
+    updateGsStatus('warn', '⚠ 請在程式碼中填入 Google Client ID 後才能使用 Sheets 同步');
+    return;
+  }
+  await loadGoogleIdentity();
+  GS.tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_SCOPES,
+    callback: (resp) => {
+      if (resp.error) { updateGsStatus('err', '授權失敗：' + resp.error); return; }
+      GS.accessToken = resp.access_token;
+      GS.isReady = true;
+      updateGsStatus('ok', '✓ 已連接 Google Sheets（' + ADMIN_EMAIL + '）');
+      toast('Google Sheets 已授權，儲存時將自動同步');
+    },
+  });
+}
+
+function connectGoogleSheets() {
+  if (GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com') {
+    updateGsStatus('warn', '⚠ 請先在程式碼第一行填入您的 Google OAuth Client ID');
+    alert('尚未設定 Google Client ID。\n\n請照以下步驟：\n1. 前往 console.cloud.google.com\n2. 建立專案 → 啟用 Sheets API\n3. 建立 OAuth 憑證 → 取得 Client ID\n4. 將 Client ID 貼入程式碼 GOOGLE_CLIENT_ID 變數');
+    return;
+  }
+  updateGsStatus('info', '正在開啟 Google 授權…');
+  if (!GS.tokenClient) { initGoogleAuth().then(() => { if(GS.tokenClient) GS.tokenClient.requestAccessToken(); }); }
+  else { GS.tokenClient.requestAccessToken(); }
+}
+
+function updateGsStatus(type, msg) {
+  const typeMap = { ok:'gs-ok', err:'gs-err', warn:'gs-status', info:'gs-info' };
+  ['gs-status-admin','gs-status-bar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.className = 'gs-status ' + (typeMap[type]||'gs-info'); el.textContent = msg; }
+  });
+}
+
+let APP={
+  currentRole:null,       // 'student'|'teacher'|'admin'
+  currentUser:null,
+  teacherUnlocked:false,
+  currentFormId:null,
+  formData:{},            // {formId:{key:val,...}}
+  historyLog:{},          // {formId:[{ts,role,user},...]}
+  students:{},            // {sid:{name,school,pwd}}
+  teachers:{},            // {card:{name,pwd}}
+  adminPwd:'Admin@2025',
+  teacherPIN:'168168',    // used for inline unlock
+  courseTopics:[],        // admin-managed
+  courseSpeakers:[],      // admin-managed
+  gsToken:null,           // Google OAuth token
+};
+
+/* Pre-seed demo accounts */
+APP.students['S001']={name:'王小明',school:'長庚科技大學',pwd:'123'};
+APP.students['S002']={name:'林小華',school:'輔英科技大學',pwd:'123'};
+APP.teachers['T001']={name:'陳正美',pwd:'000'};
+APP.teachers['T002']={name:'卓瓊美',pwd:'000'};
+APP.courseTopics=['洗手技術','無菌操作','動脈血液氣體分析判讀','呼吸器初始設定'];
+APP.courseSpeakers=['陳正美','卓瓊美','黃培琦','傅偉菱'];
+
+/* ═══════════ HELPERS ═══════════ */
+function toast(msg,ok=true){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=ok?'#2D5A27':'#8B2020';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+}
+function showPanel(id){
+  ['student-login-panel','student-reg-panel','student-change-panel'].forEach(p=>{
+    const el=document.getElementById(p);if(el)el.style.display='none';
+  });
+  const target=document.getElementById(id);if(target)target.style.display='block';
+}
+function checkPwdStrength(pw){
+  let s=0;if(pw.length>=6)s++;if(pw.length>=8)s++;if(/[A-Z]/.test(pw))s++;if(/\d/.test(pw))s++;
+  const bar=document.getElementById('r-strength');if(!bar)return;
+  const pct=[0,25,50,75,100][s]||0;
+  const color=['#8B2020','#D4A017','#D4A017','#2D5A27','#1A5C3A'][s]||'#ccc';
+  bar.style.width=pct+'%';bar.style.background=color;
+}
+
+function setLoginRole(role){
+  ['student','teacher','admin'].forEach(r=>{
+    document.getElementById('tab-'+r[0]).classList.toggle('active',r===role);
+    document.getElementById('panel-'+r).style.display=r===role?'block':'none';
+  });
+}
+document.getElementById('panel-teacher').style.display='none';
+document.getElementById('panel-admin').style.display='none';
+
+/* ═══════════ AUTH ═══════════ */
+function doLogin(role){
+  if(role==='student'){
+    const sid=document.getElementById('s-sid').value.trim();
+    const pwd=document.getElementById('s-pwd').value;
+    const acc=APP.students[sid];
+    if(!acc||acc.pwd!==pwd){document.getElementById('s-err').style.display='block';return;}
+    document.getElementById('s-err').style.display='none';
+    APP.currentRole='student';APP.currentUser={sid,name:acc.name,school:acc.school};
+    enterApp();
+  } else if(role==='teacher'){
+    const card=document.getElementById('t-card').value.trim();
+    const pwd=document.getElementById('t-pwd').value;
+    const acc=APP.teachers[card];
+    if(!acc||acc.pwd!==pwd){document.getElementById('t-err').style.display='block';return;}
+    document.getElementById('t-err').style.display='none';
+    APP.currentRole='teacher';APP.currentUser={card,name:acc.name};
+    APP.teacherUnlocked=true;
+    enterApp();
+  } else {
+    const id=document.getElementById('a-id').value.trim();
+    const pwd=document.getElementById('a-pwd').value;
+    if(id!==ADMIN_EMAIL||pwd!==APP.adminPwd){document.getElementById('a-err').style.display='block';return;}
+    document.getElementById('a-err').style.display='none';
+    APP.currentRole='admin';APP.currentUser={name:'管理員',email:ADMIN_EMAIL};
+    APP.teacherUnlocked=true;
+    enterApp();
+  }
+}
+function doRegister(){
+  const sid=document.getElementById('r-sid').value.trim();
+  const name=document.getElementById('r-name').value.trim();
+  const school=document.getElementById('r-school').value.trim();
+  const pwd=document.getElementById('r-pwd').value;
+  const pwd2=document.getElementById('r-pwd2').value;
+  const err=document.getElementById('r-err');
+  if(!sid||!name||!school||!pwd){err.textContent='請填寫所有欄位';err.style.display='block';return;}
+  if(pwd.length<6){err.textContent='密碼至少6個字元';err.style.display='block';return;}
+  if(pwd!==pwd2){err.textContent='兩次密碼不一致';err.style.display='block';return;}
+  err.style.display='none';
+  APP.students[sid]={name,school,pwd};
+  APP.currentRole='student';APP.currentUser={sid,name,school};
+  enterApp();
+}
+function changeStudentPwd(){
+  const old=document.getElementById('cp-old').value;
+  const nw=document.getElementById('cp-new').value;
+  const nw2=document.getElementById('cp-new2').value;
+  const err=document.getElementById('cp-err');
+  const u=APP.currentUser;
+  if(!u||APP.students[u.sid]?.pwd!==old){err.textContent='舊密碼錯誤';err.style.display='block';return;}
+  if(nw.length<6){err.textContent='新密碼至少6碼';err.style.display='block';return;}
+  if(nw!==nw2){err.textContent='新密碼不一致';err.style.display='block';return;}
+  APP.students[u.sid].pwd=nw;
+  err.style.display='none';
+  toast('密碼已更新');
+  showPanel('student-login-panel');
+}
+function doLogout(){
+  APP.currentRole=null;APP.currentUser=null;APP.teacherUnlocked=false;APP.currentFormId=null;
+  document.getElementById('login-screen').classList.add('active');
+  document.getElementById('app-screen').classList.remove('active');
+}
+function enterApp(){
+  document.getElementById('login-screen').classList.remove('active');
+  document.getElementById('app-screen').classList.add('active');
+  const u=APP.currentUser;
+  const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
+  const roleClass={student:'chip-s',teacher:'chip-t',admin:'chip-a'}[APP.currentRole];
+  document.getElementById('topbar-user').textContent=u.name;
+  const rc=document.getElementById('topbar-role');
+  rc.textContent=roleLabel;rc.className='role-chip '+roleClass;
+  renderSidebar();
+  if(APP.currentRole==='admin'){renderAdmin();}
+  else{renderFormList();}
+}
+
+/* ═══════════ FORM DEFINITIONS ═══════════ */
+const FORMS=[
+  {id:'F01',num:'柒',name:'核心課程內容自我學前後評值表',sub:'訓練前後技能評核',roles:'both'},
+  {id:'F02',num:'捌',name:'臨床表現自我學後評值表',sub:'學後臨床表現評估',roles:'both'},
+  {id:'F03',num:'玖',name:'課程滿意度調查表',sub:'授課教師評估',roles:'student',special:'satisfaction'},
+  {id:'F04',num:'壹拾',name:'床邊教學訓練記錄表',sub:'床邊教學紀錄',roles:'both'},
+  {id:'F05',num:'壹拾壹',name:'對臨床實習老師評值表',sub:'學生匿名評值',roles:'student'},
+  {id:'F06',num:'壹拾貳',name:'病例導向評估表 CbD',sub:'Case-Based Discussion',roles:'both'},
+  {id:'F07',num:'壹拾參',name:'360 度評估表',sub:'多面向評核',roles:'both'},
+  {id:'F08',num:'壹拾肆',name:'全人照護紀錄表',sub:'高齡/安寧療護',roles:'both'},
+  {id:'F09',num:'壹拾伍',name:'跨領域團隊合作照護訓練紀錄表',sub:'跨團隊晨間會議',roles:'both'},
+  {id:'F10',num:'壹拾陸',name:'輔導記錄表',sub:'實習總指導教師',roles:'both'},
+  {id:'F11',num:'壹拾柒',name:'個人化學習計畫 ILPs',sub:'學習目標計畫',roles:'both'},
+  {id:'F12',num:'壹拾捌',name:'學習心得與建議紀錄表',sub:'實習心得',roles:'both'},
+  {id:'F13',num:'貳拾',name:'書面個案報告評分表',sub:'書面報告 100分',roles:'both'},
+  {id:'F14',num:'貳拾壹',name:'個案報告 PPT 評分表',sub:'口頭報告評分',roles:'both'},
+  {id:'D01',num:'貳拾貳(1)',name:'DOPS：抽痰技術',sub:'直接觀察評估',roles:'both'},
+  {id:'D02',num:'貳拾貳(2)',name:'DOPS：MDI 配合呼吸器',sub:'定量噴霧器操作',roles:'both'},
+  {id:'D03',num:'貳拾貳(3)',name:'DOPS：呼吸器技術操作',sub:'呼吸器設定使用',roles:'both'},
+  {id:'D04',num:'貳拾貳(4)',name:'DOPS：呼吸器脫離測量',sub:'Weaning Index',roles:'both'},
+  {id:'E01',num:'貳拾參(1)',name:'EPA (6)：侵襲性呼吸器初始設定',sub:'即時評量',roles:'both'},
+  {id:'E02',num:'貳拾參(2)',name:'EPA (8)：呼吸器病人緊急處置',sub:'即時評量',roles:'both'},
+  {id:'E03',num:'貳拾參(3)',name:'EPA (10)：侵襲性呼吸器脫離照護',sub:'即時評量',roles:'both'},
+  {id:'F15',num:'貳拾伍',name:'實習課程評值表',sub:'學習態度+技能+溝通',roles:'both'},
+];
+
+function findForm(id){return FORMS.find(f=>f.id===id);}
+function getStatus(id){
+  const d=APP.formData[id];
+  if(!d||Object.keys(d).length===0)return'new';
+  return'done';
+}
+
+/* ═══════════ SIDEBAR ═══════════ */
+function renderSidebar(){
+  const sb=document.getElementById('sidebar');
+  if(APP.currentRole==='admin'){
+    sb.innerHTML=`
+      <div class="sidebar-section">管理功能</div>
+      <div class="sidebar-item active" onclick="renderAdmin()">⚙ 系統管理</div>
+      <div class="sidebar-item" onclick="renderFormList()">📋 表單總覽</div>
+    `;return;
+  }
+  const groups=[
+    {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'個案報告',ids:['F13','F14']},
+    {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
+    {label:'EPA 即時評量',ids:['E01','E02','E03']},
+    {label:'總評值',ids:['F15']},
+  ];
+  let html='';
+  groups.forEach(g=>{
+    html+=`<div class="sidebar-section">${g.label}</div>`;
+    g.ids.forEach(id=>{
+      const f=findForm(id);if(!f)return;
+      const st=getStatus(id);
+      const dotC=st==='done'?'dot-done':'dot-new';
+      const shortName=f.name.length>14?f.name.slice(0,14)+'…':f.name;
+      html+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
+        <span class="sidebar-dot ${dotC}"></span>${f.num}. ${shortName}
+      </div>`;
+    });
+  });
+  sb.innerHTML=html;
+}
+
+/* ═══════════ FORM LIST ═══════════ */
+function renderFormList(){
+  APP.currentFormId=null;
+  renderSidebar();
+  const mc=document.getElementById('main-content');
+  const groups=[
+    {label:'學習評估表單',count:'12份',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'個案報告評分',count:'2份',ids:['F13','F14']},
+    {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
+    {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
+    {label:'實習課程總評值',count:'1份',ids:['F15']},
+  ];
+  let html='<div class="form-list-view">';
+  // progress
+  const total=FORMS.length;
+  const done=FORMS.filter(f=>getStatus(f.id)==='done').length;
+  const pct=Math.round(done/total*100);
+  html+=`<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-body" style="padding:.9rem 1.1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:600;color:var(--ink);">整體完成進度</span>
+        <span style="font-size:13px;font-weight:700;color:var(--gold);">${done}/${total} — ${pct}%</span>
+      </div>
+      <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;">
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:3px;transition:width .5s;"></div>
+      </div>
+    </div>
+  </div>`;
+  groups.forEach(g=>{
+    html+=`<div class="section-header"><h2>${g.label}</h2><span>${g.count}</span></div><div class="form-grid">`;
+    g.ids.forEach(id=>{
+      const f=findForm(id);if(!f)return;
+      const st=getStatus(id);
+      const dotC=st==='done'?'dot-done':'dot-new';
+      const stLabel=st==='done'?'已填寫':'未填寫';
+      const rolesTag=f.roles==='both'?`<span class="tag tag-both">學生＋老師</span>`:f.roles==='student'?`<span class="tag tag-student">學生填寫</span>`:`<span class="tag tag-teacher">老師填寫</span>`;
+      html+=`<div class="form-card" onclick="openForm('${id}')">
+        <div class="form-card-num">${f.num}</div>
+        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-sub">${f.sub}</div>
+        <div class="form-card-meta">${rolesTag}<span class="sidebar-dot ${dotC}" style="display:inline-block;"></span><span class="form-card-status">${stLabel}</span></div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  mc.innerHTML=html;
+}
+
+/* ═══════════ OPEN FORM ═══════════ */
+function openForm(id){
+  APP.currentFormId=id;
+  renderSidebar();
+  const mc=document.getElementById('main-content');
+  const f=findForm(id);if(!f)return;
+  const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
+  const d=APP.formData[id]||{};
+
+  let html=`<div class="form-detail-view">`;
+  html+=`<div class="form-detail-header">
+    <h1>${f.num}、${f.name}</h1>
+    <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
+  </div>`;
+
+  // Lock bar for student viewing teacher-only form
+  if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
+    html+=`<div class="lock-bar">🔒 老師評分欄位已鎖定。老師請輸入 PIN 碼解鎖：
+      <input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8">
+      <button class="unlock-btn" onclick="inlineUnlock()">解鎖</button>
+      <span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>
+    </div>`;
+  }
+
+  // Form content
+  html+=buildFormBody(f,d,canT);
+
+  // Footer
+  const hasSaved=APP.historyLog[id]&&APP.historyLog[id].length>0;
+  html+=`<div class="form-footer">
+    <button class="btn-back" onclick="renderFormList()">← 返回總覽</button>
+    <div class="form-footer-right">
+      <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
+      <button class="btn-pdf" id="btn-pdf" ${hasSaved?'style="display:inline-block;"':''} onclick="downloadPDF('${id}')">⬇ 下載 PDF</button>
+      <button class="btn-save" onclick="saveForm('${id}')">儲存表單</button>
+    </div>
+  </div>`;
+
+  // History log
+  html+=buildHistoryLog(id);
+  html+='</div>';
+  mc.innerHTML=html;
+}
+
+function inlineUnlock(){
+  const pin=document.getElementById('inline-pin').value;
+  const msg=document.getElementById('inline-msg');
+  if(pin===APP.teacherPIN){
+    APP.teacherUnlocked=true;
+    msg.style.color='var(--green)';msg.textContent='解鎖成功！';
+    setTimeout(()=>openForm(APP.currentFormId),400);
+  } else {
+    msg.style.color='var(--red)';msg.textContent='PIN碼錯誤';
+  }
+}
+
+/* ═══════════ SAVE ═══════════ */
+function saveForm(id){
+  // Collect all inputs
+  if(!APP.formData[id])APP.formData[id]={};
+  document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(el=>{
+    if(!el.disabled){
+      APP.formData[id][el.dataset.key]=el.value;
+    }
+  });
+  // Record history
+  if(!APP.historyLog[id])APP.historyLog[id]=[];
+  const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
+  APP.historyLog[id].unshift({ts:new Date().toISOString(),role:APP.currentRole,roleLabel,name:APP.currentUser.name});
+
+  // Show saved
+  const msg=document.getElementById('saved-msg');
+  if(msg){msg.style.display='inline';setTimeout(()=>msg.style.display='none',2500);}
+  const pdfBtn=document.getElementById('btn-pdf');
+  if(pdfBtn)pdfBtn.style.display='inline-block';
+
+  // Update history display
+  const histWrap=document.getElementById('history-wrap');
+  if(histWrap)histWrap.innerHTML=buildHistoryItems(id);
+
+  // Upload to Google Sheets
+  uploadToSheets(id);
+  toast('表單已儲存');
+}
+
+/* ═══════════ HISTORY ═══════════ */
+function buildHistoryLog(id){
+  const logs=APP.historyLog[id]||[];
+  if(logs.length===0)return'';
+  return`<div class="history-log">
+    <div class="history-title">歷次修改紀錄</div>
+    <div id="history-wrap">${buildHistoryItems(id)}</div>
+  </div>`;
+}
+function buildHistoryItems(id){
+  const logs=APP.historyLog[id]||[];
+  if(logs.length===0)return'';
+  return logs.map((l,i)=>{
+    const dt=new Date(l.ts);
+    const ts=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
+    const wClass={student:'hw-s',teacher:'hw-t',admin:'hw-a'}[l.role]||'hw-s';
+    return`<div class="history-item"><span style="font-size:11px;color:var(--ink3);">#${logs.length-i}</span><span class="history-time">${ts}</span><span class="history-who ${wClass}">${l.roleLabel}：${l.name}</span></div>`;
+  }).join('');
+}
+
+/* ═══════════ PDF DOWNLOAD ═══════════ */
+function downloadPDF(id){
+  const f=findForm(id);
+  const d=APP.formData[id]||{};
+  const logs=APP.historyLog[id]||[];
+  const lastSave=logs.length>0?logs[0]:null;
+
+  // Build a styled printable page
+  let content=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  body{font-family:'Noto Sans TC',sans-serif;padding:2cm;color:#1A1612;font-size:11pt;}
+  .pdf-border{border:2px solid #1A1612;border-radius:8px;padding:1.5cm;min-height:26cm;}
+  .pdf-header{text-align:center;border-bottom:2px solid #B8860B;padding-bottom:12px;margin-bottom:16px;}
+  .pdf-hosp{font-size:9pt;color:#7A706A;letter-spacing:1px;}
+  .pdf-title{font-size:16pt;font-weight:700;margin:6px 0 4px;}
+  .pdf-sub{font-size:10pt;color:#7A706A;}
+  .pdf-meta{font-size:9pt;color:#7A706A;margin-top:6px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+  th{background:#F9F6F0;padding:6px 8px;text-align:left;border:1px solid #D4C9BB;font-size:10pt;font-weight:700;color:#3D3530;}
+  td{padding:6px 8px;border:1px solid #D4C9BB;font-size:10pt;vertical-align:top;}
+  .section-title{font-size:11pt;font-weight:700;margin:14px 0 6px;color:#1A3A5C;border-left:3px solid #B8860B;padding-left:8px;}
+  .field-row{display:grid;grid-template-columns:160px 1fr;gap:4px;padding:5px 0;border-bottom:1px solid #EAE2D8;}
+  .field-label{font-weight:600;color:#7A706A;font-size:9.5pt;}
+  .field-val{color:#1A1612;font-size:10pt;white-space:pre-wrap;}
+  .history-section{margin-top:16px;padding-top:12px;border-top:1px solid #D4C9BB;}
+  .history-title{font-size:9pt;font-weight:700;color:#7A706A;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+  .history-row{font-size:9pt;color:#7A706A;padding:3px 0;border-bottom:1px solid #EAE2D8;}
+</style></head><body><div class="pdf-border">`;
+
+  content+=`<div class="pdf-header">
+    <div class="pdf-hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>
+    <div class="pdf-title">${f.name}</div>
+    <div class="pdf-sub">${f.sub}</div>
+    ${lastSave?`<div class="pdf-meta">最後儲存：${new Date(lastSave.ts).toLocaleString('zh-TW')}　by ${lastSave.roleLabel}：${lastSave.name}</div>`:''}
+  </div>`;
+
+  // Render all data as field rows
+  const fieldNames=getFieldNames(id);
+  content+=`<div class="section-title">表單內容</div>`;
+  Object.entries(d).forEach(([k,v])=>{
+    if(!v&&v!==0)return;
+    const label=fieldNames[k]||k;
+    content+=`<div class="field-row"><div class="field-label">${label}</div><div class="field-val">${v}</div></div>`;
+  });
+
+  // History
+  if(logs.length>0){
+    content+=`<div class="history-section"><div class="history-title">修改紀錄</div>`;
+    logs.forEach((l,i)=>{
+      const dt=new Date(l.ts);
+      const ts=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
+      content+=`<div class="history-row">#${logs.length-i}　${ts}　${l.roleLabel}：${l.name}</div>`;
+    });
+    content+='</div>';
+  }
+
+  // Special: satisfaction averages
+  if(id==='F03'){
+    content+=buildSatisfactionSummaryHTML(d);
+  }
+
+  content+=`</div></body></html>`;
+
+  const blob=new Blob([content],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`${f.name}.html`;a.click();
+  URL.revokeObjectURL(url);
+  toast('PDF 已產生（請在瀏覽器列印為PDF）');
+}
+
+function getFieldNames(id){
+  return {
+    s_name:'學生姓名',school:'實習學校',date:'日期',s_date:'實習日期',t_name:'老師姓名',
+    s_sign:'學生簽名',t_sign:'老師簽名',s_sign_date:'學生簽名日期',t_sign_date:'老師簽名日期',
+    t_fb:'老師回饋',s_comment:'學生心得',diagnosis:'診斷',
+    topic:'課程主題',speaker:'演講者',overall:'整體分數',
+    goal:'學習目標',motivation:'學習動機',strategy:'學習策略',
+    t_fb:'老師回饋',s_note:'學生觀察紀錄',
+  };
+}
+
+function buildSatisfactionSummaryHTML(d){
+  const sections=[
+    {title:'對授課老師的評估',items:['教學主題明確','內容條理分明','內容難易適中','表達能力良好','投影片製作及內涵','時間掌控良好','講義可讀性','與學員互動良好','說話音量適中'],prefix:'f03t'},
+    {title:'對課程內容之評估',items:['課後對我的未知的知識技能有幫助','課後對我的已知的知識技能有幫助','課程內容有符合我的需求'],prefix:'f03c'},
+  ];
+  let html=`<div class="section-title">課程滿意度統計（本次填寫）</div><table><tr><th>題目</th><th>分數</th></tr>`;
+  sections.forEach(s=>{
+    html+=`<tr><td colspan="2" style="background:#F0F4F8;font-weight:700;">${s.title}</td></tr>`;
+    s.items.forEach((item,i)=>{
+      const val=d[s.prefix+'_'+i];
+      html+=`<tr><td>${item}</td><td>${val||'—'}</td></tr>`;
+    });
+  });
+  html+='</table>';
+  return html;
+}
+
+/* ═══════════ GOOGLE SHEETS UPLOAD ═══════════ */
+async function uploadToSheets(id) {
+  const d = APP.formData[id] || {};
+  const f = findForm(id);
+  const u = APP.currentUser;
+  const now = new Date();
+  const ts = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const roleLabel = {student:'學生', teacher:'臨床老師', admin:'管理員'}[APP.currentRole] || '';
+
+  if (!GS.isReady || !GS.accessToken) {
+    updateGsStatus('warn', '⚠ Google Sheets 尚未授權，請至管理員面板完成授權後再儲存');
+    return;
+  }
+
+  // Build row: [時間戳記, 表單名稱, 使用者, 角色, ...所有欄位值]
+  const row = [ts, f.name, u.name, roleLabel];
+  // Add all key:value pairs as separate columns
+  const keys = Object.keys(d);
+  keys.forEach(k => row.push(d[k] ?? ''));
+
+  // Determine sheet tab name (one tab per form)
+  const sheetName = (f.num + '_' + f.name).slice(0, 31).replace(/[\\\/\?\*\[\]]/g, '_');
+
+  try {
+    // 1. Try to get sheet metadata to check if tab exists
+    const metaResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}`,
+      { headers: { Authorization: 'Bearer ' + GS.accessToken } }
+    );
+    const meta = await metaResp.json();
+    const sheetExists = meta.sheets?.some(s => s.properties.title === sheetName);
+
+    // 2. Create sheet tab if it doesn't exist
+    if (!sheetExists) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}:batchUpdate`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + GS.accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetName } } }] })
+      });
+      // Write header row
+      const headers = ['時間戳記', '表單名稱', '填寫者', '角色', ...keys];
+      await appendRow(sheetName, headers);
+
+      // Special: for F03 satisfaction, also write an averages header row
+      if (id === 'F03') {
+        await appendRow(sheetName, ['--- 平均分數 ---']);
+      }
+    }
+
+    // 3. Append data row
+    await appendRow(sheetName, row);
+
+    // 4. Special handling: F03 satisfaction — recalculate averages
+    if (id === 'F03') {
+      await updateSatisfactionAverages(sheetName, d);
+    }
+
+    updateGsStatus('ok', `✓ 已同步至 Google Sheets（${ts}）`);
+    toast('✓ 已上傳至 Google Sheets');
+  } catch (err) {
+    console.error('Sheets upload error:', err);
+    updateGsStatus('err', '上傳失敗：' + (err.message || '請確認授權是否仍有效'));
+    toast('Google Sheets 上傳失敗', false);
+  }
+}
+
+async function appendRow(sheetName, values) {
+  const body = { values: [values.map(v => String(v ?? ''))] };
+  const resp = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(sheetName)}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    { method: 'POST', headers: { Authorization: 'Bearer ' + GS.accessToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  );
+  return resp.json();
+}
+
+async function updateSatisfactionAverages(sheetName, latestData) {
+  // Read all rows to compute per-question averages across all students
+  try {
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(sheetName)}`,
+      { headers: { Authorization: 'Bearer ' + GS.accessToken } }
+    );
+    const data = await resp.json();
+    const rows = data.values || [];
+    if (rows.length < 2) return;
+
+    const headers = rows[0];
+    // Find question columns (f03t_0 … f03c_2)
+    const qPrefixes = ['f03t_', 'f03c_'];
+    const qCols = headers.reduce((acc, h, i) => {
+      if (qPrefixes.some(p => h.startsWith?.(p) || String(h).startsWith(p))) acc.push({ idx: i, key: h });
+      return acc;
+    }, []);
+
+    if (qCols.length === 0) return;
+
+    // Compute averages from data rows (skip header & any avg rows)
+    const dataRows = rows.slice(1).filter(r => r[0] && !String(r[0]).startsWith('---'));
+    const avgs = qCols.map(({ idx }) => {
+      const vals = dataRows.map(r => parseFloat(r[idx])).filter(v => !isNaN(v) && v > 0);
+      return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : '—';
+    });
+
+    // Find or create the averages row (marked with '--- 平均分數 ---' in col A)
+    const avgRowIdx = rows.findIndex(r => String(r[0]).startsWith('---'));
+    const avgRowValues = ['--- 平均分數 ---', '', '', '', ...Array(headers.length - 4).fill('')];
+    qCols.forEach(({ idx }, i) => { avgRowValues[idx] = avgs[i]; });
+
+    if (avgRowIdx >= 0) {
+      // Update existing avg row
+      const rowNum = avgRowIdx + 1; // 1-indexed
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(sheetName)}!A${rowNum}:update?valueInputOption=USER_ENTERED`,
+        { method: 'PUT', headers: { Authorization: 'Bearer ' + GS.accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [avgRowValues.map(v => String(v))] }) }
+      );
+    } else {
+      await appendRow(sheetName, avgRowValues);
+    }
+  } catch (e) { console.warn('Average update failed:', e); }
+}
+
+/* ═══════════ FIELD HELPERS ═══════════ */
+function fi(fid,key,type,disabled,ph,val){
+  const v=val!==undefined?val:((APP.formData[fid]||{})[key]||'');
+  const dis=disabled?'disabled':'';
+  return`<input type="${type||'text'}" value="${String(v).replace(/"/g,'&quot;')}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);" placeholder="${ph||''}">`;
+}
+function ta(fid,key,rows,disabled,ph){
+  const v=(APP.formData[fid]||{})[key]||'';
+  const dis=disabled?'disabled':'';
+  return`<textarea rows="${rows||3}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);resize:vertical;" placeholder="${ph||''}">${v}</textarea>`;
+}
+function dateField(fid,key,disabled,label){
+  const v=(APP.formData[fid]||{})[key]||'';
+  const dis=disabled?'disabled':'';
+  return`<div class="field"><label>${label||'日期'}${disabled?`<span class="t-badge">老師</span>`:''}</label><input type="date" value="${v}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);"></div>`;
+}
+function signRow(fid,sKey,tKey,canT){
+  // Separate signature and date fields
+  return`<div class="g2">
+    <div class="field"><label>學生簽名</label>${fi(fid,sKey,'text',false,'姓名')}</div>
+    <div class="field"><label>學生簽名日期</label><input type="date" value="${(APP.formData[fid]||{})[sKey+'_date']||''}" data-fid="${fid}" data-key="${sKey+'_date'}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${sKey+'_date}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+  </div>
+  <div class="g2">
+    <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(fid,tKey,'text',!canT,'姓名')}</div>
+    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${(APP.formData[fid]||{})[tKey+'_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${tKey+'_date'}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${tKey+'_date}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+  </div>`;
+}
+
+/* Rating helpers */
+function rBtn(fid,key,v,role,disabled){
+  const cur=(APP.formData[fid]||{})[key];
+  const selC=(cur==v||cur===v)?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
+  const dis=disabled?'disabled':'';
+  const vStr=JSON.stringify(v);
+  return`<button class="r-btn ${selC}" ${dis} onclick="setRating('${fid}','${key}',${vStr},'${role}',this)">${v}</button>`;
+}
+function setRating(fid,key,val,role,btn){
+  if(!APP.formData[fid])APP.formData[fid]={};
+  APP.formData[fid][key]=val;
+  const tbl=btn.closest('table');
+  if(tbl){
+    tbl.querySelectorAll(`[data-rkey="${key}"]`).forEach(b=>{
+      b.classList.remove('sel-s','sel-t','sel-a');
+      if(b.dataset.rval==val||b.dataset.rval===String(val))b.classList.add(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s');
+    });
+  }
+}
+function rBtnTable(fid,key,v,role,disabled){
+  const cur=(APP.formData[fid]||{})[key];
+  const selC=(cur==v||cur===String(v))?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
+  const dis=disabled?'disabled':'';
+  return`<button class="r-btn ${selC}" ${dis} data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)">${v}</button>`;
+}
+
+/* ═══════════ FORM BUILDERS ═══════════ */
+function buildFormBody(f,d,canT){
+  const builders={
+    F01:buildF01,F02:buildF02,F03:buildF03,F04:buildF04,F05:buildF05,
+    F06:buildF06,F07:buildF07,F08:buildF08,F09:buildF09,F10:buildF10,
+    F11:buildF11,F12:buildF12,F13:buildF13,F14:buildF14,
+    D01:buildDOPS,D02:buildDOPS,D03:buildDOPS,D04:buildDOPS,
+    E01:buildEPA,E02:buildEPA,E03:buildEPA,
+    F15:buildF15,
+  };
+  return (builders[f.id]||buildGeneric)(f,d,canT);
+}
+
+function buildGeneric(f,d,canT){
+  return`<div class="card"><div class="card-head"><div class="card-head-title">表單內容</div></div><div class="card-body"><div class="field"><label>備注</label>${ta(f.id,'note',4,false)}</div></div></div>`;
+}
+
+/* basic info card */
+function basicInfoCard(fid,d,extraFields){
+  let html=`<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g3">
+    <div class="field"><label>學生姓名</label>${fi(fid,'s_name','text',false)}</div>
+    <div class="field"><label>實習學校</label>${fi(fid,'school','text',false)}</div>
+    <div class="field"><label>實習日期</label><input type="date" value="${d['s_date']||''}" data-fid="${fid}" data-key="s_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['s_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+  </div>${extraFields||''}</div></div>`;
+  return html;
+}
+
+/* ─── F01 ─── */
+function buildF01(f,d,canT){
+  const skills=[
+    '洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄',
+    '認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診',
+    '認識中央送氣(central piping)系統','認識不同的人工氣道',
+    '12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique',
+    '12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion',
+    '認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)',
+    '認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療',
+    '18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器',
+    '操作呼吸脫離指標','全人照護參與(團隊查房、跨團隊會議、晨會等)',
+  ];
+  let h=basicInfoCard(f.id,d,'');
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">
+  <table class="rating-table">
+  <tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th>
+    <th colspan="3">學生學前自評</th>
+    <th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th>
+    <th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th>
+    <th colspan="3">學生學後自評</th>
+    <th>未評</th></tr>
+  <tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th></th></tr>`;
+  skills.forEach((skill,i)=>{
+    const kp=`f01_pre_${i}`,k1=`f01_p1_${i}`,k2=`f01_p2_${i}`,kpo=`f01_post_${i}`,kna=`f01_na_${i}`;
+    h+=`<tr><td class="row-label">${i+1}. ${skill}</td>`;
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,kp,v,'s',false)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,k1,v,'t',!canT)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,k2,v,'t',!canT)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,kpo,v,'s',false)}</td>`);
+    h+=`<td style="text-align:center;"><input type="checkbox" ${d[kna]?'checked':''} data-fid="${f.id}" data-key="${kna}" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${kna}']=this.checked" style="accent-color:var(--gold);"></td></tr>`;
+  });
+  h+=`</table></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">${signRow(f.id,'s_sign','t_sign',canT)}</div></div>`;
+  return h;
+}
+
+/* ─── F02 ─── */
+function buildF02(f,d,canT){
+  const items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
+  let h=basicInfoCard(f.id,d,'');
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">臨床表現評估（非常好5 / 好4 / 普通3 / 不好2 / 非常差1）</div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
+  <tr><th style="text-align:left;">評估項目</th><th>非常好(5)</th><th>好(4)</th><th>普通(3)</th><th>不好(2)</th><th>非常差(1)</th></tr>`;
+  items.forEach((item,i)=>{
+    const key=`f02_${i}`;
+    h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
+    [5,4,3,2,1].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'s',false)}</td>`);
+    h+=`</tr>`;
+  });
+  h+=`</table></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">回饋</div></div><div class="card-body">
+    <div class="field"><label>學生心得與建議</label>${ta(f.id,'s_comment',3,false)}</div>
+    <div class="field"><label>實習總指導教師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ─── F03 Satisfaction ─── */
+function buildF03(f,d,canT){
+  // Dropdown for topic and speaker (admin-managed)
+  const topicOpts=APP.courseTopics.map(t=>`<option value="${t}" ${d['topic']===t?'selected':''}>${t}</option>`).join('');
+  const speakerOpts=APP.courseSpeakers.map(s=>`<option value="${s}" ${d['speaker']===s?'selected':''}>${s}</option>`).join('');
+  let h=`<div class="card"><div class="card-head"><div class="card-head-title">課程資訊</div></div><div class="card-body"><div class="g3">
+    <div class="field"><label>課程主題</label><select data-fid="${f.id}" data-key="topic" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['topic']=this.value"><option value="">請選擇</option>${topicOpts}</select></div>
+    <div class="field"><label>演講者</label><select data-fid="${f.id}" data-key="speaker" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['speaker']=this.value"><option value="">請選擇</option>${speakerOpts}</select></div>
+    <div class="field"><label>上課日期</label><input type="date" value="${d['date']||''}" data-fid="${f.id}" data-key="date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+  </div></div></div>`;
+  const sections=[
+    {title:'對授課老師的評估',items:['教學主題明確','內容條理分明','內容難易適中','表達能力良好','投影片製作及內涵','時間掌控良好','講義可讀性','與學員互動良好','說話音量適中'],prefix:'f03t'},
+    {title:'對課程內容之評估',items:['課後對我的未知的知識技能有幫助','課後對我的已知的知識技能有幫助','課程內容有符合我的需求'],prefix:'f03c'},
+  ];
+  sections.forEach(sec=>{
+    h+=`<div class="card"><div class="card-head"><div class="card-head-title">${sec.title}</div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
+    <tr><th style="text-align:left;">評估項目</th><th>非常滿意(5)</th><th>滿意(4)</th><th>普通(3)</th><th>不滿意(2)</th><th>非常不滿意(1)</th><th>NA</th></tr>`;
+    sec.items.forEach((item,i)=>{
+      const key=sec.prefix+'_'+i;
+      h+=`<tr><td class="row-label">${item}</td>`;
+      [5,4,3,2,1,'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'s',false)}</td>`);
+      h+=`</tr>`;
+    });
+    h+=`</table></div></div>`;
+  });
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">建議與整體分數</div></div><div class="card-body">
+    <div class="field"><label>對授課教師的建議</label>${ta(f.id,'teacher_suggest',2,false)}</div>
+    <div class="field"><label>對課程內容的建議</label>${ta(f.id,'content_suggest',2,false)}</div>
+    <div class="field"><label>整體分數（滿分60）</label>${fi(f.id,'overall','number',false,'0-60')}</div>
+    <div class="field"><label>學生姓名</label>${fi(f.id,'s_name','text',false)}</div>
+    <div class="g2">
+      <div class="field"><label>學生簽名</label>${fi(f.id,'s_sign','text',false)}</div>
+      <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${f.id}" data-key="s_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+    </div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F04 Bedside ─── */
+function buildF04(f,d,canT){
+  let h=`<div class="card"><div class="card-head"><div class="card-head-title">病人基本資料</div></div><div class="card-body">
+    <div class="g3"><div class="field"><label>實習單位</label><div class="check-group">${['內科','外科'].map(v=>`<label class="check-item"><input type="checkbox" ${d['unit_'+v]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['unit_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>病床號</label>${fi(f.id,'bed','text',false)}</div>
+    <div class="field"><label>病歷號碼</label>${fi(f.id,'chart_no','text',false)}</div></div>
+    <div class="g2"><div class="field"><label>病人姓名</label>${fi(f.id,'pt_name','text',false)}</div>
+    <div class="field"><label>出生日期</label><input type="date" value="${d['pt_dob']||''}" data-fid="${f.id}" data-key="pt_dob" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['pt_dob']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
+    <div class="field"><label>性別</label><div class="check-group">${['男','女'].map(v=>`<label class="check-item"><input type="radio" name="f04_sex" ${d['sex']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['sex']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">一、診斷</div></div><div class="card-body"><div class="field">${ta(f.id,'diagnosis',2,false,'主診斷...')}</div></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">二、呼吸問題確立</div></div><div class="card-body">
+    <div class="check-group">${['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'].map(v=>`<label class="check-item"><input type="checkbox" ${d['mv_'+v.replace(/\s/g,'_')]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['mv_${v.replace(/\s/g,'_')}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">三、呼吸治療評估</div></div><div class="card-body">
+    <div class="g3"><div class="field"><label>Mode</label>${fi(f.id,'mode','text',false)}</div><div class="field"><label>FiO₂ (%)</label>${fi(f.id,'fio2','number',false)}</div><div class="field"><label>PEEP (cmH₂O)</label>${fi(f.id,'peep','number',false)}</div>
+    <div class="field"><label>Vt set/exp (ml)</label>${fi(f.id,'vt','text',false)}</div><div class="field"><label>RR set/total (bpm)</label>${fi(f.id,'rr','text',false)}</div><div class="field"><label>Peak/Plateau</label>${fi(f.id,'peak_plat','text',false)}</div></div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">四、目前醫療重點</div></div><div class="card-body"><div class="field">${ta(f.id,'medical_focus',3,false)}</div></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">五、呼吸治療計畫</div></div><div class="card-body"><div class="field">${ta(f.id,'rt_plan',4,false)}</div></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">臨床實習老師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field">${ta(f.id,'t_fb',3,!canT)}</div>
+    <div class="g2">
+      <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(f.id,'t_sign','text',!canT)}</div>
+      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="t_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    </div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F05 Teacher Eval ─── */
+function buildF05(f,d,canT){
+  const items=['具備專業知識及臨床工作能力','創造生動活潑的教學環境與學習氣氛','教學時態度熱心、誠懇、積極、詳盡指導學員','教學內容考量學員需要，充實合宜','事實刺激學員主動學習與發問','引導學員思考問題與解答問題','重視學員感受與反應、有技巧的糾正學員的缺失','對於學員的學習情況能及時給予回饋','能與學員互相討論，有達到教學相長的成效','讓學員了解跨領域團隊合作的溝通與協調'];
+  let h=`<div class="card"><div class="card-head"><div class="card-head-title">評核（優5 良4 普3 差2 劣1 不適任0）</div></div><div class="card-body">
+    <div class="g2"><div class="field"><label>臨床實習老師姓名</label>${fi(f.id,'teacher_name','text',false)}</div><div class="field"><label>教學期間</label>${fi(f.id,'period','text',false,'yyyy/mm/dd ~ yyyy/mm/dd')}</div></div>
+    <div style="overflow-x:auto;"><table class="rating-table">
+    <tr><th style="text-align:left;">評核項目</th>${[5,4,3,2,1,0].map(v=>`<th>${v==='0'?'不適任':v}</th>`).join('')}</tr>`;
+  items.forEach((item,i)=>{
+    const key=`f05_${i}`;
+    h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
+    [5,4,3,2,1,0].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'s',false)}</td>`);
+    h+=`</tr>`;
+  });
+  h+=`</table></div>
+    <div class="field" style="margin-top:10px;"><label>綜合評語及建議</label>${ta(f.id,'comment',3,false)}</div>
+    <div class="field"><label>成績分數（0-100）</label>${fi(f.id,'score','number',false)}</div>
+    <div class="g2"><div class="field"><label>學生簽名</label>${fi(f.id,'s_sign','text',false)}</div>
+    <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${f.id}" data-key="s_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F06 CbD ─── */
+function buildF06(f,d,canT){
+  const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
+  let h=basicInfoCard(f.id,d,`<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">${['易','適中','難'].map(v=>`<label class="check-item"><input type="radio" name="f06_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div><div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>`);
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">評量項目 (1-9分；UGY≥5合格)<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
+    <tr><th style="text-align:left;">評量項目</th>${[1,2,3,4,5,6,7,8,9,'NA'].map(v=>`<th>${v}</th>`).join('')}</tr>`;
+  items.forEach((item,i)=>{
+    const key=`f06_${i}`;
+    h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
+    [...[1,2,3,4,5,6,7,8,9],'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'t',!canT)}</td>`);
+    h+=`</tr>`;
+  });
+  h+=`</table></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">
+    <div class="g2">
+      <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
+      <div class="field"><label>表現良好項目<span class="t-badge">老師</span></label>${ta(f.id,'t_good',3,!canT)}</div>
+    </div>
+    <div class="g2">
+      <div class="field"><label>自覺可再加強</label>${ta(f.id,'s_improve',3,false)}</div>
+      <div class="field"><label>建議加強項目<span class="t-badge">老師</span></label>${ta(f.id,'t_improve',3,!canT)}</div>
+    </div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ─── F07 360 ─── */
+function buildF07(f,d,canT){
+  const rows=[
+    ['態度','基本禮儀','儀容、禮貌合宜',['+2','+1','0','-1','-2']],
+    ['','','守時/出席狀況',['+2','+1','0','-1','-2']],
+    ['','學習態度','自動自發及敬業精神',['+3','+2','0','-2','-3']],
+    ['','','提供照護及討論前之準備',['+2','+1','0','-1','-2']],
+    ['','團隊合作','同事之間的溝通',['+2','+1','0','-1','-2']],
+    ['','','與醫療團隊成員合作精神',['+3','+2','0','-2','-3']],
+    ['','專業倫理','醫病溝通',['+3','+2','0','-2','-3']],
+    ['','','同理心及同情心',['+3','+2','0','-2','-3']],
+    ['臨床智能','呼吸紀錄','確立呼吸照護問題之正確性',['+2','+1','0','-1','-2']],
+    ['','','呼吸計畫之完整性',['+3','+2','0','-2','-3']],
+    ['','','病歷記載之完整性與邏輯性',['+2','+1','0','-1','-2']],
+    ['','照護技術','技術之正確性與熟練度',['+8','+4','0','-4','-8']],
+    ['','交班能力','資料收集整合及分析、時間掌控',['+3','+2','0','-2','-3']],
+    ['','知識考評','單位自行評值呼吸治療知識',['+7','+4','0','-4','-7']],
+  ];
+  let h=basicInfoCard(f.id,d,'');
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">360 度評核<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
+    <tr><th>類別</th><th>面向</th><th style="text-align:left;min-width:140px;">評核細項</th><th>優</th><th>+</th><th>0</th><th>−</th><th>劣</th></tr>`;
+  rows.forEach((row,i)=>{
+    const key=`f07_${i}`;
+    h+=`<tr><td style="font-size:11px;font-weight:500;">${row[0]}</td><td style="font-size:11px;">${row[1]}</td><td class="row-label">${row[2]}</td>`;
+    row[3].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'t',!canT)}</td>`);
+    h+=`</tr>`;
+  });
+  h+=`</table></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">各方回饋<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="g2">
+      <div class="field"><label>同儕優點<span class="t-badge">老師</span></label>${ta(f.id,'peer_good',2,!canT)}</div>
+      <div class="field"><label>同儕建議<span class="t-badge">老師</span></label>${ta(f.id,'peer_suggest',2,!canT)}</div>
+    </div>
+    <div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>${ta(f.id,'director_fb',3,!canT)}</div>
+    <div class="field"><label>學生回饋</label>${ta(f.id,'s_fb',2,false)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+    <div class="g2">
+      <div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>${fi(f.id,'host_sign','text',!canT)}</div>
+      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="host_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['host_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    </div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F08 全人照護 ─── */
+function buildF08(f,d,canT){
+  const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
+  let h=basicInfoCard(f.id,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>
+    <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">全人討論（包含2個以上面向）</div></div><div class="card-body">
+    ${[['生理(Body)','疾病之檢查、檢驗、診斷與治療'],['心理(Mind)','對疾病的認知、自我照護的技能與態度'],['靈性(Spirit)','信仰、心靈關懷，精神上的支持與安慰'],['社會(Social)','家人協助、轉介服務、出院準備']].map(([t,hint])=>`<div class="field"><label>${t}<span style="font-size:10px;color:var(--ink3);margin-left:4px;">${hint}</span></label>${ta(f.id,'discuss_'+t[0],2,false)}</div>`).join('')}
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">跨團隊照護</div></div><div class="card-body">
+    ${[1,2,3].map(i=>`<div class="g2"><div class="field"><label>團隊職類 ${i}</label>${fi(f.id,'team_type_'+i,'text',false)}</div><div class="field"><label>照護重點 ${i}</label>${fi(f.id,'team_care_'+i,'text',false)}</div></div>`).join('')}
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學員心得與老師回饋</div></div><div class="card-body">
+    <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
+    <div class="field"><label>臨床老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ─── F09 跨領域 ─── */
+function buildF09(f,d,canT){
+  const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
+  let h=basicInfoCard(f.id,d,`<div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div>
+    <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">團隊照護需求討論</div></div><div class="card-body">
+    <div class="field"><label>1. 身為呼吸治療師，我的專業可以提供這個病人：</label>${ta(f.id,'c1',3,false)}</div>
+    <div class="field"><label>2. 我會請求＿師，協助我以下事項：</label>${ta(f.id,'c2',3,false)}</div>
+    <div class="field"><label>3. 我可以幫助其他專業成員的部分是：</label>${ta(f.id,'c3',3,false)}</div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">心得與回饋</div></div><div class="card-body">
+    <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
+    <div class="field"><label>臨床實習老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ─── F10 輔導 ─── */
+function buildF10(f,d,canT){
+  const tqs=[['q_basic','學生基本資料是否填寫？'],['q_self','學生自我評量是否填寫？'],['q_progress','表單填寫是否符合進度？'],['q_detail','表單內容是否詳細？'],['q_t_sign','老師是否評分並簽名？'],['q_feeling','學生有無填寫心得？'],['q_t_fb','老師有無回饋並簽名？'],['q_all_sign','老師是否都已簽名？']];
+  const sqs=[['s_q2','臨床實習老師床邊教學是否認真？',['是','否']],['s_q3','老師有無指導或修改呼吸監護記錄？',['有','無']],['s_q4','老師有無指導醫療照護工作？',['有','無']],['s_q5','核心課程學習有無需要再補強？',['有','無']],['s_q6','生活方面有無困難？',['有','無']]];
+  let h=`<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g2">
+    <div class="field"><label>學生姓名</label>${fi(f.id,'s_name','text',false)}</div>
+    <div class="field"><label>實習類別</label><div class="check-group">${['重症','小兒','長照'].map(v=>`<label class="check-item"><input type="radio" name="f10_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>輔導日期</label><input type="date" value="${d['date']||''}" data-fid="${f.id}" data-key="date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+    <div class="field"><label>實習學校</label>${fi(f.id,'school','text',false)}</div>
+  </div></div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習總指導教師查核<span class="t-badge">老師</span></div></div><div class="card-body">
+    ${tqs.map(([k,label])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
+      <span>${label}</span><div class="check-group">${['是','否'].map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+    </div>`).join('')}
+    <div class="field" style="margin-top:10px;"><label>輔導備注<span class="t-badge">老師</span></label>${ta(f.id,'t_note',2,!canT)}</div>
+    <div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(f.id,'t_sign','text',!canT)}</div>
+    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="t_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div></div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習學生填寫</div></div><div class="card-body">
+    ${sqs.map(([k,label,opts])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
+      <span>${label}</span><div class="check-group">${opts.map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+    </div>`).join('')}
+    <div class="field" style="margin-top:10px;"><label>其他建議</label>${ta(f.id,'s_suggest',2,false)}</div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F11 ILP ─── */
+function buildF11(f,d,canT){
+  let h=basicInfoCard(f.id,d,'');
+  const flds=[['goal','學習目標（你想學什麼？）',4],['motivation','學習動機',3],['strategy','學習策略與資源',3],['difficulty','可能遭遇的困難',2],['criteria','評估內容與指標',3],['timeline','預計時程',2]];
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">個人化學習計畫（學生填寫）</div></div><div class="card-body">
+    ${flds.map(([k,l,r])=>`<div class="field"><label>${l}</label>${ta(f.id,k,r,false)}</div>`).join('')}
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
+    <div class="g2">
+      <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(f.id,'t_sign','text',!canT)}</div>
+      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="t_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    </div>
+    <div class="field"><label>建議追蹤日期<span class="t-badge">老師</span></label><input type="date" value="${d['follow_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="follow_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['follow_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F12 心得 ─── */
+function buildF12(f,d,canT){
+  let h=basicInfoCard(f.id,d,'');
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學習心得與建議</div></div><div class="card-body">
+    <div class="field"><label>工作單位環境與學習成效</label>${ta(f.id,'env_review',4,false)}</div>
+    <div class="field"><label>臨床老師教學與互動</label>${ta(f.id,'teacher_review',4,false)}</div>
+    <div class="field"><label>自我學習評估與感言</label>${ta(f.id,'self_review',4,false)}</div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+    <div class="g2">
+      <div class="field"><label>計畫主持人簽名<span class="t-badge">老師</span></label>${fi(f.id,'host_sign','text',!canT)}</div>
+      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="host_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['host_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    </div>
+  </div></div>`;
+  return h;
+}
+
+/* ─── F13 書面個案 ─── */
+function buildF13(f,d,canT){
+  const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估（含個案簡介）',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫與措施',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
+  let h=basicInfoCard(f.id,d,'');
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
+  items.forEach(([key,label,max])=>{
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);">
+      <span style="flex:1;font-size:12px;">${label}（${max}分）</span>
+      <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="${key}" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
+    </div>`;
+  });
+  const total=items.reduce((s,[k])=>s+(parseInt(d[k])||0),0);
+  h+=`<div style="text-align:right;padding-top:8px;font-size:15px;font-weight:700;color:var(--blue);">合計：${total} / 100 分</div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">綜合意見<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field">${ta(f.id,'t_comment',4,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ─── F14 PPT ─── */
+function buildF14(f,d,canT){
+  const sections=[
+    {title:'報告技巧',items:[['報告技巧1：口語表達清晰流暢',5],['報告技巧2：台風穩健',5],['報告技巧3：熟悉報告主題及內容',10],['報告技巧4：時間掌握良好',5]]},
+    {title:'內容',items:[['前言與入院經過',10],['身體評估',10],['疾病流程圖與呼吸照護主要問題',10],['呼吸照護計畫',10],['討論與文獻回顧',15],['回答問題',10]]},
+    {title:'其他',items:[['期刊選擇-內容完整度',5],['與老師討論-準時認真',5]]},
+  ];
+  let h=basicInfoCard(f.id,d,`<div class="field"><label>個案報告題目</label>${fi(f.id,'case_title','text',false)}</div>`);
+  let ki=0;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">PPT 評分（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
+  sections.forEach(sec=>{
+    h+=`<div style="font-size:12px;font-weight:700;color:var(--blue);margin:10px 0 6px;">${sec.title}</div>`;
+    sec.items.forEach(([label,max])=>{
+      const key=`f14_${ki++}`;
+      h+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);">
+        <span style="flex:1;font-size:12px;">${label}（${max}分）</span>
+        <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="${key}" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
+      </div>`;
+    });
+  });
+  h+=`</div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">回饋</div></div><div class="card-body">
+    <div class="field"><label>老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
+    <div class="field"><label>學生回饋</label>${ta(f.id,'s_fb',3,false)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ─── DOPS ─── */
+const DOPS_DATA={
+  D01:{name:'抽痰技術',groups:[
+    {hd:'執行前',items:['確認醫囑','確認病人(兩種方式)並解釋','洗手、戴口罩、隔離衣','備物：無菌抽痰包、聽診器','選擇合適抽痰管','調整合適抽吸器壓力(-100~-120 mmHg)','床頭抬高(30-45度)','抽痰前給予100%氧氣 1分鐘']},
+    {hd:'執行中',items:['打開抽痰包','單手戴無菌手套、連接抽痰管','間歇旋轉抽吸，勿超過15秒','抽痰順序：氣管→鼻→口','評估咳嗽能力、痰液性質','注意生命徵象及黏膜是否出血','沖洗後取下，反脫包住','關掉抽吸器','抽痰後給予100%氧氣 1分鐘']},
+    {hd:'執行後',items:['恢復病人床邊安全','聽診呼吸音','執行後洗手','正確記錄']}]},
+  D02:{name:'MDI配合呼吸器',groups:[
+    {hd:'使用前',items:['確認醫囑與適應症','確認病人並解釋','洗手戴口罩','三讀五對','備物','維持呼吸道通暢','搖晃儲藥罐(5-10秒)','執行前抽痰']},
+    {hd:'使用中',items:['Aero-chamber接Y型接頭吸氣端','MDI儲藥罐卡榫接上','按下MDI注入藥物','間隔30-60秒','等待6次完整吸吐氣','觀察副作用']},
+    {hd:'使用後',items:['觀察生命徵象及藥效','恢復床邊安全','Aero-chamber清潔','執行後洗手']}]},
+  D03:{name:'呼吸器技術操作',groups:[
+    {hd:'使用前',items:['確認醫囑與適應症','確認病人','洗手戴口罩','備物','正確組裝管路','呼吸器功能測試','呼吸器初步設定']},
+    {hd:'使用中',items:['監測：聽診、病人呼吸型態、生命徵象','障礙排除：先檢查病人','依警報原因調整','面板每日漂白水擦拭','執行後洗手','正確記錄']},
+    {hd:'使用後',items:['管路依分類處理','面板及表面漂白水擦拭','Exp.cassette酒精浸泡烘乾','細菌過濾器高溫殺菌','管路巴斯德消毒']}]},
+  D04:{name:'呼吸器脫離指標測量',groups:[
+    {hd:'執行前',items:['確認醫囑','評估是否符合脫離','洗手戴口罩','備物','維持呼吸道通暢']},
+    {hd:'執行中',items:['確認病人並解釋','協助半坐臥(45-90度)','測量RR及VE','計算Vt及RSBI','測量MIP(最大吸氣力量)','測量MEP(最大吐氣力量)','測氣囊漏氣量CLT','觀察生命徵象']},
+    {hd:'執行後',items:['評估結果(RSBI<105；CLT>140mL)','解釋測量結果','回復姿勢整理環境','清潔歸位','洗手','記錄與交班']}]},
+};
+
+function buildDOPS(f,d,canT){
+  const data=DOPS_DATA[f.id];if(!data)return buildGeneric(f,d,canT);
+  let h=basicInfoCard(f.id,d,'');
+  let itemIdx=0;
+  data.groups.forEach(g=>{
+    h+=`<div class="card"><div class="card-head"><div class="card-head-title">${g.hd}<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">
+      <table class="dops-tbl"><thead><tr><th style="text-align:left;min-width:160px;">評核內容</th>
+        ${[1,2,3,4,5,6,7,8,9,'NA'].map(v=>`<th>${v}</th>`).join('')}
+      </tr></thead><tbody>`;
+    g.items.forEach(item=>{
+      const key=`${f.id}_i${++itemIdx}`;
+      h+=`<tr><td class="item-cell">${itemIdx}. ${item}</td>`;
+      [...[1,2,3,4,5,6,7,8,9],'NA'].forEach(v=>{
+        const sel=(d[key]==v||d[key]===v)?'sel':'';
+        h+=`<td style="text-align:center;"><button class="d-btn ${sel}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="${key}" data-rval="${v}" onclick="setDOPS('${f.id}','${key}',${JSON.stringify(v)},this)">${d[key]==v||d[key]===v?'●':''}</button></td>`;
+      });
+      h+=`</tr>`;
+    });
+    h+=`</tbody></table></div></div>`;
+  });
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">評量結果<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field"><label>評量結果</label><div class="check-group">${['合格','不合格'].map(v=>`<label class="check-item"><input type="radio" name="${f.id}_result" ${d['result']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['result']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>評分分數（0-100）<span class="t-badge">老師</span></label>${fi(f.id,'score','number',!canT)}</div>
+    <div class="field"><label>學生自覺技術複雜度</label><div class="check-group">${['低','中','高'].map(v=>`<label class="check-item"><input type="radio" name="${f.id}_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>學生對此技術操作的心得感受</label>${ta(f.id,'s_feeling',3,false)}</div>
+    <div class="field"><label>老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+function setDOPS(fid,key,val,btn){
+  if(!APP.formData[fid])APP.formData[fid]={};
+  APP.formData[fid][key]=val;
+  const row=btn.closest('tr');
+  row.querySelectorAll('.d-btn').forEach(b=>{
+    const v=b.dataset.rval;
+    const match=(v==val||v===String(val));
+    b.classList.toggle('sel',match);
+    b.textContent=match?'●':'';
+  });
+}
+
+/* ─── EPA ─── */
+const EPA_NAMES={E01:'(6) 侵襲性呼吸器初始設定及照護',E02:'(8) 使用呼吸器病人之緊急處置',E03:'(10) 侵襲性呼吸器病人之脫離照護'};
+function buildEPA(f,d,canT){
+  const lvls=[['1','僅觀察，不得獨立操作'],['2','需主動協助，可在直接監督下操作'],['3','需被動協助，可在間接監督下操作'],['4','可獨立操作，只需遠端監督'],['5','可指導他人操作']];
+  let h=basicInfoCard(f.id,d,`<div class="card" style="margin-top:0;background:var(--cream);border:1px solid var(--border2);"><div class="card-body" style="padding:.7rem 1rem;"><strong style="font-size:13px;">EPA 項目：</strong><span style="font-size:13px;">${EPA_NAMES[f.id]||f.name}</span></div></div>`);
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">可信賴等級<span class="t-badge">老師評定</span></div></div><div class="card-body">`;
+  lvls.forEach(([lv,desc])=>{
+    const sel=(d['epa_level']===lv||d['epa_level']==lv);
+    h+=`<div class="epa-level${sel?' sel':''}" ${!canT?'style="cursor:not-allowed;opacity:.7;"':''} onclick="${canT?`setEPA('${f.id}','${lv}')`:''}" id="${f.id}_lv${lv}">
+      <div class="epa-lv-num">${lv}</div>
+      <div class="epa-lv-desc">${desc}</div>
+    </div>`;
+  });
+  h+=`</div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">記錄與回饋</div></div><div class="card-body">
+    <div class="field"><label>學生觀察紀錄與心得</label>${ta(f.id,'s_note',4,false)}</div>
+    <div class="field"><label>老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',4,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+function setEPA(fid,lv){
+  if(!APP.formData[fid])APP.formData[fid]={};
+  APP.formData[fid]['epa_level']=lv;
+  document.querySelectorAll(`[id^="${fid}_lv"]`).forEach(el=>{
+    el.classList.toggle('sel',el.id===`${fid}_lv${lv}`);
+  });
+}
+
+/* ─── F15 課程評值 ─── */
+function buildF15(f,d,canT){
+  const atts=['能確立個人學習目標','能主動參與所有教學活動、尋求學習機會','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
+  const skills=['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃選擇適當治療項目並評值','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力，能統整專業知識'];
+  const comms=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
+  const mkSection=(title,items,prefix)=>{
+    let s=`<div class="card"><div class="card-head"><div class="card-head-title">${title}<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
+      <tr><th style="text-align:left;">評值項目（每項5分）</th><th>優(5)</th><th>良(4)</th><th>普(3)</th><th>差(2)</th><th>劣(1)</th></tr>`;
+    items.forEach((item,i)=>{
+      const key=`${prefix}_${i}`;
+      s+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
+      [5,4,3,2,1].forEach(v=>s+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'t',!canT)}</td>`);
+      s+=`</tr>`;
+    });
+    s+=`</table></div></div>`;
+    return s;
+  };
+  let h=basicInfoCard(f.id,d,'');
+  h+=mkSection('一、學習態度（30%）',atts,'f15_att');
+  h+=mkSection('二、專業知識及技能（50%）',skills,'f15_skl');
+  h+=mkSection('三、溝通、協調與專業態度（20%）',comms,'f15_com');
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">加分項目<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field"><label>臨床專業能力可獨立負責一般治療師1/2以上工作量（加分項目）</label>
+      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['bonus']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+    </div>
+  </div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">請假紀錄與回饋</div></div><div class="card-body">
+    <div class="g3">
+      <div class="field"><label>公假（天）</label>${fi(f.id,'leave_pub','number',false)}</div>
+      <div class="field"><label>病假（天）</label>${fi(f.id,'leave_sick','number',false)}</div>
+      <div class="field"><label>事假（天）</label>${fi(f.id,'leave_priv','number',false)}</div>
+    </div>
+    <div class="g2">
+      <div class="field"><label>遲到（次）</label>${fi(f.id,'late_cnt','number',false)}</div>
+    </div>
+    <div class="field"><label>學生自我評語和建議</label>${ta(f.id,'s_comment',3,false)}</div>
+    <div class="field"><label>師生檢討與回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',4,!canT)}</div>
+    ${signRow(f.id,'s_sign','t_sign',canT)}
+  </div></div>`;
+  return h;
+}
+
+/* ═══════════ ADMIN PANEL ═══════════ */
+function renderAdmin(){
+  document.getElementById('sidebar').querySelectorAll('.sidebar-item').forEach(el=>el.classList.remove('active'));
+  const mc=document.getElementById('main-content');
+  let html=`<div class="admin-section">
+    <div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;margin-bottom:1.25rem;">系統管理</div>
+
+    <!-- Google Sheets -->
+    <div class="admin-card">
+      <div class="admin-card-head">Google Sheets 同步設定</div>
+      <div class="admin-card-body">
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">儲存表單時，資料將同步上傳至 Google Sheets。需先完成 OAuth 授權。</div>
+        <div class="admin-row">
+          <span style="font-size:12px;">試算表網址：</span>
+          <a href="${SHEETS_URL}" target="_blank" style="font-size:11px;color:var(--blue);">開啟 Google Sheet ↗</a>
+        </div>
+        <button class="btn-update" onclick="connectGoogleSheets()">🔗 連接 Google Sheets（OAuth）</button>
+        <div class="gs-status gs-info" id="gs-status-admin" style="margin-top:6px;">${GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com' ? '⚠ 請填入 Client ID 後啟用' : '尚未授權，請點擊上方按鈕'}</div>
+        <div id="gs-status-bar"></div>
+        <div style="margin-top:12px;background:var(--cream);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);margin-bottom:6px;">設定 Client ID（填完後重新整理頁面）</div>
+          <div class="admin-row">
+            <input id="clientid-input" placeholder="貼入您的 Client ID（...apps.googleusercontent.com）" value="${GOOGLE_CLIENT_ID !== 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com' ? GOOGLE_CLIENT_ID : ''}">
+            <button class="btn-update" onclick="saveClientId()">儲存並套用</button>
+          </div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:4px;">儲存後頁面會自動重新載入以套用新設定。Client ID 儲存在瀏覽器 localStorage 中。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teacher PIN -->
+    <div class="admin-card">
+      <div class="admin-card-head">老師表單解鎖 PIN 碼設定</div>
+      <div class="admin-card-body">
+        <div class="admin-row">
+          <span style="font-size:12px;width:120px;">目前 PIN 碼：</span>
+          <input id="pin-display" type="text" value="${APP.teacherPIN}" style="width:120px;">
+          <button class="btn-update" onclick="updatePIN()">更新</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Password -->
+    <div class="admin-card">
+      <div class="admin-card-head">管理員密碼</div>
+      <div class="admin-card-body">
+        <div class="admin-row">
+          <input id="new-admin-pwd" type="password" placeholder="新管理員密碼">
+          <input id="new-admin-pwd2" type="password" placeholder="確認新密碼">
+          <button class="btn-update" onclick="updateAdminPwd()">更新</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Student Accounts -->
+    <div class="admin-card">
+      <div class="admin-card-head">學生帳號管理</div>
+      <div class="admin-card-body">
+        <div class="admin-row">
+          <input id="ns-sid" placeholder="學號" style="max-width:120px;">
+          <input id="ns-name" placeholder="姓名">
+          <input id="ns-school" placeholder="學校">
+          <button class="btn-add" onclick="addStudent()">＋ 新增</button>
+        </div>
+        <table class="accounts-table" id="student-table"></table>
+      </div>
+    </div>
+
+    <!-- Teacher Accounts -->
+    <div class="admin-card">
+      <div class="admin-card-head">臨床老師帳號管理</div>
+      <div class="admin-card-body">
+        <div class="admin-row">
+          <input id="nt-card" placeholder="卡號" style="max-width:120px;">
+          <input id="nt-name" placeholder="姓名">
+          <input id="nt-pwd" type="password" placeholder="密碼（預設000）">
+          <button class="btn-add" onclick="addTeacher()">＋ 新增</button>
+        </div>
+        <table class="accounts-table" id="teacher-table"></table>
+      </div>
+    </div>
+
+    <!-- Course Topics & Speakers -->
+    <div class="admin-card">
+      <div class="admin-card-head">課程主題管理（課程滿意度下拉選項）</div>
+      <div class="admin-card-body">
+        <div class="admin-row"><input id="new-topic" placeholder="新增課程主題"><button class="btn-add" onclick="addTopic()">＋ 新增</button></div>
+        <div id="topic-list"></div>
+      </div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-card-head">演講者管理</div>
+      <div class="admin-card-body">
+        <div class="admin-row"><input id="new-speaker" placeholder="新增演講者姓名"><button class="btn-add" onclick="addSpeaker()">＋ 新增</button></div>
+        <div id="speaker-list"></div>
+      </div>
+    </div>
+
+  </div>`;
+  mc.innerHTML=html;
+  refreshStudentTable();refreshTeacherTable();refreshTopicList();refreshSpeakerList();
+}
+
+// Auto-init Google Auth when page loads (if Client ID is set)
+window.addEventListener('load', () => {
+  if (GOOGLE_CLIENT_ID !== 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com') {
+    initGoogleAuth().catch(e => console.warn('Google Auth init failed:', e));
+  }
+});
+
+function updatePIN(){const v=document.getElementById('pin-display').value.trim();if(v){APP.teacherPIN=v;toast('PIN碼已更新');}}
+function updateAdminPwd(){
+  const p=document.getElementById('new-admin-pwd').value;
+  const p2=document.getElementById('new-admin-pwd2').value;
+  if(!p||p!==p2){toast('密碼不一致',false);return;}
+  APP.adminPwd=p;toast('管理員密碼已更新');
+}
+function addStudent(){
+  const sid=document.getElementById('ns-sid').value.trim();
+  const name=document.getElementById('ns-name').value.trim();
+  const school=document.getElementById('ns-school').value.trim();
+  if(!sid||!name)return;
+  APP.students[sid]={name,school,pwd:'123'};
+  refreshStudentTable();
+  document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
+}
+function refreshStudentTable(){
+  const tbl=document.getElementById('student-table');if(!tbl)return;
+  tbl.innerHTML=`<tr><th>學號</th><th>姓名</th><th>學校</th><th>密碼</th><th>操作</th></tr>`+
+    Object.entries(APP.students).map(([sid,acc])=>
+      `<tr><td>${sid}</td><td>${acc.name}</td><td>${acc.school||'—'}</td><td>${acc.pwd}</td><td><button class="btn-del" onclick="delStudent('${sid}')">刪除</button></td></tr>`
+    ).join('');
+}
+function delStudent(sid){delete APP.students[sid];refreshStudentTable();}
+function addTeacher(){
+  const card=document.getElementById('nt-card').value.trim();
+  const name=document.getElementById('nt-name').value.trim();
+  const pwd=document.getElementById('nt-pwd').value||'000';
+  if(!card||!name)return;
+  APP.teachers[card]={name,pwd};
+  refreshTeacherTable();
+  document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
+}
+function refreshTeacherTable(){
+  const tbl=document.getElementById('teacher-table');if(!tbl)return;
+  tbl.innerHTML=`<tr><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>`+
+    Object.entries(APP.teachers).map(([card,acc])=>
+      `<tr><td>${card}</td><td>${acc.name}</td><td>${acc.pwd}</td><td>
+        <input type="password" placeholder="新密碼" id="tpwd_${card}" style="width:90px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
+        <button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="updateTeacherPwd('${card}')">更新密碼</button>
+        <button class="btn-del" onclick="delTeacher('${card}')">刪除</button>
+      </td></tr>`
+    ).join('');
+}
+function delTeacher(card){delete APP.teachers[card];refreshTeacherTable();}
+function updateTeacherPwd(card){
+  const inp=document.getElementById('tpwd_'+card);if(!inp)return;
+  const p=inp.value.trim();if(!p)return;
+  APP.teachers[card].pwd=p;toast('密碼已更新');refreshTeacherTable();
+}
+function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();document.getElementById('new-topic').value='';}}
+function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();}
+function refreshTopicList(){
+  const el=document.getElementById('topic-list');if(!el)return;
+  el.innerHTML=APP.courseTopics.map((t,i)=>`<div class="admin-row"><span style="font-size:12px;flex:1;">${t}</span><button class="btn-del" onclick="delTopic(${i})">刪除</button></div>`).join('')||'<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
+}
+function addSpeaker(){const v=document.getElementById('new-speaker').value.trim();if(v&&!APP.courseSpeakers.includes(v)){APP.courseSpeakers.push(v);refreshSpeakerList();document.getElementById('new-speaker').value='';}}
+function delSpeaker(i){APP.courseSpeakers.splice(i,1);refreshSpeakerList();}
+function refreshSpeakerList(){
+  const el=document.getElementById('speaker-list');if(!el)return;
+  el.innerHTML=APP.courseSpeakers.map((s,i)=>`<div class="admin-row"><span style="font-size:12px;flex:1;">${s}</span><button class="btn-del" onclick="delSpeaker(${i})">刪除</button></div>`).join('')||'<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
+}
+
+function connectGoogleSheets(){
+  if (GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com') {
+    updateGsStatus('warn', '⚠ 請先在程式碼中填入您的 Google OAuth Client ID');
+    alert('尚未設定 Google Client ID。\n\n請照以下步驟：\n1. 前往 console.cloud.google.com\n2. 建立專案 → 啟用 Sheets API\n3. 建立 OAuth 憑證（網頁應用程式）→ 取得 Client ID\n4. 將 Client ID 貼入程式碼 GOOGLE_CLIENT_ID 變數\n5. 在「已授權的 JavaScript 來源」加入此頁面的網址');
+    return;
+  }
+  updateGsStatus('info', '正在開啟 Google 授權…');
+  if (!GS.tokenClient) {
+    initGoogleAuth().then(() => { if (GS.tokenClient) GS.tokenClient.requestAccessToken(); });
+  } else {
+    GS.tokenClient.requestAccessToken();
+  }
+}
+</script>
+</body>
+</html>
