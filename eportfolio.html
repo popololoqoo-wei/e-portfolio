@@ -1712,19 +1712,25 @@ const CONFIG_SHEET='_系統設定';
 
 async function saveConfigToSheets(){
   const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers};
+  // 永遠先存 localStorage
   localStorage.setItem('app_config',JSON.stringify(config));
-  if(!GS.isReady||!GS.accessToken){toast('已儲存至本機');return;}
+  // 用 Google Apps Script 寫入（不需要 OAuth，任何裝置都可以）
   try{
-    const metaResp=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID,{headers:{Authorization:'Bearer '+GS.accessToken}});
-    const meta=await metaResp.json();
-    if(!meta.sheets?.some(s=>s.properties.title===CONFIG_SHEET)){
-      await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+':batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+GS.accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:CONFIG_SHEET}}}]})});
+    const resp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'saveConfig', config: JSON.stringify(config)})
+    });
+    const result = await resp.json();
+    if(result.success){
+      toast('設定已儲存並同步至所有裝置 ✓');
+    } else {
+      toast('已儲存至本機（雲端同步失敗）');
     }
-    await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A1:update?valueInputOption=RAW',{method:'PUT',headers:{Authorization:'Bearer '+GS.accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:[[JSON.stringify(config)]]})});
-    toast('設定已儲存至 Google Sheets ✓');
-    // 同步更新 localStorage 讓其他裝置下次載入時也能讀到
-    localStorage.setItem('app_config', JSON.stringify(config));
-  }catch(e){toast('已儲存至本機（Sheets暫時無法連線）');}
+  }catch(e){
+    console.warn('GAS save error:',e);
+    toast('已儲存至本機（請確認網路連線）');
+  }
 }
 
 async function loadConfigFromSheets(){
