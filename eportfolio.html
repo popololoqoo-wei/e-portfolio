@@ -430,10 +430,47 @@ let APP={
 };
 
 /* Pre-seed demo accounts */
-APP.students['S001']={name:'王小明',school:'長庚科技大學',pwd:'123'};
-APP.students['S002']={name:'林小華',school:'輔英科技大學',pwd:'123'};
-APP.teachers['T001']={name:'陳正美',pwd:'000'};
-APP.teachers['T002']={name:'卓瓊美',pwd:'000'};
+/* ── 預設學生帳號 ── */
+APP.students['P145023']={name:'陳思羽',school:'長庚科技大學(嘉義分部)',pwd:'123'};
+APP.students['P145033']={name:'陳姿伶',school:'長庚科技大學(嘉義分部)',pwd:'123'};
+APP.students['P145035']={name:'陳思婷',school:'長庚科技大學(嘉義分部)',pwd:'123'};
+APP.students['P145009']={name:'鄭鈺陵',school:'長庚科技大學(嘉義分部)',pwd:'123'};
+
+/* ── 預設老師帳號 ── */
+APP.teachers['1649']={name:'王淑惠',pwd:'000'};
+APP.teachers['A869']={name:'陳正美',pwd:'000'};
+APP.teachers['6313']={name:'劉秀英',pwd:'000'};
+APP.teachers['B215']={name:'許純怡',pwd:'000'};
+APP.teachers['4955']={name:'蕭靜雅',pwd:'000'};
+APP.teachers['D951']={name:'黃培琦',pwd:'000'};
+APP.teachers['4710']={name:'李靜怡',pwd:'000'};
+APP.teachers['A679']={name:'黃子庭',pwd:'000'};
+APP.teachers['B011']={name:'傅偉菱',pwd:'000'};
+APP.teachers['6437']={name:'楊惠喬',pwd:'000'};
+APP.teachers['A226']={name:'鄭雅華',pwd:'000'};
+APP.teachers['A594']={name:'陳家榛',pwd:'000'};
+APP.teachers['4160']={name:'徐桂芳',pwd:'000'};
+APP.teachers['2886']={name:'程清福',pwd:'000'};
+APP.teachers['2489']={name:'陳曉倩',pwd:'000'};
+APP.teachers['4954']={name:'卓瓊美',pwd:'000'};
+APP.teachers['E601']={name:'張維倫',pwd:'000'};
+APP.teachers['E511']={name:'李佩雅',pwd:'000'};
+APP.teachers['G015']={name:'潘哲緯',pwd:'000'};
+APP.teachers['G016']={name:'詹鈞媛',pwd:'000'};
+APP.teachers['G270']={name:'陳姿勻',pwd:'000'};
+APP.teachers['G319']={name:'洪逸慈',pwd:'000'};
+APP.teachers['G630']={name:'李曼瑄',pwd:'000'};
+APP.teachers['H129']={name:'何羿侖',pwd:'000'};
+APP.teachers['H343']={name:'巫禹呈',pwd:'000'};
+APP.teachers['H346']={name:'蕭傳威',pwd:'000'};
+APP.teachers['H650']={name:'李奕昕',pwd:'000'};
+APP.teachers['I353']={name:'黃姿穎',pwd:'000'};
+APP.teachers['I763']={name:'李泓緯',pwd:'000'};
+APP.teachers['I837']={name:'游慈瑄',pwd:'000'};
+APP.teachers['H937']={name:'江佳澤',pwd:'000'};
+APP.teachers['J501']={name:'藍子晴',pwd:'000'};
+APP.teachers['F208']={name:'郭佩蓉',pwd:'000'};
+APP.teachers['F851']={name:'張茹昀',pwd:'000'};
 APP.courseTopics=['洗手技術','無菌操作','動脈血液氣體分析判讀','呼吸器初始設定'];
 APP.courseSpeakers=['陳正美','卓瓊美','黃培琦','傅偉菱'];
 
@@ -1740,12 +1777,13 @@ async function loadConfigFromSheets(){
 }
 
 function applyConfig(cfg){
-  if(cfg.students&&Object.keys(cfg.students).length>0)APP.students=cfg.students;
-  if(cfg.teachers&&Object.keys(cfg.teachers).length>0)APP.teachers=cfg.teachers;
-  if(cfg.adminPwd)APP.adminPwd=cfg.adminPwd;
-  if(cfg.teacherPIN)APP.teacherPIN=cfg.teacherPIN;
-  if(cfg.courseTopics?.length>0)APP.courseTopics=cfg.courseTopics;
-  if(cfg.courseSpeakers?.length>0)APP.courseSpeakers=cfg.courseSpeakers;
+  // 合併帳號（不覆蓋預設值，只新增）
+  if(cfg.students) Object.assign(APP.students, cfg.students);
+  if(cfg.teachers) Object.assign(APP.teachers, cfg.teachers);
+  if(cfg.adminPwd) APP.adminPwd=cfg.adminPwd;
+  if(cfg.teacherPIN) APP.teacherPIN=cfg.teacherPIN;
+  if(cfg.courseTopics?.length>0) APP.courseTopics=cfg.courseTopics;
+  if(cfg.courseSpeakers?.length>0) APP.courseSpeakers=cfg.courseSpeakers;
 }
 
 function updatePIN(){const v=document.getElementById('pin-display').value.trim();if(v){APP.teacherPIN=v;saveConfigToSheets();}}
