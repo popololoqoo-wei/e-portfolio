@@ -428,10 +428,14 @@ function checkPwdStrength(pw){
 }
 
 function setLoginRole(role){
-  ['student','teacher','admin'].forEach(r=>{
-    document.getElementById('tab-'+r[0]).classList.toggle('active',r===role);
-    document.getElementById('panel-'+r).style.display=r===role?'block':'none';
-  });
+  // Update tabs
+  document.getElementById('tab-s').classList.toggle('active', role==='student');
+  document.getElementById('tab-t').classList.toggle('active', role==='teacher');
+  document.getElementById('tab-a').classList.toggle('active', role==='admin');
+  // Update panels
+  document.getElementById('panel-student').style.display = role==='student' ? 'block' : 'none';
+  document.getElementById('panel-teacher').style.display = role==='teacher' ? 'block' : 'none';
+  document.getElementById('panel-admin').style.display  = role==='admin'   ? 'block' : 'none';
 }
 document.getElementById('panel-teacher').style.display='none';
 document.getElementById('panel-admin').style.display='none';
