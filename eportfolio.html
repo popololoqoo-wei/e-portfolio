@@ -359,7 +359,8 @@ async function initGoogleAuth() {
       GS.accessToken = resp.access_token;
       GS.isReady = true;
       updateGsStatus('ok', '✓ 已連接 Google Sheets（' + ADMIN_EMAIL + '）');
-      toast('Google Sheets 已授權，儲存時將自動同步');
+      toast('Google Sheets 已授權，正在載入設定…');
+      loadConfigFromSheets();
     },
   });
 }
@@ -1656,6 +1657,12 @@ function renderAdmin(){
   refreshStudentTable();refreshTeacherTable();refreshTopicList();refreshSpeakerList();
 }
 
+// Load config from localStorage on startup
+window.addEventListener('DOMContentLoaded', ()=>{
+  const local=localStorage.getItem('app_config');
+  if(local){try{applyConfig(JSON.parse(local));}catch(e){}}
+});
+
 // Auto-init Google Auth when page loads (if Client ID is set)
 window.addEventListener('load', () => {
   if (GOOGLE_CLIENT_ID !== 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com') {
@@ -1663,12 +1670,51 @@ window.addEventListener('load', () => {
   }
 });
 
-function updatePIN(){const v=document.getElementById('pin-display').value.trim();if(v){APP.teacherPIN=v;toast('PIN碼已更新');}}
+/* ═══════════ CONFIG SAVE/LOAD ═══════════ */
+const CONFIG_SHEET='_系統設定';
+
+async function saveConfigToSheets(){
+  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers};
+  localStorage.setItem('app_config',JSON.stringify(config));
+  if(!GS.isReady||!GS.accessToken){toast('已儲存至本機');return;}
+  try{
+    const metaResp=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID,{headers:{Authorization:'Bearer '+GS.accessToken}});
+    const meta=await metaResp.json();
+    if(!meta.sheets?.some(s=>s.properties.title===CONFIG_SHEET)){
+      await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+':batchUpdate',{method:'POST',headers:{Authorization:'Bearer '+GS.accessToken,'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:CONFIG_SHEET}}}]})});
+    }
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A1:update?valueInputOption=RAW',{method:'PUT',headers:{Authorization:'Bearer '+GS.accessToken,'Content-Type':'application/json'},body:JSON.stringify({values:[[JSON.stringify(config)]]})});
+    toast('設定已儲存至 Google Sheets ✓');
+  }catch(e){toast('已儲存至本機（Sheets暫時無法連線）');}
+}
+
+async function loadConfigFromSheets(){
+  const local=localStorage.getItem('app_config');
+  if(local){try{applyConfig(JSON.parse(local));}catch(e){}}
+  if(!GS.isReady||!GS.accessToken)return;
+  try{
+    const resp=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEETS_ID+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A1',{headers:{Authorization:'Bearer '+GS.accessToken}});
+    const data=await resp.json();
+    const val=data.values?.[0]?.[0];
+    if(val){applyConfig(JSON.parse(val));localStorage.setItem('app_config',val);toast('設定已從 Google Sheets 載入 ✓');if(APP.currentRole==='admin')renderAdmin();}
+  }catch(e){console.warn('Config load:',e);}
+}
+
+function applyConfig(cfg){
+  if(cfg.students&&Object.keys(cfg.students).length>0)APP.students=cfg.students;
+  if(cfg.teachers&&Object.keys(cfg.teachers).length>0)APP.teachers=cfg.teachers;
+  if(cfg.adminPwd)APP.adminPwd=cfg.adminPwd;
+  if(cfg.teacherPIN)APP.teacherPIN=cfg.teacherPIN;
+  if(cfg.courseTopics?.length>0)APP.courseTopics=cfg.courseTopics;
+  if(cfg.courseSpeakers?.length>0)APP.courseSpeakers=cfg.courseSpeakers;
+}
+
+function updatePIN(){const v=document.getElementById('pin-display').value.trim();if(v){APP.teacherPIN=v;saveConfigToSheets();}}
 function updateAdminPwd(){
   const p=document.getElementById('new-admin-pwd').value;
   const p2=document.getElementById('new-admin-pwd2').value;
   if(!p||p!==p2){toast('密碼不一致',false);return;}
-  APP.adminPwd=p;toast('管理員密碼已更新');
+  APP.adminPwd=p;saveConfigToSheets();
 }
 function addStudent(){
   const sid=document.getElementById('ns-sid').value.trim();
@@ -1677,6 +1723,7 @@ function addStudent(){
   if(!sid||!name)return;
   APP.students[sid]={name,school,pwd:'123'};
   refreshStudentTable();
+  saveConfigToSheets();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
 }
 function refreshStudentTable(){
@@ -1686,7 +1733,7 @@ function refreshStudentTable(){
       `<tr><td>${sid}</td><td>${acc.name}</td><td>${acc.school||'—'}</td><td>${acc.pwd}</td><td><button class="btn-del" onclick="delStudent('${sid}')">刪除</button></td></tr>`
     ).join('');
 }
-function delStudent(sid){delete APP.students[sid];refreshStudentTable();}
+function delStudent(sid){delete APP.students[sid];refreshStudentTable();saveConfigToSheets();}
 function addTeacher(){
   const card=document.getElementById('nt-card').value.trim();
   const name=document.getElementById('nt-name').value.trim();
@@ -1694,6 +1741,7 @@ function addTeacher(){
   if(!card||!name)return;
   APP.teachers[card]={name,pwd};
   refreshTeacherTable();
+  saveConfigToSheets();
   document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
 }
 function refreshTeacherTable(){
@@ -1707,20 +1755,20 @@ function refreshTeacherTable(){
       </td></tr>`
     ).join('');
 }
-function delTeacher(card){delete APP.teachers[card];refreshTeacherTable();}
+function delTeacher(card){delete APP.teachers[card];refreshTeacherTable();saveConfigToSheets();}
 function updateTeacherPwd(card){
   const inp=document.getElementById('tpwd_'+card);if(!inp)return;
   const p=inp.value.trim();if(!p)return;
-  APP.teachers[card].pwd=p;toast('密碼已更新');refreshTeacherTable();
+  APP.teachers[card].pwd=p;refreshTeacherTable();saveConfigToSheets();
 }
-function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();document.getElementById('new-topic').value='';}}
-function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();}
+function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();saveConfigToSheets();document.getElementById('new-topic').value='';}}
+function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();saveConfigToSheets();}
 function refreshTopicList(){
   const el=document.getElementById('topic-list');if(!el)return;
   el.innerHTML=APP.courseTopics.map((t,i)=>`<div class="admin-row"><span style="font-size:12px;flex:1;">${t}</span><button class="btn-del" onclick="delTopic(${i})">刪除</button></div>`).join('')||'<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
 }
-function addSpeaker(){const v=document.getElementById('new-speaker').value.trim();if(v&&!APP.courseSpeakers.includes(v)){APP.courseSpeakers.push(v);refreshSpeakerList();document.getElementById('new-speaker').value='';}}
-function delSpeaker(i){APP.courseSpeakers.splice(i,1);refreshSpeakerList();}
+function addSpeaker(){const v=document.getElementById('new-speaker').value.trim();if(v&&!APP.courseSpeakers.includes(v)){APP.courseSpeakers.push(v);refreshSpeakerList();saveConfigToSheets();document.getElementById('new-speaker').value='';}}
+function delSpeaker(i){APP.courseSpeakers.splice(i,1);refreshSpeakerList();saveConfigToSheets();}
 function refreshSpeakerList(){
   const el=document.getElementById('speaker-list');if(!el)return;
   el.innerHTML=APP.courseSpeakers.map((s,i)=>`<div class="admin-row"><span style="font-size:12px;flex:1;">${s}</span><button class="btn-del" onclick="delSpeaker(${i})">刪除</button></div>`).join('')||'<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
