@@ -732,7 +732,6 @@ function renderFormList(){
   renderSidebar();
   const mc=document.getElementById('main-content');
   const groups=[
-    {label:'學習評估表單',count:'12份',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
     {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
@@ -2037,10 +2036,13 @@ function getUnfilledForms() {
 }
 
 function renderUnfilledSection() {
+  APP.currentFormId='__unfilled__';
+  renderSidebar();
   const unfilled = getUnfilledForms();
   const mc = document.getElementById('main-content');
   let html = '<div class="form-list-view">';
-  html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;">
+  html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <button onclick="renderFormList()" style="padding:6px 14px;background:none;border:1px solid var(--border);border-radius:var(--r);font-size:12px;cursor:pointer;color:var(--ink3);">← 返回總覽</button>
     <div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;">尚未填寫表單</div>
     <span style="background:var(--red);color:#fff;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;">${unfilled.length} 份</span>
   </div>`;
