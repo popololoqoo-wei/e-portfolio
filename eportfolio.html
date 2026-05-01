@@ -697,7 +697,7 @@ function getFormKey(id){
 const REQUIRED_STUDENT_FIELDS = {
   F01A: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}),
   F01B: ['s_name','s_date'],
-  F02: ['s_name','s_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
+  F02: ['s_name','s_date','s_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
   F03: ['topic','speaker','s_sign'],
   F04: ['diagnosis','medical_focus','rt_plan','s_date'],
   F05: ['teacher_name'].concat(Array.from({length:10},function(_,i){return 'f05_'+i;})),
@@ -850,7 +850,7 @@ function renderSidebar(){
       const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':st==='partial'?'dot-partial':'dot-new';
       const shortName=f.name.length>14?f.name.slice(0,14)+'…':f.name;
       html+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
-        <span class="sidebar-dot ${dotC}"></span>${f.num}. ${shortName}
+        <span class="sidebar-dot ${dotC}"></span>${shortName}
       </div>`;
     });
   });
@@ -897,8 +897,7 @@ function selectStudent(sid){
       const stLabel=st==='done'?'✅ 已完成':st==='wait'?'⏳ 待老師評分':st==='partial'?'📝 進行中':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       html+=`<div class="form-card" onclick="openForm('${id}')">
-        <div class="form-card-num">${f.num}</div>
-        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
         <div class="form-card-sub">${f.sub}</div>
         <div class="form-card-meta"><span class="sidebar-dot ${dotC}" style="display:inline-block;"></span><span class="form-card-status">${stLabel}</span></div>
       </div>`;
@@ -1019,8 +1018,7 @@ function renderFormList(){
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       const rolesTag=f.roles==='both'?`<span class="tag tag-both">學生＋老師</span>`:f.roles==='student'?`<span class="tag tag-student">學生填寫</span>`:`<span class="tag tag-teacher">老師填寫</span>`;
       html+=`<div class="form-card" onclick="openForm('${id}')">
-        <div class="form-card-num">${f.num}</div>
-        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
         <div class="form-card-sub">${f.sub}</div>
         <div class="form-card-meta">${rolesTag}<span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
       </div>`;
@@ -1196,7 +1194,7 @@ async function openForm(id){
   // Footer
   const hasSaved=APP.historyLog[formKey]&&APP.historyLog[formKey].length>0;
   html+=`<div class="form-footer">
-    <button class="btn-back" onclick="renderFormList()">← 返回總覽</button>
+    <button class="btn-back" onclick="renderFormList();window.scrollTo(0,0);">← 返回總覽</button>
     <div class="form-footer-right">
       <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
       <button class="btn-pdf" id="btn-pdf" ${canDownloadPDF(id)?'style="display:inline-block;"':''} onclick="checkAndDownloadPDF('${id}')">⬇ 下載 PDF</button>
@@ -1337,6 +1335,8 @@ function saveForm(id){
   } else {
     toast('表單已儲存 ✓');
   }
+  // 更新進度條
+  renderSidebar();
   renderSidebar(); // update status dots
 }
 
@@ -2206,6 +2206,7 @@ function build360(f,d,canT,fkey,canS){
   h+='</div>';
   h+=fi(fid,'t_sign','text',!canT,'臨床老師簽名');
   h+=fi(fid,'t_title','text',!canT,'職稱');
+  h+='<div style="font-size:10px;color:var(--ink3);margin-top:4px;">※ 以上為臨床老師填寫欄位，需 PIN 碼解鎖</div>';
   h+='</div>';
   // 其他團隊人員 - 開放給所有人填寫（不鎖定）
   h+='<div style="background:#F5F8FF;border:1px solid #D0D8F0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
@@ -2945,8 +2946,7 @@ function renderUnfilledSection() {
     html += '<div class="form-grid">';
     unfilled.forEach(f => {
       html += `<div class="form-card" onclick="openForm('${f.id}')">
-        <div class="form-card-num">${f.num}</div>
-        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
         <div class="form-card-sub">${f.sub}</div>
         <div class="form-card-meta"><span class="sidebar-dot dot-new" style="display:inline-block;"></span><span class="form-card-status">未填寫</span></div>
       </div>`;
@@ -3052,8 +3052,7 @@ function renderStatusSection(filterStatus){
       const stLabel=st==='done'?'✅ 已完成':st==='wait'?'⏳ 待老師評分':st==='partial'?'📝 進行中':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       html+=`<div class="form-card" onclick="openForm('${f.id}')">
-        <div class="form-card-num">${f.num}</div>
-        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
         <div class="form-card-sub">${f.sub}</div>
         <div class="form-card-meta"><span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
       </div>`;
@@ -3150,14 +3149,17 @@ function lockTeacherFields(){
     }
   });
 
-  // 鎖定老師評分按鈕（data-teacher="1"）
-  // 包含 CbD 的 rBtnTableCbD 按鈕和 F01 的 mkBtn 老師按鈕
-  mc.querySelectorAll('button[data-teacher="1"],button.r-btn[data-rkey]').forEach(function(btn){
-    // r-btn：判斷是否為老師按鈕（CbD 等）
-    var isTeacherBtn=btn.getAttribute('data-teacher')==='1';
+  // 鎖定所有老師評分按鈕（data-teacher="1"，包含CbD、F01老師欄、DOPS、EPA）
+  mc.querySelectorAll('button[data-teacher="1"]').forEach(function(btn){
+    btn.disabled=true;
+    btn.style.opacity='0.35';
+    btn.style.cursor='not-allowed';
+    btn.style.pointerEvents='none';
+  });
+  // 額外鎖定 r-btn（CbD評分按鈕，可能沒有data-teacher）
+  mc.querySelectorAll('button.r-btn').forEach(function(btn){
     var rkey=btn.getAttribute('data-rkey')||'';
-    var isTeacherRating=/^f(06|07|05|15)_/.test(rkey)||/^(cbd_|dops_|epa_)/.test(rkey);
-    if(isTeacherBtn||isTeacherRating){
+    if(/^f(06|07|05|15)_/.test(rkey)||btn.getAttribute('data-teacher')==='1'){
       btn.disabled=true;
       btn.style.opacity='0.35';
       btn.style.cursor='not-allowed';
@@ -3187,22 +3189,22 @@ function rBtnTableCbD(fid,key,v,role,disabled){
   var selC=isSel?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
   var dis=disabled?'disabled':'';
   var warnAttr=(typeof v==='number'&&v<=4)?' data-cbd-warn="'+fid+'"':'';
-  return '<button class="r-btn '+selC+'" '+dis+warnAttr+' data-rkey="'+key+'" data-rval="'+v+'" data-fid="'+fid+'" onclick="cbdClick(this)">'+v+'</button>';
+  return '<button class="r-btn '+selC+'" '+dis+warnAttr+' data-rkey="'+key+'" data-rval="'+v+'" data-fid="'+fid+'" data-teacher="1" onclick="cbdClick(this)">'+v+'</button>';
 }
 function cbdClick(btn){
+  if(btn.disabled)return;
   var fid=btn.getAttribute('data-fid');
   var key=btn.getAttribute('data-rkey');
   var v=btn.getAttribute('data-rval');
-  if(btn.disabled)return;
   var score=parseInt(v);
-  var warn=document.getElementById('cbd-warn-'+fid);
-  // 點1-4分：允許點選但顯示警示
+  // 警示：1-4分顯示提醒但允許選取
+  var warn=document.getElementById('cbd-warn-'+fid)||document.getElementById('cbd-warn-'+getFormKey(APP.currentFormId||''));
   if(!isNaN(score)&&score<=4){
     if(warn){warn.style.display='block';setTimeout(function(){if(warn)warn.style.display='none';},5000);}
   } else {
     if(warn) warn.style.display='none';
   }
-  // 允許所有分數儲存
+  // 使用 setRating（內部已統一用 formKey）
   setRating(fid,key,isNaN(v)?v:parseInt(v),'t',btn);
 }
 
