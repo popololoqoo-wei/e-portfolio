@@ -851,6 +851,7 @@ function renderFormList(){
   renderSidebar();
   const mc=document.getElementById('main-content');
   const groups=[
+    {label:'學習評估表單',count:'12份',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
     {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
@@ -988,8 +989,8 @@ async function openForm(id){
     </div>`;
   }
 
-  // Form content
-  html+=buildFormBody(f,d,canT);
+  // Form content - pass formKey so all data-fid use student-specific key
+  html+=buildFormBody(f,d,canT,formKey);
 
   // Footer
   const hasSaved=APP.historyLog[id]&&APP.historyLog[id].length>0;
@@ -1465,7 +1466,8 @@ function rBtnTable(fid,key,v,role,disabled){
 }
 
 /* ═══════════ FORM BUILDERS ═══════════ */
-function buildFormBody(f,d,canT){
+function buildFormBody(f,d,canT,formKey){
+  formKey=formKey||f.id; // fallback to f.id if not provided
   const builders={
     F01:buildF01,F02:buildF02,F03:buildF03,F04:buildF04,F05:buildF05,
     F06:buildF06,F07:buildF07,F08:buildF08,F09:buildF09,F10:buildF10,
@@ -1477,7 +1479,8 @@ function buildFormBody(f,d,canT){
   return (builders[f.id]||buildGeneric)(f,d,canT);
 }
 
-function buildGeneric(f,d,canT){
+function buildGeneric(f,d,canT,fkey){
+  const fid=fkey||f.id;
   return`<div class="card"><div class="card-head"><div class="card-head-title">表單內容</div></div><div class="card-body"><div class="field"><label>備注</label>${ta(f.id,'note',4,false)}</div></div></div>`;
 }
 
@@ -1492,7 +1495,8 @@ function basicInfoCard(fid,d,extraFields){
 }
 
 /* ─── F01 ─── */
-function buildF01(f,d,canT){
+function buildF01(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const skills=[
     '洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄',
     '認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診',
@@ -1504,7 +1508,7 @@ function buildF01(f,d,canT){
     '18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器',
     '操作呼吸脫離指標','全人照護參與(團隊查房、跨團隊會議、晨會等)',
   ];
-  let h=basicInfoCard(f.id,d,'');
+  let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">
   <table class="rating-table">
   <tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th>
@@ -1521,7 +1525,7 @@ function buildF01(f,d,canT){
     ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,k1,v,'t',!canT)}</td>`);
     ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,k2,v,'t',!canT)}</td>`);
     ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,kpo,v,'s',false)}</td>`);
-    h+=`<td style="text-align:center;"><input type="checkbox" ${d[kna]?'checked':''} data-fid="${f.id}" data-key="${kna}" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${kna}']=this.checked" style="accent-color:var(--gold);"></td></tr>`;
+    h+=`<td style="text-align:center;"><input type="checkbox" ${d[kna]?'checked':''} data-fid="${fid}" data-key="${kna}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${kna}']=this.checked" style="accent-color:var(--gold);"></td></tr>`;
   });
   h+=`</table></div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">${signRow(f.id,'s_sign','t_sign',canT)}</div></div>`;
@@ -1529,9 +1533,10 @@ function buildF01(f,d,canT){
 }
 
 /* ─── F02 ─── */
-function buildF02(f,d,canT){
+function buildF02(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
-  let h=basicInfoCard(f.id,d,'');
+  let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">臨床表現評估（非常好5 / 好4 / 普通3 / 不好2 / 非常差1）</div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
   <tr><th style="text-align:left;">評估項目</th><th>非常好(5)</th><th>好(4)</th><th>普通(3)</th><th>不好(2)</th><th>非常差(1)</th></tr>`;
   items.forEach((item,i)=>{
@@ -1550,14 +1555,15 @@ function buildF02(f,d,canT){
 }
 
 /* ─── F03 Satisfaction ─── */
-function buildF03(f,d,canT){
+function buildF03(f,d,canT,fkey){
+  const fid=fkey||f.id;
   // Dropdown for topic and speaker (admin-managed)
   const topicOpts=APP.courseTopics.map(t=>`<option value="${t}" ${d['topic']===t?'selected':''}>${t}</option>`).join('');
   const speakerOpts=APP.courseSpeakers.map(s=>`<option value="${s}" ${d['speaker']===s?'selected':''}>${s}</option>`).join('');
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">課程資訊</div></div><div class="card-body"><div class="g3">
-    <div class="field"><label>課程主題</label><select data-fid="${f.id}" data-key="topic" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['topic']=this.value"><option value="">請選擇</option>${topicOpts}</select></div>
-    <div class="field"><label>演講者</label><select data-fid="${f.id}" data-key="speaker" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['speaker']=this.value"><option value="">請選擇</option>${speakerOpts}</select></div>
-    <div class="field"><label>上課日期</label><input type="date" value="${d['date']||''}" data-fid="${f.id}" data-key="date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+    <div class="field"><label>課程主題</label><select data-fid="${fid}" data-key="topic" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['topic']=this.value"><option value="">請選擇</option>${topicOpts}</select></div>
+    <div class="field"><label>演講者</label><select data-fid="${fid}" data-key="speaker" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['speaker']=this.value"><option value="">請選擇</option>${speakerOpts}</select></div>
+    <div class="field"><label>上課日期</label><input type="date" value="${d['date']||''}" data-fid="${fid}" data-key="date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
   </div></div></div>`;
   const sections=[
     {title:'對授課老師的評估',items:['教學主題明確','內容條理分明','內容難易適中','表達能力良好','投影片製作及內涵','時間掌控良好','講義可讀性','與學員互動良好','說話音量適中'],prefix:'f03t'},
@@ -1581,25 +1587,26 @@ function buildF03(f,d,canT){
     <div class="field"><label>學生姓名</label>${fi(f.id,'s_name','text',false)}</div>
     <div class="g2">
       <div class="field"><label>學生簽名</label>${fi(f.id,'s_sign','text',false)}</div>
-      <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${f.id}" data-key="s_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${fid}" data-key="s_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
   return h;
 }
 
 /* ─── F04 Bedside ─── */
-function buildF04(f,d,canT){
+function buildF04(f,d,canT,fkey){
+  const fid=fkey||f.id;
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">病人基本資料</div></div><div class="card-body">
-    <div class="g3"><div class="field"><label>實習單位</label><div class="check-group">${['內科','外科'].map(v=>`<label class="check-item"><input type="checkbox" ${d['unit_'+v]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['unit_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="g3"><div class="field"><label>實習單位</label><div class="check-group">${['內科','外科'].map(v=>`<label class="check-item"><input type="checkbox" ${d['unit_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['unit_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>病床號</label>${fi(f.id,'bed','text',false)}</div>
     <div class="field"><label>病歷號碼</label>${fi(f.id,'chart_no','text',false)}</div></div>
     <div class="g2"><div class="field"><label>病人姓名</label>${fi(f.id,'pt_name','text',false)}</div>
-    <div class="field"><label>出生日期</label><input type="date" value="${d['pt_dob']||''}" data-fid="${f.id}" data-key="pt_dob" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['pt_dob']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
-    <div class="field"><label>性別</label><div class="check-group">${['男','女'].map(v=>`<label class="check-item"><input type="radio" name="f04_sex" ${d['sex']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['sex']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>出生日期</label><input type="date" value="${d['pt_dob']||''}" data-fid="${fid}" data-key="pt_dob" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['pt_dob']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
+    <div class="field"><label>性別</label><div class="check-group">${['男','女'].map(v=>`<label class="check-item"><input type="radio" name="f04_sex" ${d['sex']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['sex']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">一、診斷</div></div><div class="card-body"><div class="field">${ta(f.id,'diagnosis',2,false,'主診斷...')}</div></div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">二、呼吸問題確立</div></div><div class="card-body">
-    <div class="check-group">${['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'].map(v=>`<label class="check-item"><input type="checkbox" ${d['mv_'+v.replace(/\s/g,'_')]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['mv_${v.replace(/\s/g,'_')}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+    <div class="check-group">${['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'].map(v=>`<label class="check-item"><input type="checkbox" ${d['mv_'+v.replace(/\s/g,'_')]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['mv_${v.replace(/\s/g,'_')}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">三、呼吸治療評估</div></div><div class="card-body">
     <div class="g3"><div class="field"><label>Mode</label>${fi(f.id,'mode','text',false)}</div><div class="field"><label>FiO₂ (%)</label>${fi(f.id,'fio2','number',false)}</div><div class="field"><label>PEEP (cmH₂O)</label>${fi(f.id,'peep','number',false)}</div>
@@ -1611,14 +1618,15 @@ function buildF04(f,d,canT){
     <div class="field">${ta(f.id,'t_fb',3,!canT)}</div>
     <div class="g2">
       <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(f.id,'t_sign','text',!canT)}</div>
-      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="t_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
   return h;
 }
 
 /* ─── F05 Teacher Eval ─── */
-function buildF05(f,d,canT){
+function buildF05(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const items=['具備專業知識及臨床工作能力','創造生動活潑的教學環境與學習氣氛','教學時態度熱心、誠懇、積極、詳盡指導學員','教學內容考量學員需要，充實合宜','事實刺激學員主動學習與發問','引導學員思考問題與解答問題','重視學員感受與反應、有技巧的糾正學員的缺失','對於學員的學習情況能及時給予回饋','能與學員互相討論，有達到教學相長的成效','讓學員了解跨領域團隊合作的溝通與協調'];
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">評核（優5 良4 普3 差2 劣1 不適任0）</div></div><div class="card-body">
     <div class="g2"><div class="field"><label>臨床實習老師姓名</label>${fi(f.id,'teacher_name','text',false)}</div><div class="field"><label>教學期間</label>${fi(f.id,'period','text',false,'yyyy/mm/dd ~ yyyy/mm/dd')}</div></div>
@@ -1634,15 +1642,16 @@ function buildF05(f,d,canT){
     <div class="field" style="margin-top:10px;"><label>綜合評語及建議</label>${ta(f.id,'comment',3,false)}</div>
     <div class="field"><label>成績分數（0-100）</label>${fi(f.id,'score','number',false)}</div>
     <div class="g2"><div class="field"><label>學生簽名</label>${fi(f.id,'s_sign','text',false)}</div>
-    <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${f.id}" data-key="s_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
+    <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${fid}" data-key="s_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
   </div></div>`;
   return h;
 }
 
 /* ─── F06 CbD ─── */
-function buildF06(f,d,canT){
+function buildF06(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
-  let h=basicInfoCard(f.id,d,`<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">${['易','適中','難'].map(v=>`<label class="check-item"><input type="radio" name="f06_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div><div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>`);
+  let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">${['易','適中','難'].map(v=>`<label class="check-item"><input type="radio" name="f06_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div><div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評量項目 (1-9分；UGY≥5合格)<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
     <tr><th style="text-align:left;">評量項目</th>${[1,2,3,4,5,6,7,8,9,'NA'].map(v=>`<th>${v}</th>`).join('')}</tr>`;
   items.forEach((item,i)=>{
@@ -1667,7 +1676,8 @@ function buildF06(f,d,canT){
 }
 
 /* ─── F07 360 ─── */
-function buildF07(f,d,canT){
+function buildF07(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const rows=[
     ['態度','基本禮儀','儀容、禮貌合宜',['+2','+1','0','-1','-2']],
     ['','','守時/出席狀況',['+2','+1','0','-1','-2']],
@@ -1684,7 +1694,7 @@ function buildF07(f,d,canT){
     ['','交班能力','資料收集整合及分析、時間掌控',['+3','+2','0','-2','-3']],
     ['','知識考評','單位自行評值呼吸治療知識',['+7','+4','0','-4','-7']],
   ];
-  let h=basicInfoCard(f.id,d,'');
+  let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">360 度評核<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
     <tr><th>類別</th><th>面向</th><th style="text-align:left;min-width:140px;">評核細項</th><th>優</th><th>+</th><th>0</th><th>−</th><th>劣</th></tr>`;
   rows.forEach((row,i)=>{
@@ -1704,18 +1714,19 @@ function buildF07(f,d,canT){
     ${signRow(f.id,'s_sign','t_sign',canT)}
     <div class="g2">
       <div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>${fi(f.id,'host_sign','text',!canT)}</div>
-      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="host_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['host_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
   return h;
 }
 
 /* ─── F08 全人照護 ─── */
-function buildF08(f,d,canT){
+function buildF08(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
-  let h=basicInfoCard(f.id,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+  let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>
-    <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
+    <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">全人討論（包含2個以上面向）</div></div><div class="card-body">
     ${[['生理(Body)','疾病之檢查、檢驗、診斷與治療'],['心理(Mind)','對疾病的認知、自我照護的技能與態度'],['靈性(Spirit)','信仰、心靈關懷，精神上的支持與安慰'],['社會(Social)','家人協助、轉介服務、出院準備']].map(([t,hint])=>`<div class="field"><label>${t}<span style="font-size:10px;color:var(--ink3);margin-left:4px;">${hint}</span></label>${ta(f.id,'discuss_'+t[0],2,false)}</div>`).join('')}
   </div></div>`;
@@ -1731,10 +1742,11 @@ function buildF08(f,d,canT){
 }
 
 /* ─── F09 跨領域 ─── */
-function buildF09(f,d,canT){
+function buildF09(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
-  let h=basicInfoCard(f.id,d,`<div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div>
-    <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
+  let h=basicInfoCard(fid,d,`<div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div>
+    <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">團隊照護需求討論</div></div><div class="card-body">
     <div class="field"><label>1. 身為呼吸治療師，我的專業可以提供這個病人：</label>${ta(f.id,'c1',3,false)}</div>
     <div class="field"><label>2. 我會請求＿師，協助我以下事項：</label>${ta(f.id,'c2',3,false)}</div>
@@ -1749,26 +1761,27 @@ function buildF09(f,d,canT){
 }
 
 /* ─── F10 輔導 ─── */
-function buildF10(f,d,canT){
+function buildF10(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const tqs=[['q_basic','學生基本資料是否填寫？'],['q_self','學生自我評量是否填寫？'],['q_progress','表單填寫是否符合進度？'],['q_detail','表單內容是否詳細？'],['q_t_sign','老師是否評分並簽名？'],['q_feeling','學生有無填寫心得？'],['q_t_fb','老師有無回饋並簽名？'],['q_all_sign','老師是否都已簽名？']];
   const sqs=[['s_q2','臨床實習老師床邊教學是否認真？',['是','否']],['s_q3','老師有無指導或修改呼吸監護記錄？',['有','無']],['s_q4','老師有無指導醫療照護工作？',['有','無']],['s_q5','核心課程學習有無需要再補強？',['有','無']],['s_q6','生活方面有無困難？',['有','無']]];
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g2">
     <div class="field"><label>學生姓名</label>${fi(f.id,'s_name','text',false)}</div>
-    <div class="field"><label>實習類別</label><div class="check-group">${['重症','小兒','長照'].map(v=>`<label class="check-item"><input type="radio" name="f10_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
-    <div class="field"><label>輔導日期</label><input type="date" value="${d['date']||''}" data-fid="${f.id}" data-key="date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
+    <div class="field"><label>實習類別</label><div class="check-group">${['重症','小兒','長照'].map(v=>`<label class="check-item"><input type="radio" name="f10_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>輔導日期</label><input type="date" value="${d['date']||''}" data-fid="${fid}" data-key="date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
     <div class="field"><label>實習學校</label>${fi(f.id,'school','text',false)}</div>
   </div></div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習總指導教師查核<span class="t-badge">老師</span></div></div><div class="card-body">
     ${tqs.map(([k,label])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
-      <span>${label}</span><div class="check-group">${['是','否'].map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+      <span>${label}</span><div class="check-group">${['是','否'].map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>`).join('')}
     <div class="field" style="margin-top:10px;"><label>輔導備注<span class="t-badge">老師</span></label>${ta(f.id,'t_note',2,!canT)}</div>
     <div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(f.id,'t_sign','text',!canT)}</div>
-    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="t_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div></div>
+    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div></div>
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習學生填寫</div></div><div class="card-body">
     ${sqs.map(([k,label,opts])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
-      <span>${label}</span><div class="check-group">${opts.map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+      <span>${label}</span><div class="check-group">${opts.map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>`).join('')}
     <div class="field" style="margin-top:10px;"><label>其他建議</label>${ta(f.id,'s_suggest',2,false)}</div>
   </div></div>`;
@@ -1776,8 +1789,9 @@ function buildF10(f,d,canT){
 }
 
 /* ─── F11 ILP ─── */
-function buildF11(f,d,canT){
-  let h=basicInfoCard(f.id,d,'');
+function buildF11(f,d,canT,fkey){
+  const fid=fkey||f.id;
+  let h=basicInfoCard(fid,d,'');
   const flds=[['goal','學習目標（你想學什麼？）',4],['motivation','學習動機',3],['strategy','學習策略與資源',3],['difficulty','可能遭遇的困難',2],['criteria','評估內容與指標',3],['timeline','預計時程',2]];
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">個人化學習計畫（學生填寫）</div></div><div class="card-body">
     ${flds.map(([k,l,r])=>`<div class="field"><label>${l}</label>${ta(f.id,k,r,false)}</div>`).join('')}
@@ -1786,16 +1800,17 @@ function buildF11(f,d,canT){
     <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
     <div class="g2">
       <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(f.id,'t_sign','text',!canT)}</div>
-      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="t_sign_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
-    <div class="field"><label>建議追蹤日期<span class="t-badge">老師</span></label><input type="date" value="${d['follow_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="follow_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['follow_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    <div class="field"><label>建議追蹤日期<span class="t-badge">老師</span></label><input type="date" value="${d['follow_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="follow_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['follow_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
   </div></div>`;
   return h;
 }
 
 /* ─── F12 心得 ─── */
-function buildF12(f,d,canT){
-  let h=basicInfoCard(f.id,d,'');
+function buildF12(f,d,canT,fkey){
+  const fid=fkey||f.id;
+  let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">學習心得與建議</div></div><div class="card-body">
     <div class="field"><label>工作單位環境與學習成效</label>${ta(f.id,'env_review',4,false)}</div>
     <div class="field"><label>臨床老師教學與互動</label>${ta(f.id,'teacher_review',4,false)}</div>
@@ -1806,21 +1821,22 @@ function buildF12(f,d,canT){
     ${signRow(f.id,'s_sign','t_sign',canT)}
     <div class="g2">
       <div class="field"><label>計畫主持人簽名<span class="t-badge">老師</span></label>${fi(f.id,'host_sign','text',!canT)}</div>
-      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="host_date" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['host_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
   return h;
 }
 
 /* ─── F13 書面個案 ─── */
-function buildF13(f,d,canT){
+function buildF13(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估（含個案簡介）',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫與措施',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
-  let h=basicInfoCard(f.id,d,'');
+  let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   items.forEach(([key,label,max])=>{
     h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);">
       <span style="flex:1;font-size:12px;">${label}（${max}分）</span>
-      <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="${key}" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
+      <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
     </div>`;
   });
   const total=items.reduce((s,[k])=>s+(parseInt(d[k])||0),0);
@@ -1834,13 +1850,14 @@ function buildF13(f,d,canT){
 }
 
 /* ─── F14 PPT ─── */
-function buildF14(f,d,canT){
+function buildF14(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const sections=[
     {title:'報告技巧',items:[['報告技巧1：口語表達清晰流暢',5],['報告技巧2：台風穩健',5],['報告技巧3：熟悉報告主題及內容',10],['報告技巧4：時間掌握良好',5]]},
     {title:'內容',items:[['前言與入院經過',10],['身體評估',10],['疾病流程圖與呼吸照護主要問題',10],['呼吸照護計畫',10],['討論與文獻回顧',15],['回答問題',10]]},
     {title:'其他',items:[['期刊選擇-內容完整度',5],['與老師討論-準時認真',5]]},
   ];
-  let h=basicInfoCard(f.id,d,`<div class="field"><label>個案報告題目</label>${fi(f.id,'case_title','text',false)}</div>`);
+  let h=basicInfoCard(fid,d,`<div class="field"><label>個案報告題目</label>${fi(f.id,'case_title','text',false)}</div>`);
   let ki=0;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">PPT 評分（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   sections.forEach(sec=>{
@@ -1849,7 +1866,7 @@ function buildF14(f,d,canT){
       const key=`f14_${ki++}`;
       h+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);">
         <span style="flex:1;font-size:12px;">${label}（${max}分）</span>
-        <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="${key}" onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
+        <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
       </div>`;
     });
   });
@@ -1882,9 +1899,10 @@ const DOPS_DATA={
     {hd:'執行後',items:['評估結果(RSBI<105；CLT>140mL)','解釋測量結果','回復姿勢整理環境','清潔歸位','洗手','記錄與交班']}]},
 };
 
-function buildDOPS(f,d,canT){
+function buildDOPS(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const data=DOPS_DATA[f.id];if(!data)return buildGeneric(f,d,canT);
-  let h=basicInfoCard(f.id,d,'');
+  let h=basicInfoCard(fid,d,'');
   let itemIdx=0;
   data.groups.forEach(g=>{
     h+=`<div class="card"><div class="card-head"><div class="card-head-title">${g.hd}<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">
@@ -1896,16 +1914,16 @@ function buildDOPS(f,d,canT){
       h+=`<tr><td class="item-cell">${itemIdx}. ${item}</td>`;
       [...[1,2,3,4,5,6,7,8,9],'NA'].forEach(v=>{
         const sel=(d[key]==v||d[key]===v)?'sel':'';
-        h+=`<td style="text-align:center;"><button class="d-btn ${sel}" ${!canT?'disabled':''} data-fid="${f.id}" data-key="${key}" data-rval="${v}" onclick="setDOPS('${f.id}','${key}',${JSON.stringify(v)},this)">${d[key]==v||d[key]===v?'●':''}</button></td>`;
+        h+=`<td style="text-align:center;"><button class="d-btn ${sel}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" data-rval="${v}" onclick="setDOPS('${f.id}','${key}',${JSON.stringify(v)},this)">${d[key]==v||d[key]===v?'●':''}</button></td>`;
       });
       h+=`</tr>`;
     });
     h+=`</tbody></table></div></div>`;
   });
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評量結果<span class="t-badge">老師</span></div></div><div class="card-body">
-    <div class="field"><label>評量結果</label><div class="check-group">${['合格','不合格'].map(v=>`<label class="check-item"><input type="radio" name="${f.id}_result" ${d['result']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['result']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>評量結果</label><div class="check-group">${['合格','不合格'].map(v=>`<label class="check-item"><input type="radio" name="${f.id}_result" ${d['result']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['result']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>評分分數（0-100）<span class="t-badge">老師</span></label>${fi(f.id,'score','number',!canT)}</div>
-    <div class="field"><label>學生自覺技術複雜度</label><div class="check-group">${['低','中','高'].map(v=>`<label class="check-item"><input type="radio" name="${f.id}_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>學生自覺技術複雜度</label><div class="check-group">${['低','中','高'].map(v=>`<label class="check-item"><input type="radio" name="${f.id}_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>學生對此技術操作的心得感受</label>${ta(f.id,'s_feeling',3,false)}</div>
     <div class="field"><label>老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
     ${signRow(f.id,'s_sign','t_sign',canT)}
@@ -1926,9 +1944,10 @@ function setDOPS(fid,key,val,btn){
 
 /* ─── EPA ─── */
 const EPA_NAMES={E01:'(6) 侵襲性呼吸器初始設定及照護',E02:'(8) 使用呼吸器病人之緊急處置',E03:'(10) 侵襲性呼吸器病人之脫離照護'};
-function buildEPA(f,d,canT){
+function buildEPA(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const lvls=[['1','僅觀察，不得獨立操作'],['2','需主動協助，可在直接監督下操作'],['3','需被動協助，可在間接監督下操作'],['4','可獨立操作，只需遠端監督'],['5','可指導他人操作']];
-  let h=basicInfoCard(f.id,d,`<div class="card" style="margin-top:0;background:var(--cream);border:1px solid var(--border2);"><div class="card-body" style="padding:.7rem 1rem;"><strong style="font-size:13px;">EPA 項目：</strong><span style="font-size:13px;">${EPA_NAMES[f.id]||f.name}</span></div></div>`);
+  let h=basicInfoCard(fid,d,`<div class="card" style="margin-top:0;background:var(--cream);border:1px solid var(--border2);"><div class="card-body" style="padding:.7rem 1rem;"><strong style="font-size:13px;">EPA 項目：</strong><span style="font-size:13px;">${EPA_NAMES[f.id]||f.name}</span></div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">可信賴等級<span class="t-badge">老師評定</span></div></div><div class="card-body">`;
   lvls.forEach(([lv,desc])=>{
     const sel=(d['epa_level']===lv||d['epa_level']==lv);
@@ -1954,7 +1973,8 @@ function setEPA(fid,lv){
 }
 
 /* ─── F15 課程評值 ─── */
-function buildF15(f,d,canT){
+function buildF15(f,d,canT,fkey){
+  const fid=fkey||f.id;
   const atts=['能確立個人學習目標','能主動參與所有教學活動、尋求學習機會','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
   const skills=['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃選擇適當治療項目並評值','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力，能統整專業知識'];
   const comms=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
@@ -1970,13 +1990,13 @@ function buildF15(f,d,canT){
     s+=`</table></div></div>`;
     return s;
   };
-  let h=basicInfoCard(f.id,d,'');
+  let h=basicInfoCard(fid,d,'');
   h+=mkSection('一、學習態度（30%）',atts,'f15_att');
   h+=mkSection('二、專業知識及技能（50%）',skills,'f15_skl');
   h+=mkSection('三、溝通、協調與專業態度（20%）',comms,'f15_com');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">加分項目<span class="t-badge">老師</span></div></div><div class="card-body">
     <div class="field"><label>臨床專業能力可獨立負責一般治療師1/2以上工作量（加分項目）</label>
-      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${f.id}']=APP.formData['${f.id}']||{};APP.formData['${f.id}']['bonus']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['bonus']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">請假紀錄與回饋</div></div><div class="card-body">
