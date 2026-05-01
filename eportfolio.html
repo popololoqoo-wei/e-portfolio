@@ -1262,12 +1262,22 @@ function saveForm(id){
       }
     });
   }catch(e){}
-  // Collect text inputs, textareas, selects
-  document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(el=>{
+  // 收集所有可見欄位（用 id 或 formKey 都接受）
+  document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
     if(!el.disabled){
-      APP.formData[formKey][el.dataset.key] = el.type==='checkbox' ? el.checked : el.value;
+      var elFid=el.getAttribute('data-fid');
+      if(elFid===id||elFid===formKey){
+        var v=el.type==='checkbox'?el.checked:el.value;
+        if(v!==''&&v!==null) APP.formData[formKey][el.dataset.key]=v;
+      }
     }
   });
+  // 同時儲存到 localStorage 草稿
+  try{
+    var draftSave=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    draftSave[formKey]=Object.assign({},APP.formData[formKey]);
+    localStorage.setItem('form_drafts',JSON.stringify(draftSave));
+  }catch(e){}
   // Also collect ALL data stored via setRating/setDOPS/setEPA clicks (already in APP.formData[formKey])
   // These are stored directly, no need to re-collect from DOM
   // But ensure formKey data is synced
@@ -1319,42 +1329,10 @@ function saveForm(id){
   // 保留草稿作為備份（不清除，讓使用者隨時可以看到資料）
   // clearDraft(formKey); // 已停用清除草稿
   
-  // 儲存後立即鎖回老師欄位（不重新載頁，直接在DOM操作）
+  // 儲存後立即鎖回老師欄位（學生帳號+PIN解鎖的情況）
   if(APP.currentRole==='student' && APP.teacherUnlocked){
     APP.teacherUnlocked=false;
-    // 直接在 DOM 上鎖定老師欄位
-    var mc=document.getElementById('main-content');
-    if(mc){
-      // 鎖定 t-field 類的 input/textarea/select
-      mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
-        var key=el.getAttribute('data-key')||'';
-        var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
-          'epa_level','result','score','director_fb','t_title','team_sign','team_title'].some(function(p){return key.startsWith(p);}) ||
-          /^f(05|06|07|15)_/.test(key);
-        if(isTField){
-          el.disabled=true;
-          el.style.background='var(--cream)';
-          el.style.opacity='0.7';
-        }
-      });
-      // 鎖定老師評分按鈕（data-teacher="1"）
-      mc.querySelectorAll('button[data-teacher="1"]').forEach(function(btn){
-        btn.disabled=true;
-        btn.style.opacity='0.35';
-        btn.style.cursor='not-allowed';
-      });
-      // 重新顯示 lock-bar 提示
-      var lockBar=mc.querySelector('.lock-bar');
-      if(!lockBar){
-        var formHeader=mc.querySelector('.form-detail-header');
-        if(formHeader){
-          var newLock=document.createElement('div');
-          newLock.className='lock-bar';
-          newLock.innerHTML='🔒 老師評分欄位已重新鎖定。如需再次填寫，請輸入 PIN 碼：<input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8"><button class="unlock-btn" onclick="inlineUnlock()">解鎖</button><span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>';
-          formHeader.parentNode.insertBefore(newLock, formHeader.nextSibling);
-        }
-      }
-    }
+    lockTeacherFields();
     toast('表單已儲存 ✓（老師欄位已重新鎖定）');
   } else {
     toast('表單已儲存 ✓');
@@ -1881,18 +1859,23 @@ function rBtn(fid,key,v,role,disabled){
   return`<button class="r-btn ${selC}" ${dis} onclick="setRating('${fid}','${key}',${vStr},'${role}',this)">${v}</button>`;
 }
 function setRating(fid,key,val,role,btn){
-  if(!APP.formData[fid])APP.formData[fid]={};
-  APP.formData[fid][key]=val;
-  // Update all buttons with same data-rkey in the whole form (not just table)
-  const container=btn.closest('.card-body')||btn.closest('.form-detail-view')||document;
-  container.querySelectorAll(`[data-rkey="${key}"]`).forEach(b=>{
+  // 統一使用 formKey 存資料（帶學號版本）
+  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  if(!APP.formData[realFid])APP.formData[realFid]={};
+  APP.formData[realFid][key]=val;
+  // 同時存到 localStorage
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!drafts[realFid])drafts[realFid]={};
+    drafts[realFid][key]=val;
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
+  // Update button visuals
+  document.querySelectorAll('[data-rkey="'+key+'"]').forEach(function(b){
     b.classList.remove('sel-s','sel-t','sel-a');
-    if(b.dataset.rval==val||b.dataset.rval===String(val))b.classList.add(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s');
-  });
-  // Also try whole document
-  document.querySelectorAll(`[data-rkey="${key}"][data-fid="${fid}"]`).forEach(b=>{
-    b.classList.remove('sel-s','sel-t','sel-a');
-    if(b.dataset.rval==val||b.dataset.rval===String(val))b.classList.add(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s');
+    if(b.dataset.rval==val||b.dataset.rval===String(val)){
+      b.classList.add(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s');
+    }
   });
 }
 function rBtnTable(fid,key,v,role,disabled){
@@ -2681,22 +2664,18 @@ document.addEventListener('change', function(e){
   var fid=el.getAttribute&&el.getAttribute('data-fid');
   var key=el.getAttribute&&el.getAttribute('data-key');
   if(!fid||!key)return;
-  if(!APP.formData[fid])APP.formData[fid]={};
+  // 統一使用 formKey 存資料
+  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  if(!APP.formData[realFid])APP.formData[realFid]={};
   var v=el.type==='checkbox'?el.checked:el.value;
-  APP.formData[fid][key]=v;
-  // 同步到 formKey
-  if(APP.currentFormId){
-    var cfk=getFormKey(APP.currentFormId);
-    if(!APP.formData[cfk])APP.formData[cfk]={};
-    APP.formData[cfk][key]=v;
-    // 存到 localStorage
-    try{
-      var gd=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-      if(!gd[cfk])gd[cfk]={};
-      gd[cfk][key]=v;
-      localStorage.setItem('form_drafts',JSON.stringify(gd));
-    }catch(e2){}
-  }
+  APP.formData[realFid][key]=v;
+  // 立即存到 localStorage
+  try{
+    var gd=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!gd[realFid])gd[realFid]={};
+    gd[realFid][key]=v;
+    localStorage.setItem('form_drafts',JSON.stringify(gd));
+  }catch(e2){}
   // 存草稿
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
@@ -3148,6 +3127,59 @@ function clearDraft(formKey){
   }catch(e){}
 }
 
+
+/* ── 鎖定老師欄位（學生帳號儲存後呼叫） ── */
+function lockTeacherFields(){
+  var mc=document.getElementById('main-content');
+  if(!mc)return;
+
+  // 鎖定老師的 input / textarea / select
+  mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+    var key=el.getAttribute('data-key')||'';
+    var isT=['t_fb','t_sign','t_comment','t_good','t_improve','t_note','t_title',
+      'epa_level','result','score','director_fb','team_sign','team_title',
+      'peer_good','peer_suggest','host_sign','host_sign_date','host_date',
+      't_assess','t_q','t_rate'].some(function(p){return key===p||key.startsWith(p);})
+      || /^f(05|06|07|15)_/.test(key)
+      || /^(cbd_|dops_|epa_)/.test(key);
+    if(isT){
+      el.disabled=true;
+      el.style.background='var(--cream)';
+      el.style.color='var(--ink3)';
+      el.style.cursor='not-allowed';
+    }
+  });
+
+  // 鎖定老師評分按鈕（data-teacher="1"）
+  // 包含 CbD 的 rBtnTableCbD 按鈕和 F01 的 mkBtn 老師按鈕
+  mc.querySelectorAll('button[data-teacher="1"],button.r-btn[data-rkey]').forEach(function(btn){
+    // r-btn：判斷是否為老師按鈕（CbD 等）
+    var isTeacherBtn=btn.getAttribute('data-teacher')==='1';
+    var rkey=btn.getAttribute('data-rkey')||'';
+    var isTeacherRating=/^f(06|07|05|15)_/.test(rkey)||/^(cbd_|dops_|epa_)/.test(rkey);
+    if(isTeacherBtn||isTeacherRating){
+      btn.disabled=true;
+      btn.style.opacity='0.35';
+      btn.style.cursor='not-allowed';
+      btn.style.pointerEvents='none';
+    }
+  });
+
+  // 顯示 lock-bar（如果還沒有的話）
+  var existingLock=mc.querySelector('.lock-bar');
+  if(existingLock){
+    existingLock.style.display='flex';
+  } else {
+    var hdr=mc.querySelector('.form-detail-header');
+    if(hdr){
+      var lb=document.createElement('div');
+      lb.className='lock-bar';
+      lb.innerHTML='🔒 老師評分欄位已鎖定。老師請輸入 PIN 碼解鎖：<input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8"><button class="unlock-btn" onclick="inlineUnlock()">解鎖</button><span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>';
+      hdr.parentNode.insertBefore(lb,hdr.nextSibling);
+    }
+  }
+}
+
 /* CbD 防呆評分按鈕 */
 function rBtnTableCbD(fid,key,v,role,disabled){
   var cur=(APP.formData[fid]||{})[key];
@@ -3182,27 +3214,17 @@ function f01Click(btn){
   var v=btn.getAttribute('data-rval');
   if(!fid||!key||!v)return;
   if(!APP.formData[fid])APP.formData[fid]={};
-  APP.formData[fid][key]=v;
+  // 統一使用 formKey（帶學號）存資料
+  var realKey=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  if(!APP.formData[realKey])APP.formData[realKey]={};
+  APP.formData[realKey][key]=v;
   // 立即存到 localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(!drafts[fid])drafts[fid]={};
-    drafts[fid][key]=v;
+    if(!drafts[realKey])drafts[realKey]={};
+    drafts[realKey][key]=v;
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
-  // 同步到 formKey（確保兩個 key 都有資料）
-  if(APP.currentFormId){
-    var currentFKey=getFormKey(APP.currentFormId);
-    if(!APP.formData[currentFKey])APP.formData[currentFKey]={};
-    APP.formData[currentFKey][key]=v;
-    // 也存到 localStorage 的兩個 key
-    try{
-      var drafts2=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-      if(!drafts2[currentFKey])drafts2[currentFKey]={};
-      drafts2[currentFKey][key]=v;
-      localStorage.setItem('form_drafts',JSON.stringify(drafts2));
-    }catch(e){}
-  }
   // 單選互斥：找同一個 fid+key 的所有按鈕（document 全域）
   document.querySelectorAll('button[data-fid="'+fid+'"][data-rkey="'+key+'"]').forEach(function(b){
     var isSel=b.getAttribute('data-rval')===v;
