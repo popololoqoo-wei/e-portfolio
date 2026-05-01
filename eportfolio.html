@@ -1192,17 +1192,24 @@ function saveForm(id){
     APP.formData[formKey]=Object.assign({},APP.formData[id]);
   }
 
-  // Record history (shared log)
+  // Record history - 判斷實際儲存角色
+  // 若學生帳號但已解鎖老師欄位（PIN解鎖），儲存兩筆記錄（學生+老師都算完成）
   if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
-  const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
   const now = new Date();
   const ts = now.toISOString();
-  const logEntry={ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name};
-  APP.historyLog[formKey].unshift(logEntry);
-  // Also track in role-specific log for status detection
-  const roleLogKey=formKey+'_'+(APP.currentRole==='admin'?'t':APP.currentRole);
-  if(!APP.historyLog[roleLogKey])APP.historyLog[roleLogKey]=[];
-  APP.historyLog[roleLogKey].unshift(logEntry);
+  const effectiveRole = (APP.currentRole==='student' && APP.teacherUnlocked) ? 'both' : APP.currentRole;
+  
+  if(effectiveRole==='both'){
+    // 學生帳號+PIN解鎖：同時記錄學生和老師儲存
+    const sEntry={ts,role:'student',roleLabel:'學生',name:APP.currentUser.name};
+    const tEntry={ts,role:'teacher',roleLabel:'臨床老師（PIN解鎖）',name:'PIN解鎖'};
+    APP.historyLog[formKey].unshift(tEntry);
+    APP.historyLog[formKey].unshift(sEntry);
+  } else {
+    const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
+    const logEntry={ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name};
+    APP.historyLog[formKey].unshift(logEntry);
+  }
 
   // Save to shared storage (GAS)
   saveFormToSheets(formKey);
@@ -1228,7 +1235,15 @@ function saveForm(id){
   uploadToSheets(id);
   // 清除草稿（已正式儲存）
   clearDraft(formKey);
-  toast('表單已儲存 ✓');
+  
+  // 儲存後重新鎖定：若是學生帳號+PIN解鎖，儲存後立即鎖回老師欄位
+  if(APP.currentRole==='student' && APP.teacherUnlocked){
+    APP.teacherUnlocked=false;
+    toast('表單已儲存 ✓（老師欄位已重新鎖定）');
+    setTimeout(function(){ APP._skipPinReset=false; openForm(id); }, 1500);
+  } else {
+    toast('表單已儲存 ✓');
+  }
   renderSidebar(); // update status dots
 }
 
@@ -2087,8 +2102,9 @@ function buildCbD(f,d,canT,fkey,canS){
     var key='f06_'+i;
     h+='<tr><td class="row-label">'+(i+1)+'. '+item+'</td>';
     [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
-      // 防呆：1-4分可點但會警示；不直接禁止（讓老師知道可點但需注意）
-      h+='<td style="text-align:center;">'+rBtnTableCbD(fid,key,v,'t',!canT)+'</td>';
+      // 防呆：1-4分直接禁止點選（disabled）；5-9分和NA正常
+      var forceDisable = (typeof v==='number' && v<=4);
+      h+='<td style="text-align:center;">'+rBtnTableCbD(fid,key,v,'t',(!canT||forceDisable))+'</td>';
     });
     h+='</tr>';
   });
