@@ -1116,85 +1116,83 @@ async function openForm(id){
   
   mergeAllKeys();
 
-  // 先用本地資料立即渲染（不等 GAS）
-  const renderForm = async function(skipGAS){
-    const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
-    const canS=APP.currentRole==='student';
-    const d=Object.assign({}, APP.formData[id]||{}, APP.formData[formKey]||{});
-    APP.formData[formKey]=Object.assign({},d);
+  const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
+  const canS=APP.currentRole==='student';
+  const d=Object.assign({}, APP.formData[id]||{}, APP.formData[formKey]||{});
+  APP.formData[formKey]=Object.assign({},d);
 
-    let studentBanner='';
-    if(APP.currentRole==='teacher'||APP.currentRole==='admin'){
-    // 計算每位學生此表單的評核狀態
-    const stuRows=Object.entries(APP.students).map(([sid,acc])=>{
-      const fkey=id+'_'+sid;
-      const fd=APP.formData[fkey]||{};
-      const ff=findForm(id);
-      const hasStudentData=Object.keys(fd).length>0;
-      const hasTeacherData=ff&&ff.tFields&&ff.tFields.length>0?ff.tFields.some(k=>fd[k]&&String(fd[k]).trim()):false;
-      let status='unevaluated';
-      if(hasStudentData&&hasTeacherData) status='done';
-      else if(hasStudentData) status='student_only';
-      else if(hasTeacherData) status='teacher_only';
-      return {sid,acc,status};
-    });
+  let studentBanner='';
+  if(APP.currentRole==='teacher'||APP.currentRole==='admin'){
+  // 計算每位學生此表單的評核狀態
+  const stuRows=Object.entries(APP.students).map(([sid,acc])=>{
+    const fkey=id+'_'+sid;
+    const fd=APP.formData[fkey]||{};
+    const ff=findForm(id);
+    const hasStudentData=Object.keys(fd).length>0;
+    const hasTeacherData=ff&&ff.tFields&&ff.tFields.length>0?ff.tFields.some(k=>fd[k]&&String(fd[k]).trim()):false;
+    let status='unevaluated';
+    if(hasStudentData&&hasTeacherData) status='done';
+    else if(hasStudentData) status='student_only';
+    else if(hasTeacherData) status='teacher_only';
+    return {sid,acc,status};
+  });
 
-    const stuOpts=stuRows.map(({sid,acc,status})=>{
-      const mark=status==='done'?'✅ ':status==='student_only'?'📝 ':status==='teacher_only'?'✏️ ':'⭕ ';
-      const label=status==='done'?'（已完成）':status==='student_only'?'（待老師評）':status==='teacher_only'?'（待學生填）':'（未填寫）';
-      return `<option value="${sid}" ${APP.currentStudentId===sid?'selected':''}>${mark}${acc.name} ${label}</option>`;
-    }).join('');
+  const stuOpts=stuRows.map(({sid,acc,status})=>{
+    const mark=status==='done'?'✅ ':status==='student_only'?'📝 ':status==='teacher_only'?'✏️ ':'⭕ ';
+    const label=status==='done'?'（已完成）':status==='student_only'?'（待老師評）':status==='teacher_only'?'（待學生填）':'（未填寫）';
+    return `<option value="${sid}" ${APP.currentStudentId===sid?'selected':''}>${mark}${acc.name} ${label}</option>`;
+  }).join('');
 
-    const curStu=APP.currentStudentId?APP.students[APP.currentStudentId]:null;
+  const curStu=APP.currentStudentId?APP.students[APP.currentStudentId]:null;
 
-    // 狀態統計列表
-    const doneCount=stuRows.filter(r=>r.status==='done').length;
-    const pendCount=stuRows.filter(r=>r.status==='student_only').length;
-    const noneCount=stuRows.filter(r=>r.status==='unevaluated').length;
+  // 狀態統計列表
+  const doneCount=stuRows.filter(r=>r.status==='done').length;
+  const pendCount=stuRows.filter(r=>r.status==='student_only').length;
+  const noneCount=stuRows.filter(r=>r.status==='unevaluated').length;
 
-    // 學生狀態卡片列表
-    const stuCards=stuRows.map(({sid,acc,status})=>{
-      const isActive=APP.currentStudentId===sid;
-      const bg=isActive?'background:var(--ink);color:#fff;':'background:#fff;color:var(--ink);';
-      const dotColor=status==='done'?'#639922':status==='student_only'?'#EF9F27':status==='teacher_only'?'#1A3A5C':'#B4B2A9';
-      const statusLabel=status==='done'?'已完成':status==='student_only'?'待評分':status==='teacher_only'?'待學生填':'未填寫';
-      return `<div onclick="switchStudent('${sid}','${id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;${bg}border:1px solid ${isActive?'var(--ink)':'var(--border2)'};transition:all .15s;">
-        <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
-        <span style="font-size:12px;font-weight:${isActive?'600':'400'};flex:1;">${acc.name}</span>
-        <span style="font-size:10px;padding:1px 7px;border-radius:999px;background:${isActive?'rgba(255,255,255,.2)':'var(--cream)'};color:${isActive?'#fff':'var(--ink3)'};">${statusLabel}</span>
-      </div>`;
-    }).join('');
-
-    studentBanner=`<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--r2);padding:1rem;margin-bottom:1rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-        <div style="font-size:12px;font-weight:600;color:var(--ink3);">👤 選擇學生</div>
-        <div style="display:flex;gap:8px;font-size:11px;">
-          <span style="color:var(--green);">✅ 完成 ${doneCount}</span>
-          <span style="color:var(--gold);">📝 待評 ${pendCount}</span>
-          <span style="color:var(--ink3);">⭕ 未填 ${noneCount}</span>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:5px;">
-        ${stuCards}
-      </div>
-      ${!APP.currentStudentId?'<div style="font-size:11px;color:var(--red);margin-top:8px;padding:6px 8px;background:#FFF0F0;border-radius:var(--r);">⚠ 請點選上方學生姓名才能填寫表單</div>':''}
+  // 學生狀態卡片列表
+  const stuCards=stuRows.map(({sid,acc,status})=>{
+    const isActive=APP.currentStudentId===sid;
+    const bg=isActive?'background:var(--ink);color:#fff;':'background:#fff;color:var(--ink);';
+    const dotColor=status==='done'?'#639922':status==='student_only'?'#EF9F27':status==='teacher_only'?'#1A3A5C':'#B4B2A9';
+    const statusLabel=status==='done'?'已完成':status==='student_only'?'待評分':status==='teacher_only'?'待學生填':'未填寫';
+    return `<div onclick="switchStudent('${sid}','${id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;${bg}border:1px solid ${isActive?'var(--ink)':'var(--border2)'};transition:all .15s;">
+      <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
+      <span style="font-size:12px;font-weight:${isActive?'600':'400'};flex:1;">${acc.name}</span>
+      <span style="font-size:10px;padding:1px 7px;border-radius:999px;background:${isActive?'rgba(255,255,255,.2)':'var(--cream)'};color:${isActive?'#fff':'var(--ink3)'};">${statusLabel}</span>
     </div>`;
+  }).join('');
+
+  studentBanner=`<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--r2);padding:1rem;margin-bottom:1rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink3);">👤 選擇學生</div>
+      <div style="display:flex;gap:8px;font-size:11px;">
+        <span style="color:var(--green);">✅ 完成 ${doneCount}</span>
+        <span style="color:var(--gold);">📝 待評 ${pendCount}</span>
+        <span style="color:var(--ink3);">⭕ 未填 ${noneCount}</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      ${stuCards}
+    </div>
+    ${!APP.currentStudentId?'<div style="font-size:11px;color:var(--red);margin-top:8px;padding:6px 8px;background:#FFF0F0;border-radius:var(--r);">⚠ 請點選上方學生姓名才能填寫表單</div>':''}
+  </div>`;
   }
 
   let html=`<div class="form-detail-view">`;
   html+=`<div class="form-detail-header">
-    <h1>${f.name}</h1>
-    <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
+  <h1>${f.name}</h1>
+  <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
   </div>`;
   html+=studentBanner;
 
   // Lock bar for student viewing teacher-only form
   if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
-    html+=`<div class="lock-bar">🔒 老師評分欄位已鎖定。老師請輸入 PIN 碼解鎖：
-      <input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8">
-      <button class="unlock-btn" onclick="inlineUnlock()">解鎖</button>
-      <span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>
-    </div>`;
+  html+=`<div class="lock-bar">🔒 老師評分欄位已鎖定。老師請輸入 PIN 碼解鎖：
+    <input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8">
+    <button class="unlock-btn" onclick="inlineUnlock()">解鎖</button>
+    <span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>
+  </div>`;
   }
 
   // Form content - pass formKey so all data-fid use student-specific key
@@ -1203,12 +1201,12 @@ async function openForm(id){
   // Footer
   const hasSaved=APP.historyLog[formKey]&&APP.historyLog[formKey].length>0;
   html+=`<div class="form-footer">
-    <button class="btn-back" onclick="renderFormList();window.scrollTo(0,0);">← 返回總覽</button>
-    <div class="form-footer-right">
-      <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
-      <button class="btn-pdf" id="btn-pdf" ${canDownloadPDF(id)?'style="display:inline-block;"':''} onclick="checkAndDownloadPDF('${id}')">⬇ 下載 PDF</button>
-      <button class="btn-save" onclick="saveForm('${id}')">儲存表單</button>
-    </div>
+  <button class="btn-back" onclick="renderFormList();window.scrollTo(0,0);">← 返回總覽</button>
+  <div class="form-footer-right">
+    <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
+    <button class="btn-pdf" id="btn-pdf" ${canDownloadPDF(id)?'style="display:inline-block;"':''} onclick="checkAndDownloadPDF('${id}')">⬇ 下載 PDF</button>
+    <button class="btn-save" onclick="saveForm('${id}')">儲存表單</button>
+  </div>
   </div>`;
 
   // History log
@@ -1218,30 +1216,25 @@ async function openForm(id){
 
   // 360度評估表：初始化自動計算
   if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
-    setTimeout(function(){calc360Score(APP.currentFormId);},100);
+  setTimeout(function(){calc360Score(APP.currentFormId);},100);
   }
 
   // 老師登入：鎖定學生欄位（防止竄改）
   if(APP.currentRole==='teacher'){
-    mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
-      var key=el.dataset.key||'';
-      var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
-        'epa_level','result','score','director_fb'].some(function(p){return key.startsWith(p);}) ||
-        /^f(05|06|07|15)_/.test(key);
-      if(!isTField) el.disabled=true;
-    });
-    mc.querySelectorAll('button[data-teacher="0"]').forEach(function(btn){
-      btn.disabled=true;
-      btn.style.opacity='0.35';
-      btn.style.cursor='not-allowed';
-    });
+  mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+    var key=el.dataset.key||'';
+    var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
+      'epa_level','result','score','director_fb'].some(function(p){return key.startsWith(p);}) ||
+      /^f(05|06|07|15)_/.test(key);
+    if(!isTField) el.disabled=true;
+  });
+  mc.querySelectorAll('button[data-teacher="0"]').forEach(function(btn){
+    btn.disabled=true;
+    btn.style.opacity='0.35';
+    btn.style.cursor='not-allowed';
+  });
   }
-  }; // end renderForm
 
-  // 立即用本地資料渲染
-  renderForm(true);
-
-  // 背景從 GAS 更新（不阻塞 UI）
   if(GAS_URL && GAS_URL !== 'YOUR_GAS_URL_HERE'){
     loadFormFromSheets(formKey).then(function(){
       mergeAllKeys();
