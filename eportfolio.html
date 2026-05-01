@@ -631,13 +631,16 @@ function enterApp(){
 
 /* ═══════════ FORM DEFINITIONS ═══════════ */
 const FORMS=[
-  {id:'F01',num:'柒',name:'核心課程內容自我學前後評值表',sub:'訓練前後技能評核',roles:'both'},
+  {id:'F01A',num:'柒(上)',name:'核心課程內容自我學前評值表',sub:'訓練前技能評核',roles:'both'},
+  {id:'F01B',num:'柒(下)',name:'核心課程內容自我學後評值表',sub:'訓練後技能評核',roles:'both'},
   {id:'F02',num:'捌',name:'臨床表現自我學後評值表',sub:'學後臨床表現評估',roles:'both'},
   {id:'F03',num:'玖',name:'課程滿意度調查表',sub:'授課教師評估',roles:'student',special:'satisfaction'},
   {id:'F04',num:'壹拾',name:'床邊教學訓練記錄表',sub:'床邊教學紀錄',roles:'both'},
   {id:'F05',num:'壹拾壹',name:'對臨床實習老師評值表',sub:'學生匿名評值',roles:'student'},
-  {id:'F06',num:'壹拾貳',name:'病例導向評估表 CbD',sub:'Case-Based Discussion',roles:'both'},
-  {id:'F07',num:'壹拾參',name:'360 度評估表',sub:'多面向評核',roles:'both'},
+  {id:'F06M',num:'壹拾貳(內)',name:'病例導向評估表 CbD（內科）',sub:'Case-Based Discussion',roles:'both'},
+  {id:'F06S',num:'壹拾貳(外)',name:'病例導向評估表 CbD（外科）',sub:'Case-Based Discussion',roles:'both'},
+  {id:'F07M',num:'壹拾參(內)',name:'360 度評估表（內科）',sub:'多面向評核',roles:'both'},
+  {id:'F07S',num:'壹拾參(外)',name:'360 度評估表（外科）',sub:'多面向評核',roles:'both'},
   {id:'F08',num:'壹拾肆',name:'全人照護紀錄表',sub:'高齡/安寧療護',roles:'both'},
   {id:'F09',num:'壹拾伍',name:'跨領域團隊合作照護訓練紀錄表',sub:'跨團隊晨間會議',roles:'both'},
   {id:'F10',num:'壹拾陸',name:'輔導記錄表',sub:'實習總指導教師',roles:'both'},
@@ -669,13 +672,16 @@ function getFormKey(id){
 
 /* 各表單學生必填欄位定義 */
 const REQUIRED_STUDENT_FIELDS = {
-  F01: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}),
+  F01A: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}),
+  F01B: ['s_name','s_date'],
   F02: ['s_name','s_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
   F03: ['topic','speaker','s_sign'],
   F04: ['diagnosis','medical_focus','rt_plan','s_date'],
   F05: ['teacher_name'].concat(Array.from({length:10},function(_,i){return 'f05_'+i;})),
-  F06: ['s_name','case_dx','s_feeling'],
-  F07: ['s_name','s_fb'],
+  F06M: ['s_name','case_dx','s_feeling'],
+  F06S: ['s_name','case_dx','s_feeling'],
+  F07M: ['s_name','s_fb'],
+  F07S: ['s_name','s_fb'],
   F08: ['s_name','discuss_生','discuss_心'],
   F09: ['s_name','c1','c2','s_feeling'],
   F10: ['s_q2','s_q3','s_q4','s_q5','s_q6'],
@@ -1778,8 +1784,8 @@ function buildFormBody(f,d,canT,formKey,canS){
   formKey=formKey||f.id;
   if(canS===undefined) canS=true; // default: student can edit student fields
   const builders={
-    F01:buildF01,F02:buildF02,F03:buildF03,F04:buildF04,F05:buildF05,
-    F06:buildF06,F07:buildF07,F08:buildF08,F09:buildF09,F10:buildF10,
+    F01A:buildF01A,F01B:buildF01B,F02:buildF02,F03:buildF03,F04:buildF04,F05:buildF05,
+    F06M:buildF06M,F06S:buildF06S,F07M:buildF07M,F07S:buildF07S,F08:buildF08,F09:buildF09,F10:buildF10,
     F11:buildF11,F12:buildF12,F13:buildF13,F14:buildF14,
     D01:buildDOPS,D02:buildDOPS,D03:buildDOPS,D04:buildDOPS,
     E01:buildEPA,E02:buildEPA,E03:buildEPA,
@@ -1804,8 +1810,8 @@ function basicInfoCard(fid,d,extraFields){
   return html;
 }
 
-/* ─── F01 ─── */
-function buildF01(f,d,canT,fkey,canS){
+/* ─── F01A 核心課程內容自我學前評值表 ─── */
+function buildF01A(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   const fid=fkey||f.id;
   const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
@@ -1816,7 +1822,7 @@ function buildF01(f,d,canT,fkey,canS){
     var bg=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
-    var dis=isTeacher&&!canT;
+    var dis=(isTeacher&&!canT)||(!isTeacher&&!canS);
     var disAttr=dis?' disabled':'';
     var cursor=dis?'not-allowed':'pointer';
     var op=dis?'0.35':'1';
@@ -1824,19 +1830,50 @@ function buildF01(f,d,canT,fkey,canS){
   }
 
   let h=basicInfoCard(fid,d,'');
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學前自評</th><th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th><th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th><th colspan="3">學生學後自評</th><th>未評</th></tr>';
-  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th></th></tr>';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生學前自評<span class="s-badge">學生填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學前自評</th></tr>';
+  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th></tr>';
   skills.forEach(function(skill,i){
-    var kp='f01_pre_'+i,k1='f01_p1_'+i,k2i='f01_p2_'+i,kpo='f01_post_'+i,kna='f01_na_'+i;
-    var naChk=d[kna]?'checked':'';
+    var kp='f01_pre_'+i;
     h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kp,v,false)+'</td>';});
+    h+='</tr>';
+  });
+  h+='</table></div></div>';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+signRow(fid,'s_sign','t_sign',canT)+'</div></div>';
+  return h;
+}
+
+/* ─── F01B 核心課程內容自我學後評值表 ─── */
+function buildF01B(f,d,canT,fkey,canS){
+  if(canS===undefined)canS=true;
+  const fid=fkey||f.id;
+  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
+
+  function mkBtn(key2,v,isTeacher){
+    var cur=d[key2]||'';
+    var isSel=cur===v;
+    var bg=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#fff';
+    var col=isSel?'#fff':'#7A706A';
+    var fw=isSel?'700':'400';
+    var dis=(isTeacher&&!canT)||(!isTeacher&&!canS);
+    var disAttr=dis?' disabled':'';
+    var cursor=dis?'not-allowed':'pointer';
+    var op=dis?'0.35':'1';
+    return '<button'+disAttr+' data-fid="'+fid+'" data-rkey="'+key2+'" data-rval="'+v+'" data-teacher="'+(isTeacher?1:0)+'" onclick="f01Click(this)" style="width:26px;height:26px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+col+';font-size:10px;cursor:'+cursor+';opacity:'+op+';font-weight:'+fw+';">'+v+'</button>';
+  }
+
+  let h=basicInfoCard(fid,d,'');
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th><th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th><th colspan="3">學生學後自評</th></tr>';
+  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th></tr>';
+  skills.forEach(function(skill,i){
+    var k1='f01_p1_'+i,k2i='f01_p2_'+i,kpo='f01_post_'+i;
+    h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k1,v,true)+'</td>';});
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k2i,v,true)+'</td>';});
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kpo,v,false)+'</td>';});
-    var naOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+kna+"']=this.checked";
-    h+='<td style="text-align:center;"><input type="checkbox" '+naChk+' data-fid="'+fid+'" data-key="'+kna+'" onchange="'+naOC+'" style="accent-color:var(--gold);"></td></tr>';
+    h+='</tr>';
   });
   h+='</table></div></div>';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+signRow(fid,'s_sign','t_sign',canT)+'</div></div>';
@@ -1963,39 +2000,57 @@ function buildF05(f,d,canT,fkey,canS){
   return h;
 }
 
-/* ─── F06 CbD ─── */
-function buildF06(f,d,canT,fkey,canS){
-  const fid=fkey||f.id;
+/* ─── F06M / F06S CbD ─── */
+function buildCbD(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
+  const fid=fkey||f.id;
   const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
-  let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">${['易','適中','難'].map(v=>`<label class="check-item"><input type="radio" name="f06_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div><div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>`);
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">評量項目 (1-9分；UGY≥5合格)<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
-    <tr><th style="text-align:left;">評量項目</th>${[1,2,3,4,5,6,7,8,9,'NA'].map(v=>`<th>${v}</th>`).join('')}</tr>`;
-  items.forEach((item,i)=>{
-    const key=`f06_${i}`;
-    h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
-    [...[1,2,3,4,5,6,7,8,9],'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'t',!canT)}</td>`);
-    h+=`</tr>`;
+  // 主診斷 - 無字數限制
+  var cxBtns=['易','適中','難'].map(function(v){
+    var chk=d['complexity']===v?'checked':'';
+    var oc="APP.formData['"+fid+"']=(APP.formData['"+fid+"']||{});APP.formData['"+fid+"']['complexity']='"+v+"'";
+    return '<label class="check-item"><input type="radio" name="f06_cx_'+fid+'" '+chk+' onchange="'+oc+'" style="accent-color:var(--gold);"> '+v+'</label>';
+  }).join('');
+  let h=basicInfoCard(fid,d,'<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">'+cxBtns+'</div></div><div class="field"><label>主診斷（不限字數）</label>'+ta(fid,'diagnosis',4,false)+'</div></div>');
+  // 評量說明列
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">評量項目<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:11px;color:var(--blue);">📊 評分標準：<strong>1～3分 = 有待加強</strong>　<strong>4～6分 = 合乎標準</strong>　<strong>7～9分 = 優良</strong>　UGY ≥ 5分合格</div>';
+  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:140px;">評量項目</th>';
+  // 分組標題
+  h+='<th colspan="3" style="background:#C8D8F0;color:#1A3A5C;">有待加強(1-3)</th>';
+  h+='<th colspan="3" style="background:#D8ECD8;color:#2D5A27;">合乎標準(4-6)</th>';
+  h+='<th colspan="3" style="background:#F0E8C8;color:#8B6914;">優良(7-9)</th>';
+  h+='<th>NA</th></tr>';
+  h+='<tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th></th></tr>';
+  items.forEach(function(item,i){
+    var key='f06_'+i;
+    h+='<tr><td class="row-label">'+(i+1)+'. '+item+'</td>';
+    [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){h+='<td style="text-align:center;">'+rBtnTable(fid,key,v,'t',!canT)+'</td>';});
+    h+='</tr>';
   });
-  h+=`</table></div></div>`;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">
-    <div class="g2">
-      <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
-      <div class="field"><label>表現良好項目<span class="t-badge">老師</span></label>${ta(f.id,'t_good',3,!canT)}</div>
-    </div>
-    <div class="g2">
-      <div class="field"><label>自覺可再加強</label>${ta(f.id,'s_improve',3,false)}</div>
-      <div class="field"><label>建議加強項目<span class="t-badge">老師</span></label>${ta(f.id,'t_improve',3,!canT)}</div>
-    </div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
-  </div></div>`;
+  h+='</table></div></div>';
+  // 雙向回饋 - 無字數限制
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">';
+  h+='<div class="g2">';
+  h+='<div class="field"><label>學員學習心得（不限字數）</label>'+ta(fid,'s_feeling',5,false)+'</div>';
+  h+='<div class="field"><label>表現良好項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_good',5,!canT)+'</div>';
+  h+='</div>';
+  h+='<div class="g2">';
+  h+='<div class="field"><label>自覺可再加強（不限字數）</label>'+ta(fid,'s_improve',5,false)+'</div>';
+  h+='<div class="field"><label>建議加強項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_improve',5,!canT)+'</div>';
+  h+='</div>';
+  h+=signRow(fid,'s_sign','t_sign',canT);
+  h+='</div></div>';
   return h;
 }
+function buildF06M(f,d,canT,fkey,canS){return buildCbD(f,d,canT,fkey,canS);}
+function buildF06S(f,d,canT,fkey,canS){return buildCbD(f,d,canT,fkey,canS);}
 
-/* ─── F07 360 ─── */
-function buildF07(f,d,canT,fkey,canS){
-  const fid=fkey||f.id;
+/* ─── F07M / F07S 360度評估表 ─── */
+function build360(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
+  const fid=fkey||f.id;
+  // 評核細項：[類別, 面向, 說明, [優,良,可,劣,差的分數]]
   const rows=[
     ['態度','基本禮儀','儀容、禮貌合宜',['+2','+1','0','-1','-2']],
     ['','','守時/出席狀況',['+2','+1','0','-1','-2']],
@@ -2013,30 +2068,55 @@ function buildF07(f,d,canT,fkey,canS){
     ['','知識考評','單位自行評值呼吸治療知識',['+7','+4','0','-4','-7']],
   ];
   let h=basicInfoCard(fid,d,'');
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">360 度評核<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
-    <tr><th>類別</th><th>面向</th><th style="text-align:left;min-width:140px;">評核細項</th><th>優</th><th>+</th><th>0</th><th>−</th><th>劣</th></tr>`;
-  rows.forEach((row,i)=>{
-    const key=`f07_${i}`;
-    h+=`<tr><td style="font-size:11px;font-weight:500;">${row[0]}</td><td style="font-size:11px;">${row[1]}</td><td class="row-label">${row[2]}</td>`;
-    row[3].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'t',!canT)}</td>`);
-    h+=`</tr>`;
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">360 度評核<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<table class="rating-table"><tr><th>類別</th><th>面向</th><th style="text-align:left;min-width:140px;">評核細項</th><th>優</th><th>良</th><th>可</th><th>劣</th><th>差</th></tr>';
+  rows.forEach(function(row,i){
+    var key='f07_'+i;
+    h+='<tr><td style="font-size:11px;font-weight:500;">'+row[0]+'</td><td style="font-size:11px;">'+row[1]+'</td><td class="row-label">'+row[2]+'</td>';
+    row[3].forEach(function(v){h+='<td style="text-align:center;">'+rBtnTable(fid,key,v,'t',!canT)+'</td>';});
+    h+='</tr>';
   });
-  h+=`</table></div></div>`;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">各方回饋<span class="t-badge">老師</span></div></div><div class="card-body">
-    <div class="g2">
-      <div class="field"><label>同儕優點<span class="t-badge">老師</span></label>${ta(f.id,'peer_good',2,!canT)}</div>
-      <div class="field"><label>同儕建議<span class="t-badge">老師</span></label>${ta(f.id,'peer_suggest',2,!canT)}</div>
-    </div>
-    <div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>${ta(f.id,'director_fb',3,!canT)}</div>
-    <div class="field"><label>學生回饋</label>${ta(f.id,'s_fb',2,false)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
-    <div class="g2">
-      <div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>${fi(f.id,'host_sign','text',!canT)}</div>
-      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
-    </div>
-  </div></div>`;
+  h+='</table></div></div>';
+  // 各方回饋
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">各方回饋</div></div><div class="card-body">';
+  // 臨床老師
+  h+='<div style="background:#FFF5F5;border:1px solid #F0D0D0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px;">臨床老師評語 <span class="t-badge">老師</span></div>';
+  h+='<div class="g2">';
+  h+='<div class="field"><label>優點</label>'+ta(fid,'peer_good',2,!canT)+'</div>';
+  h+='<div class="field"><label>建議</label>'+ta(fid,'peer_suggest',2,!canT)+'</div>';
+  h+='</div>';
+  h+=fi(fid,'t_sign','text',!canT,'臨床老師簽名');
+  h+=fi(fid,'t_title','text',!canT,'職稱');
+  h+='</div>';
+  // 其他團隊人員
+  h+='<div style="background:#F5F8FF;border:1px solid #D0D8F0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;">其他團隊人員評語 <span class="t-badge">老師</span></div>';
+  h+='<div class="g2">';
+  h+='<div class="field"><label>優點</label>'+ta(fid,'team_good',2,!canT)+'</div>';
+  h+='<div class="field"><label>建議</label>'+ta(fid,'team_suggest',2,!canT)+'</div>';
+  h+='</div>';
+  h+=fi(fid,'team_sign','text',!canT,'其他團隊人員簽名');
+  h+=fi(fid,'team_title','text',!canT,'職稱');
+  h+='</div>';
+  // 實習指導教師
+  h+='<div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>'+ta(fid,'director_fb',3,!canT)+'</div>';
+  h+='<div class="field"><label>學生回饋</label>'+ta(fid,'s_fb',3,false)+'</div>';
+  h+=signRow(fid,'s_sign','s_sign',''); // student sign
+  h+='<div class="g2">';
+  h+='<div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>'+fi(fid,'host_sign','text',!canT)+'</div>';
+  var hsd=d['host_sign_date']||'';
+  var hsdis=!canT?' disabled':'';
+  var hsbg=!canT?'var(--cream)':'#fff';
+  var hsdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['host_sign_date']=this.value";
+  h+='<div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+hsd+'"'+hsdis+' data-fid="'+fid+'" data-key="host_sign_date" onchange="'+hsdOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+hsbg+';color:var(--ink);font-size:13px;"></div>';
+  h+='</div>';
+  h+='</div></div>';
   return h;
 }
+function buildF07M(f,d,canT,fkey,canS){return build360(f,d,canT,fkey,canS);}
+function buildF07S(f,d,canT,fkey,canS){return build360(f,d,canT,fkey,canS);}
+
 
 /* ─── F08 全人照護 ─── */
 function buildF08(f,d,canT,fkey,canS){
