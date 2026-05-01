@@ -1236,11 +1236,43 @@ function saveForm(id){
   // 清除草稿（已正式儲存）
   clearDraft(formKey);
   
-  // 儲存後重新鎖定：若是學生帳號+PIN解鎖，儲存後立即鎖回老師欄位
+  // 儲存後立即鎖回老師欄位（不重新載頁，直接在DOM操作）
   if(APP.currentRole==='student' && APP.teacherUnlocked){
     APP.teacherUnlocked=false;
+    // 直接在 DOM 上鎖定老師欄位
+    var mc=document.getElementById('main-content');
+    if(mc){
+      // 鎖定 t-field 類的 input/textarea/select
+      mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+        var key=el.getAttribute('data-key')||'';
+        var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
+          'epa_level','result','score','director_fb','t_title','team_sign','team_title'].some(function(p){return key.startsWith(p);}) ||
+          /^f(05|06|07|15)_/.test(key);
+        if(isTField){
+          el.disabled=true;
+          el.style.background='var(--cream)';
+          el.style.opacity='0.7';
+        }
+      });
+      // 鎖定老師評分按鈕（data-teacher="1"）
+      mc.querySelectorAll('button[data-teacher="1"]').forEach(function(btn){
+        btn.disabled=true;
+        btn.style.opacity='0.35';
+        btn.style.cursor='not-allowed';
+      });
+      // 重新顯示 lock-bar 提示
+      var lockBar=mc.querySelector('.lock-bar');
+      if(!lockBar){
+        var formHeader=mc.querySelector('.form-detail-header');
+        if(formHeader){
+          var newLock=document.createElement('div');
+          newLock.className='lock-bar';
+          newLock.innerHTML='🔒 老師評分欄位已重新鎖定。如需再次填寫，請輸入 PIN 碼：<input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8"><button class="unlock-btn" onclick="inlineUnlock()">解鎖</button><span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>';
+          formHeader.parentNode.insertBefore(newLock, formHeader.nextSibling);
+        }
+      }
+    }
     toast('表單已儲存 ✓（老師欄位已重新鎖定）');
-    setTimeout(function(){ APP._skipPinReset=false; openForm(id); }, 1500);
   } else {
     toast('表單已儲存 ✓');
   }
@@ -1325,11 +1357,14 @@ function buildHistoryItems(id){
 function canDownloadPDF(id){
   const formKey=getFormKey(id);
   const logs=APP.historyLog[formKey]||[];
-  const f=findForm(id);
-  if(!f||f.roles!=='both') return logs.length>0;
-  const hasStudentSaved=logs.some(function(l){return l.role==='student';});
-  const hasTeacherSaved=logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
-  return hasStudentSaved && hasTeacherSaved;
+  const d=APP.formData[formKey]||{};
+  // 條件：有任何儲存記錄 + 所有必填欄位都有資料
+  if(logs.length===0) return false;
+  // 檢查是否有實質資料（至少有5個以上欄位有值）
+  const filledCount=Object.keys(d).filter(function(k){
+    var v=d[k]; return v!==undefined&&v!==''&&v!==false&&v!==null;
+  }).length;
+  return filledCount >= 3; // 至少有3個欄位有值就顯示下載
 }
 
 function checkAndDownloadPDF(id){
@@ -3076,23 +3111,21 @@ function f01Click(btn){
   if(!fid||!key||!v)return;
   if(!APP.formData[fid])APP.formData[fid]={};
   APP.formData[fid][key]=v;
-  // 立即存到 localStorage（防止切換表單時遺失）
+  // 立即存到 localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(!drafts[fid])drafts[fid]={};
     drafts[fid][key]=v;
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
-  // Update button styles
-  var row=btn.parentNode;
-  if(row){
-    row.querySelectorAll('button[data-rkey="'+key+'"]').forEach(function(b){
-      var isSel=b.getAttribute('data-rval')===v;
-      var isTeacher=b.getAttribute('data-teacher')==='1';
-      b.style.background=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#ffffff';
-      b.style.color=isSel?'#ffffff':'#7A706A';
-      b.style.fontWeight=isSel?'700':'400';
-    });
-  }
+  // 單選互斥：找同一個 fid+key 的所有按鈕（document 全域）
+  document.querySelectorAll('button[data-fid="'+fid+'"][data-rkey="'+key+'"]').forEach(function(b){
+    var isSel=b.getAttribute('data-rval')===v;
+    var isTeacher=b.getAttribute('data-teacher')==='1';
+    b.style.background=isSel?(isTeacher?'#C0392B':'#2471A3'):'#ffffff';
+    b.style.color=isSel?'#ffffff':'#7A706A';
+    b.style.fontWeight=isSel?'700':'400';
+    b.style.border=isSel?('2px solid '+(isTeacher?'#C0392B':'#2471A3')):'1px solid #D4C9BB';
+  });
 }
 </script>
