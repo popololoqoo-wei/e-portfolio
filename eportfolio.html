@@ -1010,6 +1010,15 @@ async function openForm(id){
     autoSaveDraft(APP.currentFormId);
   }
 
+  // 每次進入新表單，學生的老師解鎖狀態重置（防止竄改）
+  if(APP.currentRole==='student'){
+    if(APP._skipPinReset){
+      APP._skipPinReset=false; // 用完即清除
+    } else {
+      APP.teacherUnlocked=false;
+    }
+  }
+
   APP.currentFormId=id;
   renderSidebar();
   const mc=document.getElementById('main-content');
@@ -1022,11 +1031,9 @@ async function openForm(id){
   </div>`;
 
   const formKey = getFormKey(id);
-  // 先載入草稿（快速）
-  loadDraft(formKey);
-  // 從 GAS 讀取共享資料（最新）
+  // 先從 GAS 讀取最新共享資料
   await loadFormFromSheets(formKey);
-  // 再次載入草稿，補充 GAS 沒有的本地草稿資料
+  // 再載入本地草稿（草稿蓋過GAS，確保最新填寫不遺失）
   loadDraft(formKey);
 
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
@@ -1150,12 +1157,15 @@ function inlineUnlock(){
   const msg=document.getElementById('inline-msg');
   if(pin===APP.teacherPIN){
     APP.teacherUnlocked=true;
+    APP._skipPinReset=true; // 標記：重載表單時不重置PIN
     msg.style.color='var(--green)';msg.textContent='解鎖成功！';
     setTimeout(()=>openForm(APP.currentFormId),400);
   } else {
     msg.style.color='var(--red)';msg.textContent='PIN碼錯誤';
   }
 }
+
+async function reloadFormKeepUnlocked(id){}
 
 /* ═══════════ SAVE ═══════════ */
 function saveForm(id){
@@ -1840,7 +1850,14 @@ function buildF01A(f,d,canT,fkey,canS){
     h+='</tr>';
   });
   h+='</table></div></div>';
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+signRow(fid,'s_sign','t_sign',canT)+'</div></div>';
+  // F01A 只保留學生簽名和學生簽名日期
+  var f01a_sd=d['s_sign_date']||'';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名區</div></div><div class="card-body">';
+  h+='<div class="g2">';
+  h+='<div class="field"><label>學生簽名</label>'+fi(fid,'s_sign','text',false,'姓名')+'</div>';
+  var f01a_oc="APP.formData['" +fid+ "']=(APP.formData['" +fid+ "']||{});APP.formData['" +fid+ "']['s_sign_date']=this.value";
+  h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+f01a_sd+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+f01a_oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
+  h+='</div></div></div>';
   return h;
 }
 
@@ -1865,14 +1882,14 @@ function buildF01B(f,d,canT,fkey,canS){
 
   let h=basicInfoCard(fid,d,'');
   h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th><th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th><th colspan="3">學生學後自評</th></tr>';
+  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學後自評</th><th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th><th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th></tr>';
   h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th></tr>';
   skills.forEach(function(skill,i){
     var k1='f01_p1_'+i,k2i='f01_p2_'+i,kpo='f01_post_'+i;
     h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kpo,v,false)+'</td>';});
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k1,v,true)+'</td>';});
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k2i,v,true)+'</td>';});
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kpo,v,false)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
@@ -2025,9 +2042,18 @@ function buildCbD(f,d,canT,fkey,canS){
   items.forEach(function(item,i){
     var key='f06_'+i;
     h+='<tr><td class="row-label">'+(i+1)+'. '+item+'</td>';
-    [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){h+='<td style="text-align:center;">'+rBtnTable(fid,key,v,'t',!canT)+'</td>';});
+    [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
+      // 防呆：點選 1-4 分時警示
+      var extraOnclick='';
+      if(typeof v==='number' && v<=4){
+        extraOnclick=' data-warn="true"';
+      }
+      h+='<td style="text-align:center;">'+rBtnTableCbD(fid,key,v,'t',!canT)+'</td>';
+    });
     h+='</tr>';
   });
+  // 防呆提示區
+  h+='<tr><td colspan="11" id="cbd-warn-'+fid+'" style="display:none;background:#FFF3CD;color:#8B6914;font-size:11px;padding:6px 10px;border-radius:4px;">⚠ 注意：評分 ≤ 4 分，UGY須≥5分才合格，請確認評分是否正確。</td></tr>';
   h+='</table></div></div>';
   // 雙向回饋 - 無字數限制
   h+='<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">';
@@ -2089,15 +2115,15 @@ function build360(f,d,canT,fkey,canS){
   h+=fi(fid,'t_sign','text',!canT,'臨床老師簽名');
   h+=fi(fid,'t_title','text',!canT,'職稱');
   h+='</div>';
-  // 其他團隊人員
+  // 其他團隊人員 - 開放給所有人填寫（不鎖定）
   h+='<div style="background:#F5F8FF;border:1px solid #D0D8F0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
-  h+='<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;">其他團隊人員評語 <span class="t-badge">老師</span></div>';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;">其他團隊人員評語（所有人皆可填寫）</div>';
   h+='<div class="g2">';
-  h+='<div class="field"><label>優點</label>'+ta(fid,'team_good',2,!canT)+'</div>';
-  h+='<div class="field"><label>建議</label>'+ta(fid,'team_suggest',2,!canT)+'</div>';
+  h+='<div class="field"><label>優點</label>'+ta(fid,'team_good',2,false)+'</div>';
+  h+='<div class="field"><label>建議</label>'+ta(fid,'team_suggest',2,false)+'</div>';
   h+='</div>';
-  h+=fi(fid,'team_sign','text',!canT,'其他團隊人員簽名');
-  h+=fi(fid,'team_title','text',!canT,'職稱');
+  h+=fi(fid,'team_sign','text',false,'其他團隊人員簽名');
+  h+=fi(fid,'team_title','text',false,'職稱');
   h+='</div>';
   // 實習指導教師
   h+='<div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>'+ta(fid,'director_fb',3,!canT)+'</div>';
@@ -2906,28 +2932,27 @@ function renderStatusSection(filterStatus){
 function autoSaveDraft(id){
   const formKey=getFormKey(id);
   if(!APP.formData[formKey])APP.formData[formKey]={};
-  // 收集頁面上所有 input/textarea/select（用 formKey 或 id 都找）
+  // 收集頁面上所有 input/textarea/select（匹配 id 或 formKey）
   document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
     if(!el.disabled){
       var fid=el.getAttribute('data-fid');
-      // 接受 fid === id 或 fid === formKey
       if(fid===id||fid===formKey){
-        APP.formData[formKey][el.dataset.key]=el.type==='checkbox'?el.checked:el.value;
+        var v=el.type==='checkbox'?el.checked:el.value;
+        if(v!==''&&v!==false&&v!==null) APP.formData[formKey][el.dataset.key]=v;
       }
     }
   });
-  // formData[formKey] 已包含 f01Click 存入的評分資料
-  // 存到 localStorage
+  // 存到 localStorage（包含 f01Click 已存入的評分資料）
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     var data=APP.formData[formKey];
     if(data&&Object.keys(data).some(function(k){
       var v=data[k]; return v!==''&&v!==false&&v!==null&&v!==undefined;
     })){
-      drafts[formKey]=JSON.parse(JSON.stringify(data)); // deep copy
+      drafts[formKey]=JSON.parse(JSON.stringify(data));
       localStorage.setItem('form_drafts',JSON.stringify(drafts));
     }
-  }catch(e){console.warn('autoSaveDraft error:',e);}
+  }catch(e){console.warn('autoSaveDraft:',e);}
 }
 
 function loadDraft(formKey){
@@ -2954,6 +2979,34 @@ function clearDraft(formKey){
     delete drafts[formKey];
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
+}
+
+/* CbD 防呆評分按鈕 */
+function rBtnTableCbD(fid,key,v,role,disabled){
+  var cur=(APP.formData[fid]||{})[key];
+  var isSel=cur==v||cur===String(v);
+  var selC=isSel?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
+  var dis=disabled?'disabled':'';
+  var warnAttr=(typeof v==='number'&&v<=4)?' data-cbd-warn="'+fid+'"':'';
+  return '<button class="r-btn '+selC+'" '+dis+warnAttr+' data-rkey="'+key+'" data-rval="'+v+'" data-fid="'+fid+'" onclick="cbdClick(this)">'+v+'</button>';
+}
+function cbdClick(btn){
+  var fid=btn.getAttribute('data-fid');
+  var key=btn.getAttribute('data-rkey');
+  var v=btn.getAttribute('data-rval');
+  if(btn.disabled)return;
+  setRating(fid,key,isNaN(v)?v:parseInt(v),'t',btn);
+  // 防呆警示
+  var warn=document.getElementById('cbd-warn-'+fid);
+  if(warn){
+    var score=parseInt(v);
+    if(!isNaN(score)&&score<=4){
+      warn.style.display='table-cell';
+      setTimeout(function(){if(warn)warn.style.display='none';},4000);
+    } else {
+      warn.style.display='none';
+    }
+  }
 }
 
 /* F01 專用點擊處理 */
