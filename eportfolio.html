@@ -654,9 +654,32 @@ function getFormKey(id){
 }
 
 function getStatus(id){
-  const d=APP.formData[id];
-  if(!d||Object.keys(d).length===0)return'new';
-  return'done';
+  const formKey=getFormKey(id);
+  const d=APP.formData[formKey]||{};
+  if(Object.keys(d).length===0)return'new';
+  const f=findForm(id);if(!f)return'done';
+  const sFields=f.sFields||[];
+  const tFields=f.tFields||[];
+  const allSFilled=sFields.length===0||sFields.every(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false);
+  const allTFilled=tFields.length===0||tFields.every(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false);
+  if(allSFilled&&allTFilled)return'done';
+  if(allSFilled&&tFields.length>0)return'wait';
+  return'partial';
+}
+
+function getStatusSummary(){
+  const statuses=FORMS.map(f=>getStatus(f.id));
+  return{
+    done:statuses.filter(s=>s==='done').length,
+    wait:statuses.filter(s=>s==='wait').length,
+    partial:statuses.filter(s=>s==='partial').length,
+    newF:statuses.filter(s=>s==='new').length,
+    total:FORMS.length
+  };
+}
+
+function getUnfilledForms(){
+  return FORMS.filter(f=>['new','partial'].includes(getStatus(f.id)));
 }
 
 /* ═══════════ SIDEBAR ═══════════ */
@@ -859,17 +882,24 @@ function renderFormList(){
   ];
   let html='<div class="form-list-view">';
   // progress
-  const total=FORMS.length;
-  const done=FORMS.filter(f=>getStatus(f.id)==='done').length;
-  const pct=Math.round(done/total*100);
+  const sm=getStatusSummary();
+  const pct=Math.round(sm.done/sm.total*100);
   html+=`<div class="card" style="margin-bottom:1.25rem;">
     <div class="card-body" style="padding:.9rem 1.1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <span style="font-size:13px;font-weight:600;color:var(--ink);">整體完成進度</span>
-        <span style="font-size:13px;font-weight:700;color:var(--gold);">${done}/${total} — ${pct}%</span>
+        <span style="font-size:13px;font-weight:700;color:var(--gold);">${sm.done}/${sm.total} — ${pct}%</span>
       </div>
-      <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;">
-        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:3px;transition:width .5s;"></div>
+      <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;display:flex;">
+        <div style="width:${Math.round(sm.done/sm.total*100)}%;height:100%;background:var(--green);transition:width .5s;"></div>
+        <div style="width:${Math.round(sm.wait/sm.total*100)}%;height:100%;background:var(--gold);transition:width .5s;"></div>
+        <div style="width:${Math.round(sm.partial/sm.total*100)}%;height:100%;background:#B4C8E0;transition:width .5s;"></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:7px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--green);">✅ 已完成 ${sm.done} 份</span>
+        <span style="font-size:11px;color:var(--gold);">⏳ 待老師評分 ${sm.wait} 份</span>
+        <span style="font-size:11px;color:#5A8AAA;">📝 進行中 ${sm.partial} 份</span>
+        <span style="font-size:11px;color:var(--ink3);">⭕ 未填寫 ${sm.newF} 份</span>
       </div>
     </div>
   </div>`;
@@ -1134,73 +1164,232 @@ function buildHistoryItems(id){
 
 /* ═══════════ PDF DOWNLOAD ═══════════ */
 function downloadPDF(id){
+  const formKey=getFormKey(id);
   const f=findForm(id);
-  const d=APP.formData[id]||{};
-  const logs=APP.historyLog[id]||[];
+  const d=APP.formData[formKey]||{};
+  const logs=APP.historyLog[formKey]||[];
   const lastSave=logs.length>0?logs[0]:null;
+  const fieldNames=getFieldNames(id);
 
-  // Build a styled printable page
-  let content=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  // 找到對應的學生資訊
+  let studentName='', studentSchool='', studentId='';
+  if(APP.currentRole==='student'&&APP.currentUser){
+    studentName=APP.currentUser.name;
+    studentSchool=APP.currentUser.school||'';
+    studentId=APP.currentUser.sid||'';
+  } else if(APP.currentStudentId){
+    const stu=APP.students[APP.currentStudentId];
+    if(stu){studentName=stu.name;studentSchool=stu.school||'';studentId=APP.currentStudentId;}
+  }
+
+  let content_html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  body{font-family:'Noto Sans TC',sans-serif;padding:2cm;color:#1A1612;font-size:11pt;}
-  .pdf-border{border:2px solid #1A1612;border-radius:8px;padding:1.5cm;min-height:26cm;}
-  .pdf-header{text-align:center;border-bottom:2px solid #B8860B;padding-bottom:12px;margin-bottom:16px;}
-  .pdf-hosp{font-size:9pt;color:#7A706A;letter-spacing:1px;}
-  .pdf-title{font-size:16pt;font-weight:700;margin:6px 0 4px;}
-  .pdf-sub{font-size:10pt;color:#7A706A;}
-  .pdf-meta{font-size:9pt;color:#7A706A;margin-top:6px;}
-  table{width:100%;border-collapse:collapse;margin-bottom:12px;}
-  th{background:#F9F6F0;padding:6px 8px;text-align:left;border:1px solid #D4C9BB;font-size:10pt;font-weight:700;color:#3D3530;}
-  td{padding:6px 8px;border:1px solid #D4C9BB;font-size:10pt;vertical-align:top;}
-  .section-title{font-size:11pt;font-weight:700;margin:14px 0 6px;color:#1A3A5C;border-left:3px solid #B8860B;padding-left:8px;}
-  .field-row{display:grid;grid-template-columns:160px 1fr;gap:4px;padding:5px 0;border-bottom:1px solid #EAE2D8;}
-  .field-label{font-weight:600;color:#7A706A;font-size:9.5pt;}
-  .field-val{color:#1A1612;font-size:10pt;white-space:pre-wrap;}
-  .history-section{margin-top:16px;padding-top:12px;border-top:1px solid #D4C9BB;}
-  .history-title{font-size:9pt;font-weight:700;color:#7A706A;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
-  .history-row{font-size:9pt;color:#7A706A;padding:3px 0;border-bottom:1px solid #EAE2D8;}
-</style></head><body><div class="pdf-border">`;
+  @page{size:A4;margin:1.5cm;}
+  body{font-family:'Noto Sans TC',sans-serif;font-size:10pt;color:#1A1612;margin:0;padding:0;}
+  .outer-border{border:2px solid #1A1612;padding:1cm;}
+  .page-header{text-align:center;border-bottom:2px solid #B8860B;padding-bottom:10px;margin-bottom:14px;}
+  .hosp{font-size:9pt;color:#7A706A;letter-spacing:1px;}
+  .title{font-size:15pt;font-weight:700;margin:6px 0 3px;}
+  .sub{font-size:9pt;color:#7A706A;}
+  .save-info{font-size:8pt;color:#7A706A;margin-top:4px;}
+  .section-title{font-size:10pt;font-weight:700;background:#F0EDE8;border-left:3px solid #B8860B;padding:4px 8px;margin:12px 0 6px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:9.5pt;}
+  th{background:#2D2A26;color:#fff;padding:5px 8px;text-align:left;font-weight:600;font-size:9pt;}
+  th.center{text-align:center;}
+  td{padding:5px 8px;border:1px solid #D4C9BB;vertical-align:top;}
+  td.label{background:#F5F2EE;font-weight:600;color:#3D3530;width:30%;white-space:nowrap;}
+  td.value{white-space:pre-wrap;word-break:break-word;}
+  td.center{text-align:center;}
+  td.t-field{background:#FFF8F5;}
+  tr:nth-child(even) td{background:#FDFBF7;}
+  tr:nth-child(even) td.label{background:#EDE9E4;}
+  tr:nth-child(even) td.t-field{background:#FFF0EC;}
+  .rating-table th{background:#1A3A5C;font-size:8pt;}
+  .history-section{border-top:1px solid #D4C9BB;margin-top:12px;padding-top:8px;}
+  .history-title{font-size:8pt;font-weight:700;color:#7A706A;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
+  .history-row{font-size:8pt;color:#7A706A;padding:2px 0;border-bottom:1px solid #EAE2D8;}
+  .badge{display:inline-block;padding:1px 6px;border-radius:999px;font-size:8pt;}
+  .badge-t{background:#F5EBE8;color:#8B2020;}
+  .badge-s{background:#E8F0EE;color:#1A3A5C;}
+</style></head><body><div class="outer-border">`;
 
-  content+=`<div class="pdf-header">
-    <div class="pdf-hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>
-    <div class="pdf-title">${f.name}</div>
-    <div class="pdf-sub">${f.sub}</div>
-    ${lastSave?`<div class="pdf-meta">最後儲存：${new Date(lastSave.ts).toLocaleString('zh-TW')}　by ${lastSave.roleLabel}：${lastSave.name}</div>`:''}
+  content_html+=`<div class="page-header">
+    <div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>
+    <div class="title">${f.name}</div>
+    <div class="sub">${f.num}、${f.sub}</div>
+    ${studentName?`<div class="save-info">學生：${studentName}（${studentId}）　${studentSchool}</div>`:''}
+    ${lastSave?`<div class="save-info">最後儲存：${new Date(lastSave.ts).toLocaleString('zh-TW')}　by ${lastSave.roleLabel}：${lastSave.name}</div>`:''}
   </div>`;
 
-  // Render all data as field rows
-  const fieldNames=getFieldNames(id);
-  content+=`<div class="section-title">表單內容</div>`;
-  Object.entries(d).forEach(([k,v])=>{
-    if(!v&&v!==0)return;
-    const label=fieldNames[k]||k;
-    content+=`<div class="field-row"><div class="field-label">${label}</div><div class="field-val">${v}</div></div>`;
-  });
+  // ── 基本資料表格 ──
+  const basicFields=['s_name','school','s_date','date','t_name','teacher_name','period'];
+  const basicData=basicFields.filter(k=>d[k]).map(k=>`<tr><td class="label">${fieldNames[k]||k}</td><td class="value">${d[k]}</td></tr>`).join('');
+  if(basicData){
+    content_html+=`<div class="section-title">基本資料</div><table>${basicData}</table>`;
+  }
 
-  // History
+  // ── 根據表單ID生成對應表格 ──
+  content_html += buildPDFTable(id,f,d,fieldNames);
+
+  // ── 簽名欄位 ──
+  const signFields=['s_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_date'];
+  const signData=signFields.filter(k=>d[k]);
+  if(signData.length>0){
+    content_html+=`<div class="section-title">簽名</div><table>`;
+    for(let i=0;i<signData.length;i+=2){
+      const k1=signData[i],k2=signData[i+1];
+      const isT1=k1&&(k1.startsWith('t_')||k1.startsWith('host'));
+      const isT2=k2&&(k2&&(k2.startsWith('t_')||k2.startsWith('host')));
+      content_html+=`<tr>
+        <td class="label">${fieldNames[k1]||k1}</td>
+        <td class="value${isT1?' t-field':''}">${d[k1]||''}</td>
+        ${k2?`<td class="label">${fieldNames[k2]||k2}</td><td class="value${isT2?' t-field':''}">${d[k2]||''}</td>`:'<td></td><td></td>'}
+      </tr>`;
+    }
+    content_html+=`</table>`;
+  }
+
+  // ── 歷次修改紀錄 ──
   if(logs.length>0){
-    content+=`<div class="history-section"><div class="history-title">修改紀錄</div>`;
+    content_html+=`<div class="history-section"><div class="history-title">修改紀錄</div>`;
     logs.forEach((l,i)=>{
       const dt=new Date(l.ts);
-      const ts=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
-      content+=`<div class="history-row">#${logs.length-i}　${ts}　${l.roleLabel}：${l.name}</div>`;
+      const ts=dt.toLocaleString('zh-TW');
+      const badge=`<span class="badge ${l.role==='teacher'?'badge-t':'badge-s'}">${l.roleLabel}：${l.name}</span>`;
+      content_html+=`<div class="history-row">#${logs.length-i}　${ts}　${badge}</div>`;
     });
-    content+='</div>';
+    content_html+=`</div>`;
   }
 
-  // Special: satisfaction averages
-  if(id==='F03'){
-    content+=buildSatisfactionSummaryHTML(d);
-  }
+  content_html+=`</div></body></html>`;
 
-  content+=`</div></body></html>`;
-
-  const blob=new Blob([content],{type:'text/html'});
+  const blob=new Blob([content_html],{type:'text/html'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=`${f.name}.html`;a.click();
+  a.href=url;
+  const fname=`${f.num}_${f.name}${studentName?'_'+studentName:''}.html`;
+  a.download=fname;a.click();
   URL.revokeObjectURL(url);
   toast('PDF 已產生（請在瀏覽器列印為PDF）');
+}
+
+/* ── 各表單專屬PDF表格 ── */
+function buildPDFTable(id,f,d,fieldNames){
+  let h='';
+
+  // F01 核心課程自我評值表
+  if(id==='F01'){
+    const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣系統','認識不同的人工氣道','12.1 抽痰','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
+    h+=`<div class="section-title">核心技能評核矩陣</div>
+    <table class="rating-table"><tr><th style="width:40%;">核心技能學習目標</th><th class="center">學前自評</th><th class="center">指導者評核(1)</th><th class="center">指導者評核(2)</th><th class="center">學後自評</th><th class="center">未評</th></tr>`;
+    skills.forEach((skill,i)=>{
+      const pre=d[`f01_pre_${i}`]||'—',p1=d[`f01_p1_${i}`]||'—',p2=d[`f01_p2_${i}`]||'—',post=d[`f01_post_${i}`]||'—',na=d[`f01_na_${i}`]?'✓':'';
+      h+=`<tr><td>${i+1}. ${skill}</td><td class="center">${pre}</td><td class="center t-field">${p1}</td><td class="center t-field">${p2}</td><td class="center">${post}</td><td class="center">${na}</td></tr>`;
+    });
+    h+=`</table>`;
+    return h;
+  }
+
+  // F02 臨床表現自我學後評值表
+  if(id==='F02'){
+    const items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
+    h+=`<div class="section-title">臨床表現評估（5分制）</div>
+    <table><tr><th style="width:70%;">評估項目</th><th class="center">自評分數</th></tr>`;
+    items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center">${d[`f02_${i}`]||'—'}</td></tr>`);
+    h+=`</table>`;
+  }
+
+  // F06 CbD
+  if(id==='F06'){
+    const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
+    h+=`<div class="section-title">CbD 評量（1-9分；UGY≥5合格）</div>
+    <table><tr><th style="width:60%;">評量項目</th><th class="center">評分</th></tr>`;
+    items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center t-field">${d[`f06_${i}`]||'—'}</td></tr>`);
+    h+=`</table>`;
+  }
+
+  // F13 書面個案報告
+  if(id==='F13'){
+    const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
+    const total=items.reduce((s,[k])=>s+(parseInt(d[k])||0),0);
+    h+=`<div class="section-title">書面個案報告評分（滿分100分）</div>
+    <table><tr><th style="width:60%;">評分項目</th><th class="center">配分</th><th class="center">得分</th></tr>`;
+    items.forEach(([k,label,max])=>h+=`<tr><td>${label}</td><td class="center">${max}分</td><td class="center t-field">${d[k]||'—'}</td></tr>`);
+    h+=`<tr><td style="font-weight:700;text-align:right;">合計</td><td class="center">100分</td><td class="center t-field" style="font-weight:700;">${total}</td></tr></table>`;
+  }
+
+  // F14 PPT
+  if(id==='F14'){
+    const sections=[{t:'報告技巧',items:[['報告技巧1：口語表達清晰流暢',5],['報告技巧2：台風穩健',5],['報告技巧3：熟悉報告主題及內容',10],['報告技巧4：時間掌握良好',5]]},{t:'內容',items:[['前言與入院經過',10],['身體評估',10],['疾病流程圖與呼吸照護主要問題',10],['呼吸照護計畫',10],['討論與文獻回顧',15],['回答問題',10]]},{t:'其他',items:[['期刊選擇-內容完整度',5],['與老師討論-準時認真',5]]}];
+    h+=`<div class="section-title">PPT評分（滿分100分）</div><table><tr><th style="width:50%;">評分項目</th><th class="center">配分</th><th class="center">得分</th></tr>`;
+    let ki=0;
+    sections.forEach(sec=>{
+      h+=`<tr><td colspan="3" style="background:#E8E0D8;font-weight:700;font-size:9pt;">${sec.t}</td></tr>`;
+      sec.items.forEach(([label,max])=>{h+=`<tr><td>${label}</td><td class="center">${max}分</td><td class="center t-field">${d[`f14_${ki}`]||'—'}</td></tr>`;ki++;});
+    });
+    h+=`</table>`;
+  }
+
+  // F15 課程評值表
+  if(id==='F15'){
+    const sections=[
+      {t:'一、學習態度（30%）',items:['能確立個人學習目標','能主動參與所有教學活動','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'],prefix:'f15_att'},
+      {t:'二、專業知識及技能（50%）',items:['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力'],prefix:'f15_skl'},
+      {t:'三、溝通、協調與專業態度（20%）',items:['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'],prefix:'f15_com'},
+    ];
+    h+=`<div class="section-title">實習課程評值表</div>
+    <table><tr><th style="width:70%;">評值項目</th><th class="center">評分（1-5）</th></tr>`;
+    sections.forEach(sec=>{
+      h+=`<tr><td colspan="2" style="background:#E8E0D8;font-weight:700;font-size:9pt;">${sec.t}</td></tr>`;
+      sec.items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center t-field">${d[`${sec.prefix}_${i}`]||'—'}</td></tr>`);
+    });
+    h+=`</table>`;
+  }
+
+  // DOPS 表單
+  if(['D01','D02','D03','D04'].includes(id)){
+    const dopsData={'D01':{name:'抽痰技術',items:['確認醫囑','確認病人並解釋','洗手戴口罩','備物：無菌抽痰包、聽診器','選擇合適抽痰管','調整抽吸器壓力','床頭抬高30-45度','抽痰前100%氧氣1分鐘','打開抽痰包','單手戴無菌手套連接抽痰管','間歇旋轉抽吸勿超15秒','抽痰順序：氣管→鼻→口','評估咳嗽能力、痰液性質','注意生命徵象','沖洗後取下關掉抽吸器','抽痰後100%氧氣1分鐘','恢復床邊安全','聽診呼吸音','技術後洗手','正確記錄']},'D02':{name:'MDI配合呼吸器',items:['確認醫囑與適應症','確認病人並解釋','洗手戴口罩','三讀五對','備物','維持呼吸道通暢','搖晃儲藥罐5-10秒','執行前抽痰','Aero-chamber接Y型接頭','MDI卡榫接上','按下MDI注入藥物','間隔30-60秒','等待6次完整吸吐氣','觀察副作用','觀察生命徵象及藥效','恢復床邊安全','Aero-chamber清潔','技術後洗手']},'D03':{name:'呼吸器技術操作',items:['確認醫囑與適應症','確認病人','洗手戴口罩','備物','正確組裝管路','呼吸器功能測試','呼吸器初步設定','監測：聽診、生命徵象','障礙排除先檢查病人','依警報原因調整','面板每日漂白水擦拭','技術後洗手','正確記錄','管路依分類處理','面板表面漂白水擦拭','Exp.cassette酒精浸泡烘乾','細菌過濾器高溫殺菌','管路巴斯德消毒']},'D04':{name:'呼吸器脫離指標測量',items:['確認醫囑','評估是否符合脫離','洗手戴口罩','備物','維持呼吸道通暢','確認病人並解釋','協助半坐臥45-90度','測量RR及VE','計算Vt及RSBI','測量MIP(最大吸氣力量)','測量MEP(最大吐氣力量)','測氣囊漏氣量CLT','觀察生命徵象','評估結果','解釋測量結果','回復姿勢整理環境','清潔歸位','洗手','記錄與交班']}};
+    const dops=dopsData[id];
+    h+=`<div class="section-title">DOPS：${dops.name} — 直接觀察評估（1-9分；NA=未評）</div>
+    <table><tr><th style="width:70%;">評核內容</th><th class="center">評分</th></tr>`;
+    dops.items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center t-field">${d[`${id}_i${i+1}`]||'—'}</td></tr>`);
+    h+=`</table>`;
+    h+=`<table><tr><td class="label">評量結果</td><td class="t-field">${d['result']||'—'}</td><td class="label">評分分數</td><td class="t-field">${d['score']||'—'}</td></tr>
+    <tr><td class="label">技術複雜度</td><td>${d['complexity']||'—'}</td><td class="label">學生心得</td><td>${d['s_feeling']||'—'}</td></tr></table>`;
+  }
+
+  // EPA 表單
+  if(['E01','E02','E03'].includes(id)){
+    const epaNames={'E01':'(6) 侵襲性呼吸器初始設定及照護','E02':'(8) 使用呼吸器病人之緊急處置','E03':'(10) 侵襲性呼吸器病人之脫離照護'};
+    const lvls=['僅觀察，不得獨立操作','需主動協助，可在直接監督下操作','需被動協助，可在間接監督下操作','可獨立操作，只需遠端監督','可指導他人操作'];
+    const lv=parseInt(d['epa_level'])||0;
+    h+=`<div class="section-title">EPA：${epaNames[id]}</div>
+    <table><tr><td class="label">可信賴等級</td><td class="t-field" style="font-weight:700;font-size:12pt;">等級 ${lv||'—'}</td></tr>
+    ${lv?`<tr><td class="label">等級說明</td><td>${lvls[lv-1]||''}</td></tr>`:''}
+    <tr><td class="label">老師回饋</td><td class="t-field">${d['t_fb']||'—'}</td></tr>
+    <tr><td class="label">學生觀察紀錄</td><td>${d['s_note']||'—'}</td></tr></table>`;
+  }
+
+  // 通用文字欄位（fb、comment等）
+  const textFields=['s_comment','s_fb','s_feeling','s_self','t_fb','t_good','t_improve','t_comment','director_fb',
+    'peer_good','peer_suggest','ilp_fb','t_note','env_review','teacher_review','self_review',
+    'goal','motivation','strategy','difficulty','criteria','timeline',
+    'pt_info','care_plan','reflection','c1','c2','c3',
+    'content','feeling','medical_focus','rt_plan','diagnosis',
+    'case_name','case_dx','self_discuss','cbd_score','cbd_fb',
+    'teacher_suggest','content_suggest','counsel_notes','s_suggest',
+    'leave_pub','leave_sick','leave_priv','late_cnt','bonus'];
+  const textData=textFields.filter(k=>d[k]&&String(d[k]).trim());
+  if(textData.length>0){
+    h+=`<div class="section-title">詳細內容</div><table>`;
+    textData.forEach(k=>{
+      const isT=k.startsWith('t_')||k==='director_fb'||k==='peer_good'||k==='peer_suggest';
+      h+=`<tr><td class="label">${fieldNames[k]||k}</td><td class="value${isT?' t-field':''}">${String(d[k])}</td></tr>`;
+    });
+    h+=`</table>`;
+  }
+
+  return h;
 }
 
 function getFieldNames(id){
@@ -1521,14 +1710,14 @@ function buildF01(f,d,canT,fkey){
   skills.forEach((skill,i)=>{
     const kp=`f01_pre_${i}`,k1=`f01_p1_${i}`,k2=`f01_p2_${i}`,kpo=`f01_post_${i}`,kna=`f01_na_${i}`;
     h+=`<tr><td class="row-label">${i+1}. ${skill}</td>`;
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,kp,v,'s',false)}</td>`);
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,k1,v,'t',!canT)}</td>`);
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,k2,v,'t',!canT)}</td>`);
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,kpo,v,'s',false)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,kp,v,'s',false)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,k1,v,'t',!canT)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,k2,v,'t',!canT)}</td>`);
+    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,kpo,v,'s',false)}</td>`);
     h+=`<td style="text-align:center;"><input type="checkbox" ${d[kna]?'checked':''} data-fid="${fid}" data-key="${kna}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${kna}']=this.checked" style="accent-color:var(--gold);"></td></tr>`;
   });
   h+=`</table></div></div>`;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">${signRow(f.id,'s_sign','t_sign',canT)}</div></div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">${signRow(fid,'s_sign','t_sign',canT)}</div></div>`;
   return h;
 }
 
@@ -1542,7 +1731,7 @@ function buildF02(f,d,canT,fkey){
   items.forEach((item,i)=>{
     const key=`f02_${i}`;
     h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
-    [5,4,3,2,1].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'s',false)}</td>`);
+    [5,4,3,2,1].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'s',false)}</td>`);
     h+=`</tr>`;
   });
   h+=`</table></div></div>`;
@@ -1575,7 +1764,7 @@ function buildF03(f,d,canT,fkey){
     sec.items.forEach((item,i)=>{
       const key=sec.prefix+'_'+i;
       h+=`<tr><td class="row-label">${item}</td>`;
-      [5,4,3,2,1,'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'s',false)}</td>`);
+      [5,4,3,2,1,'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'s',false)}</td>`);
       h+=`</tr>`;
     });
     h+=`</table></div></div>`;
@@ -1635,7 +1824,7 @@ function buildF05(f,d,canT,fkey){
   items.forEach((item,i)=>{
     const key=`f05_${i}`;
     h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
-    [5,4,3,2,1,0].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'s',false)}</td>`);
+    [5,4,3,2,1,0].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'s',false)}</td>`);
     h+=`</tr>`;
   });
   h+=`</table></div>
@@ -1657,7 +1846,7 @@ function buildF06(f,d,canT,fkey){
   items.forEach((item,i)=>{
     const key=`f06_${i}`;
     h+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
-    [...[1,2,3,4,5,6,7,8,9],'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'t',!canT)}</td>`);
+    [...[1,2,3,4,5,6,7,8,9],'NA'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'t',!canT)}</td>`);
     h+=`</tr>`;
   });
   h+=`</table></div></div>`;
@@ -1700,7 +1889,7 @@ function buildF07(f,d,canT,fkey){
   rows.forEach((row,i)=>{
     const key=`f07_${i}`;
     h+=`<tr><td style="font-size:11px;font-weight:500;">${row[0]}</td><td style="font-size:11px;">${row[1]}</td><td class="row-label">${row[2]}</td>`;
-    row[3].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'t',!canT)}</td>`);
+    row[3].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'t',!canT)}</td>`);
     h+=`</tr>`;
   });
   h+=`</table></div></div>`;
@@ -1984,7 +2173,7 @@ function buildF15(f,d,canT,fkey){
     items.forEach((item,i)=>{
       const key=`${prefix}_${i}`;
       s+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
-      [5,4,3,2,1].forEach(v=>s+=`<td style="text-align:center;">${rBtnTable(f.id,key,v,'t',!canT)}</td>`);
+      [5,4,3,2,1].forEach(v=>s+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'t',!canT)}</td>`);
       s+=`</tr>`;
     });
     s+=`</table></div></div>`;
@@ -2396,17 +2585,32 @@ function showUnfilledNotification() {
   
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const sm2=getStatusSummary();
   overlay.innerHTML = `
-    <div style="background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);padding:2rem;max-width:380px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2);">
-      <div style="font-size:40px;margin-bottom:1rem;">📋</div>
-      <div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;margin-bottom:.5rem;">尚有未填寫表單</div>
-      <div style="font-size:14px;color:var(--ink3);margin-bottom:1.5rem;">您還有
-        <span onclick="closeNotify();renderUnfilledSection();" style="font-size:24px;font-weight:700;color:var(--red);cursor:pointer;text-decoration:underline;">${unfilled.length}</span>
-        份表單尚未填寫
+    <div style="background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);padding:2rem;max-width:420px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2);">
+      <div style="font-size:36px;margin-bottom:.75rem;">📋</div>
+      <div style="font-family:var(--ff-serif);font-size:17px;font-weight:600;margin-bottom:1rem;">學習護照完成狀況</div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:28px;font-weight:700;color:var(--green);">${sm2.done}</div>
+          <div style="font-size:11px;color:var(--ink3);">已完成</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:28px;font-weight:700;color:var(--gold);">${sm2.wait}</div>
+          <div style="font-size:11px;color:var(--ink3);">待老師評分</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:28px;font-weight:700;color:#5A8AAA;">${sm2.partial}</div>
+          <div style="font-size:11px;color:var(--ink3);">進行中</div>
+        </div>
+        <div style="text-align:center;">
+          <div onclick="closeNotify();renderUnfilledSection();" style="font-size:28px;font-weight:700;color:var(--red);cursor:pointer;text-decoration:underline;">${sm2.newF}</div>
+          <div style="font-size:11px;color:var(--ink3);">未填寫</div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;">
-        <button onclick="closeNotify();renderUnfilledSection();" style="padding:10px 24px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;">查看未填表單</button>
-        <button onclick="closeNotify();" style="padding:10px 16px;background:none;border:1px solid var(--border);border-radius:var(--r);font-size:13px;cursor:pointer;color:var(--ink3);">稍後再說</button>
+        <button onclick="closeNotify();renderUnfilledSection();" style="padding:10px 22px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;">查看待填表單</button>
+        <button onclick="closeNotify();" style="padding:10px 16px;background:none;border:1px solid var(--border);border-radius:var(--r);font-size:13px;cursor:pointer;color:var(--ink3);">關閉</button>
       </div>
     </div>`;
   overlay.id = 'unfilled-notify';
