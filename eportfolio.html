@@ -979,8 +979,9 @@ function renderFormList(){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
-      const dotC=st==='done'?'dot-done':'dot-new';
-      const stLabel=st==='done'?'已填寫':'未填寫';
+      const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':st==='partial'?'dot-partial':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='wait'?'⏳ 待老師評分':st==='partial'?'📝 進行中':'⭕ 未填寫';
+      const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       const rolesTag=f.roles==='both'?`<span class="tag tag-both">學生＋老師</span>`:f.roles==='student'?`<span class="tag tag-student">學生填寫</span>`:`<span class="tag tag-teacher">老師填寫</span>`;
       html+=`<div class="form-card" onclick="openForm('${id}')">
         <div class="form-card-num">${f.num}</div>
