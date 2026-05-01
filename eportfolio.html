@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1725,25 +1726,67 @@ function buildF01(f,d,canT,fkey){
     '操作呼吸脫離指標','全人照護參與(團隊查房、跨團隊會議、晨會等)',
   ];
   let h=basicInfoCard(fid,d,'');
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative;z-index:1;">
-  <table class="rating-table">
-  <tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th>
-    <th colspan="3">學生學前自評</th>
-    <th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th>
-    <th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th>
-    <th colspan="3">學生學後自評</th>
-    <th>未評</th></tr>
-  <tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th></th></tr>`;
+
+  // 學生學前自評 - 獨立卡片，不在overflow table裡
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學生學前自評<span class="s-badge">學生填寫</span></div></div><div class="card-body">`;
   skills.forEach((skill,i)=>{
-    const kp=`f01_pre_${i}`,k1=`f01_p1_${i}`,k2=`f01_p2_${i}`,kpo=`f01_post_${i}`,kna=`f01_na_${i}`;
-    h+=`<tr><td class="row-label">${i+1}. ${skill}</td>`;
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,kp,v,'s',false)}</td>`);
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,k1,v,'t',!canT)}</td>`);
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,k2,v,'t',!canT)}</td>`);
-    ['佳','可','差'].forEach(v=>h+=`<td style="text-align:center;">${rBtnTable(fid,kpo,v,'s',false)}</td>`);
-    h+=`<td style="text-align:center;"><input type="checkbox" ${d[kna]?'checked':''} data-fid="${fid}" data-key="${kna}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${kna}']=this.checked" style="accent-color:var(--gold);"></td></tr>`;
+    const key=`f01_pre_${i}`;
+    const cur=(d[key]||'');
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap;">
+      <span style="flex:1;font-size:12px;min-width:120px;">${i+1}. ${skill}</span>
+      <div style="display:flex;gap:4px;">
+        ${['佳','可','差'].map(v=>`<button onclick="setRating('${fid}','${key}','${v}','s',this)" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" style="width:36px;height:32px;border:1px solid var(--border);border-radius:var(--r);background:${cur===v?'var(--blue)':'#fff'};color:${cur===v?'#fff':'var(--ink3)'};font-size:12px;cursor:pointer;font-weight:${cur===v?'700':'400'};">${v}</button>`).join('')}
+      </div>
+    </div>`;
   });
-  h+=`</table></div></div>`;
+  h+=`</div></div>`;
+
+  // 指導者評核(1) - 老師欄位
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導者評核（第1次）<span class="t-badge">老師填寫</span></div></div><div class="card-body">`;
+  skills.forEach((skill,i)=>{
+    const key=`f01_p1_${i}`;
+    const cur=(d[key]||'');
+    const dis=!canT;
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap;">
+      <span style="flex:1;font-size:12px;min-width:120px;">${i+1}. ${skill}</span>
+      <div style="display:flex;gap:4px;">
+        ${['佳','可','差'].map(v=>`<button ${dis?'disabled':''} onclick="setRating('${fid}','${key}','${v}','t',this)" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" style="width:36px;height:32px;border:1px solid var(--border);border-radius:var(--r);background:${cur===v?'var(--red)':'#fff'};color:${cur===v?'#fff':'var(--ink3)'};font-size:12px;cursor:${dis?'not-allowed':'pointer'};opacity:${dis?'0.4':'1'};font-weight:${cur===v?'700':'400'};">${v}</button>`).join('')}
+      </div>
+    </div>`;
+  });
+  h+=`</div></div>`;
+
+  // 指導者評核(2)
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導者評核（第2次）<span class="t-badge">老師填寫</span></div></div><div class="card-body">`;
+  skills.forEach((skill,i)=>{
+    const key=`f01_p2_${i}`;
+    const cur=(d[key]||'');
+    const dis=!canT;
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap;">
+      <span style="flex:1;font-size:12px;min-width:120px;">${i+1}. ${skill}</span>
+      <div style="display:flex;gap:4px;">
+        ${['佳','可','差'].map(v=>`<button ${dis?'disabled':''} onclick="setRating('${fid}','${key}','${v}','t',this)" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" style="width:36px;height:32px;border:1px solid var(--border);border-radius:var(--r);background:${cur===v?'var(--red)':'#fff'};color:${cur===v?'#fff':'var(--ink3)'};font-size:12px;cursor:${dis?'not-allowed':'pointer'};opacity:${dis?'0.4':'1'};font-weight:${cur===v?'700':'400'};">${v}</button>`).join('')}
+      </div>
+    </div>`;
+  });
+  h+=`</div></div>`;
+
+  // 學生學後自評 - 獨立卡片
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學生學後自評<span class="s-badge">學生填寫</span></div></div><div class="card-body">`;
+  skills.forEach((skill,i)=>{
+    const key=`f01_post_${i}`;
+    const naKey=`f01_na_${i}`;
+    const cur=(d[key]||'');
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap;">
+      <span style="flex:1;font-size:12px;min-width:120px;">${i+1}. ${skill}</span>
+      <div style="display:flex;gap:4px;align-items:center;">
+        ${['佳','可','差'].map(v=>`<button onclick="setRating('${fid}','${key}','${v}','s',this)" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" style="width:36px;height:32px;border:1px solid var(--border);border-radius:var(--r);background:${cur===v?'var(--blue)':'#fff'};color:${cur===v?'#fff':'var(--ink3)'};font-size:12px;cursor:pointer;font-weight:${cur===v?'700':'400'};">${v}</button>`).join('')}
+        <label style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:3px;margin-left:4px;"><input type="checkbox" ${d[naKey]?'checked':''} data-fid="${fid}" data-key="${naKey}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${naKey}']=this.checked" style="accent-color:var(--gold);"> 未評</label>
+      </div>
+    </div>`;
+  });
+  h+=`</div></div>`;
+
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">${signRow(fid,'s_sign','t_sign',canT)}</div></div>`;
   return h;
 }
