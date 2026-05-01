@@ -314,7 +314,7 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
     <div class="topbar-right">
       <span id="topbar-user" class="user-badge"></span>
       <span id="topbar-role" class="role-chip"></span>
-      <button id="btn-home" onclick="renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
+      <button id="btn-home" onclick="APP.currentRole==='teacher'?renderTeacherHome():renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -625,6 +625,7 @@ function enterApp(){
   }catch(e){}
   renderSidebar();
   if(APP.currentRole==='admin'){renderAdmin();}
+  else if(APP.currentRole==='teacher'){renderTeacherHome();}
   else{renderFormList(); setTimeout(showUnfilledNotification, 800);}
 }
 
@@ -997,7 +998,8 @@ function renderFormList(){
 /* ═══════════ OPEN FORM ═══════════ */
 async function openForm(id){
   // 自動暫存目前表單（如果有未儲存的資料）
-  if(APP.currentFormId && APP.currentFormId !== id && APP.currentFormId !== '__unfilled__'){
+  if(APP.currentFormId && APP.currentFormId !== id && 
+     !APP.currentFormId.startsWith('__')){
     autoSaveDraft(APP.currentFormId);
   }
 
@@ -2680,10 +2682,6 @@ function checkStudentExpiry(sid) {
 }
 
 /* ── 尚未填寫表單區 ── */
-function getUnfilledForms() {
-  return FORMS.filter(f => getStatus(f.id) === 'new');
-}
-
 function renderUnfilledSection() {
   APP.currentFormId='__unfilled__';
   renderSidebar();
@@ -2716,8 +2714,9 @@ function renderUnfilledSection() {
 /* ── 登入後彈跳通知 ── */
 function showUnfilledNotification() {
   if (APP.currentRole !== 'student') return;
-  const unfilled = getUnfilledForms();
-  if (unfilled.length === 0) return;
+  const sm2check=getStatusSummary();
+  // 只要有任何未完成的表單就顯示通知
+  if (sm2check.done === sm2check.total) return; // 全部完成才不顯示
   
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;';
@@ -2756,6 +2755,32 @@ function showUnfilledNotification() {
 function closeNotify() {
   const el = document.getElementById('unfilled-notify');
   if (el) el.remove();
+}
+
+function renderTeacherHome(){
+  APP.currentFormId=null;
+  APP.currentStudentId=null;
+  renderSidebar();
+  const mc=document.getElementById('main-content');
+  let html='<div class="form-list-view">';
+  html+=`<div class="form-detail-header" style="margin-bottom:1.25rem;">
+    <h1>📋 臨床老師評分系統</h1>
+    <div class="fh-meta">請從左側選擇學生，或點擊下方表單開始評分</div>
+  </div>`;
+  // Show student list
+  html+='<div class="section-header"><h2>學生名單</h2></div>';
+  html+='<div class="form-grid">';
+  Object.entries(APP.students).forEach(function([sid,acc]){
+    html+=`<div class="form-card" onclick="selectStudent('${sid}')">
+      <div class="form-card-num" style="background:var(--blue);">👤</div>
+      <div class="form-card-name">${acc.name}</div>
+      <div class="form-card-sub">${acc.school||''}　學號：${sid}</div>
+      <div class="form-card-meta"><span style="font-size:11px;color:var(--blue);">點擊查看學習護照</span></div>
+    </div>`;
+  });
+  html+='</div>';
+  html+='</div>';
+  mc.innerHTML=html;
 }
 
 function renderStatusSection(filterStatus){
