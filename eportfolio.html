@@ -167,8 +167,9 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .dops-tbl th{background:var(--ink);color:#fff;padding:5px 4px;text-align:center;font-size:10px;}
 .dops-tbl td{padding:5px 4px;border:1px solid var(--border2);vertical-align:middle;}
 .dops-tbl .item-cell{font-size:11px;color:var(--ink);padding-right:8px;}
-.d-btn{width:22px;height:22px;border-radius:3px;border:1px solid var(--border);background:#fff;font-size:9px;cursor:pointer;color:var(--ink3);}
-.d-btn.sel{background:var(--red);border-color:var(--red);color:#fff;}
+.d-btn{width:24px;height:24px;border-radius:4px;border:1px solid #AED6F1;background:#EBF5FB;font-size:11px;cursor:pointer;color:#1A5276;transition:all .12s;}
+.d-btn:not(:disabled):hover{background:#AED6F1;color:#fff;}
+.d-btn.sel{background:#2471A3;color:#fff;border-color:#1A5276;font-weight:700;}
 .d-btn:disabled{cursor:not-allowed;opacity:.3;}
 
 /* ─── EPA levels ─── */
@@ -1398,7 +1399,8 @@ function saveForm(id){
   }
   // 更新進度條
   renderSidebar();
-  renderSidebar(); // update status dots
+  renderSidebar();
+  updateQuickNav();
 }
 
 /* ── 將表單資料存到 GAS（共享給所有人） ── */
@@ -1891,20 +1893,23 @@ function dateField(fid,key,disabled,label){
   return`<div class="field"><label>${label||'日期'}${tBadge}</label><input type="date" value="${v}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);"></div>`;
 }
 function signRow(fid,sKey,tKey,canT){
-  const sDateKey=sKey+'_date';
-  const tDateKey=tKey+'_date';
-  const sDateVal=(APP.formData[fid]||{})[sDateKey]||'';
-  const tDateVal=(APP.formData[fid]||{})[tDateKey]||'';
-  const tBg=!canT?'var(--cream)':'#fff';
-  const tDis=!canT?'disabled':'';
-  return`<div class="g2">
-    <div class="field"><label>學生簽名</label>${fi(fid,sKey,'text',false,'姓名')}</div>
-    <div class="field"><label>學生簽名日期</label><input type="date" value="${sDateVal}" data-fid="${fid}" data-key="${sDateKey}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${sDateKey}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
-  </div>
-  <div class="g2">
-    <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${fi(fid,tKey,'text',!canT,'姓名')}</div>
-    <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${tDateVal}" ${tDis} data-fid="${fid}" data-key="${tDateKey}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${tDateKey}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${tBg};color:var(--ink);font-size:13px;"></div>
-  </div>`;
+  var d=APP.formData[fid]||{};
+  var sDateKey=sKey+'_date';
+  var tDateKey=tKey+'_date';
+  // 學生自動帶入
+  if(APP.currentRole==='student'&&APP.currentUser&&!d[sKey]){
+    if(!APP.formData[fid])APP.formData[fid]={};
+    APP.formData[fid][sKey]=APP.currentUser.name;
+  }
+  var sStudents=getStudentList();
+  var sTeachers=getTeacherList();
+  var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
+  var tField=makeDropdown(fid,tKey,sTeachers,!canT,'請選擇老師');
+  // 簽名日期（含時間戳）
+  var sDate=signDateWithTimestamp(fid,sDateKey,false);
+  var tDate=signDateWithTimestamp(fid,tDateKey,!canT);
+  return '<div class="g2"><div class="field"><label>學生簽名</label>'+sField+'</div><div class="field"><label>學生簽名日期</label>'+sDate+'</div></div>'+
+    '<div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>'+tField+'</div><div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label>'+tDate+'</div></div>';
 }
 
 /* Rating helpers */
@@ -1968,13 +1973,44 @@ function buildGeneric(f,d,canT,fkey,canS){
 }
 
 /* basic info card */
+
+function dateRangeField(fid,key,disabled){
+  var val=(APP.formData[fid]||{})[key]||'';
+  var dis=disabled?' disabled':'';
+  var bg=disabled?'var(--cream)':'#fff';
+  var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
+  // Split stored value "2026/01/01 - 2026/02/01" into start/end
+  var parts=val.split(' - ');
+  var startVal=parts[0]?parts[0].replace(/\//g,'-'):'';
+  var endVal=parts[1]?parts[1].replace(/\//g,'-'):'';
+  var updateFn="(function(){var s=document.getElementById('drs_"+fid+"_"+key+"_s').value;var e=document.getElementById('drs_"+fid+"_"+key+"_e').value;var r='';if(s&&e)r=s.replace(/-/g,'/')+' - '+e.replace(/-/g,'/');APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=r;})()";
+  return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'+
+    '<input type="date" id="drs_'+fid+'_'+key+'_s" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
+    '<span style="color:var(--ink3);font-size:12px;">～</span>'+
+    '<input type="date" id="drs_'+fid+'_'+key+'_e" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
+    '</div>';
+}
+
+
+function signDateWithTimestamp(fid,key,disabled){
+  var val=(APP.formData[fid]||{})[key]||'';
+  var dis=disabled?' disabled':'';
+  var bg=disabled?'var(--cream)':'#fff';
+  var oc="var now=new Date();var ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value+' '+ts;";
+  // Display: show date part for input, full value as text
+  var dateVal=val?val.split(' ')[0].replace(/\//g,'-'):'';
+  var tsDisplay=val&&val.indexOf(' ')>0?'<div style="font-size:10px;color:var(--green);margin-top:2px;">⏱ 時間戳：'+val.split(' ').slice(1).join(' ')+'</div>':'';
+  return '<input type="date" value="'+dateVal+'"'+dis+' onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
+}
+
 function basicInfoCard(fid,d,extraFields,dateLabel){
   // 學生姓名：學生登入時自動填入（唯讀），老師/管理員可手動輸入
   var sn=d['s_name']||'';
   if(APP.currentRole==='student'&&APP.currentUser) sn=APP.currentUser.name;
+  var snOpts=getStudentList();
   var snField=APP.currentRole==='student'&&APP.currentUser
     ?'<input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">'
-    :fi(fid,'s_name','text',false);
+    :makeDropdown(fid,'s_name',snOpts,false,'請選擇學生');
 
   // 實習學校：下拉選單
   var sc=d['school']||'';
@@ -1985,8 +2021,7 @@ function basicInfoCard(fid,d,extraFields,dateLabel){
 
   // 實習日期
   var sd=d['s_date']||'';
-  var dateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_date']=this.value";
-  var dateField='<input type="date" value="'+sd+'" data-fid="'+fid+'" data-key="s_date" onchange="'+dateOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;">';
+  var dateField=dateRangeField(fid,'s_date',false);
 
   return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g3">'+
     '<div class="field"><label>學生姓名</label>'+snField+'</div>'+
@@ -2860,11 +2895,26 @@ function buildEPA(f,d,canT,fkey,canS){
   return h;
 }
 
-function setEPA(fid,lv){
-  if(!APP.formData[fid])APP.formData[fid]={};
-  APP.formData[fid]['epa_level']=lv;
-  document.querySelectorAll(`[id^="${fid}_lv"]`).forEach(el=>{
-    el.classList.toggle('sel',el.id===`${fid}_lv${lv}`);
+function setEPA(fid,lv,fid2){
+  // Store in all possible keys
+  var realFid=fid2||getFormKey(APP.currentFormId||'')||fid;
+  [fid,realFid].forEach(function(k){
+    if(!k)return;
+    if(!APP.formData[k])APP.formData[k]={};
+    APP.formData[k]['epa_level']=lv;
+  });
+  // Save to localStorage
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    drafts[realFid]=drafts[realFid]||{};
+    drafts[realFid]['epa_level']=lv;
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
+  // Update visuals
+  document.querySelectorAll('[id*="_lv"]').forEach(function(el){
+    if(el.id.startsWith(fid+'_lv')){
+      el.classList.toggle('sel',el.id===fid+'_lv'+lv);
+    }
   });
 }
 
