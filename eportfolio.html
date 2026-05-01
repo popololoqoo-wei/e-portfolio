@@ -654,30 +654,30 @@ function getFormKey(id){
   return id; // fallback
 }
 
-/* 各表單學生必填欄位定義 */
+/* 各表單學生必填欄位定義（所有欄位都填才算學生完成）*/
 const REQUIRED_STUDENT_FIELDS = {
-  F01: Array.from({length:28},(_,i)=>['f01_pre_'+i,'f01_post_'+i]).flat(), // 學前+學後至少各填一個
-  F02: Array.from({length:10},(_,i)=>'f02_'+i), // 10題評分
-  F03: ['topic','speaker'], // 課程主題+演講者
-  F04: ['diagnosis','medical_focus','rt_plan'], // 主診斷+醫療重點+治療計畫
-  F05: Array.from({length:10},(_,i)=>'f05_'+i), // 10題評分
-  F06: ['case_dx','s_feeling'], // 主診斷+學員心得
-  F07: ['s_fb'], // 學生回饋
-  F08: ['discuss_生','discuss_心','discuss_靈'], // 全人討論
-  F09: ['c1','c2','c3'], // 團隊照護討論
-  F10: ['s_q2','s_q3','s_q4','s_q5','s_q6'], // 學生填寫區
-  F11: ['goal','motivation','strategy'], // 學習目標+動機+策略
-  F12: ['env_review','teacher_review','self_review'], // 三項心得
-  F13: ['note'], // 備注
-  F14: ['case_title'], // 個案題目
-  D01: ['s_feeling','complexity'], // 心得+複雜度
-  D02: ['s_feeling','complexity'],
-  D03: ['s_feeling','complexity'],
-  D04: ['s_feeling','complexity'],
-  E01: ['s_note'], // 學生觀察紀錄
-  E02: ['s_note'],
-  E03: ['s_note'],
-  F15: ['s_comment','leave_pub'], // 學生自評語+請假紀錄
+  F01: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}), // 28題學前自評全填
+  F02: ['s_name','s_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})), // 姓名+日期+10題全填
+  F03: ['topic','speaker','s_sign'], // 課程主題+演講者+簽名
+  F04: ['diagnosis','medical_focus','rt_plan','s_date'], // 主診斷+醫療重點+計畫+日期
+  F05: ['teacher_name'].concat(Array.from({length:10},function(_,i){return 'f05_'+i;})), // 老師名+10題
+  F06: ['s_name','case_dx','s_feeling','s_improve'], // 基本資料+診斷+心得
+  F07: ['s_name','s_fb'], // 姓名+學生回饋
+  F08: ['s_name','discuss_生','discuss_心'], // 姓名+全人討論
+  F09: ['s_name','c1','c2','s_feeling'], // 姓名+討論+心得
+  F10: ['s_q2','s_q3','s_q4','s_q5','s_q6'], // 5題學生填寫
+  F11: ['s_name','goal','motivation','strategy','difficulty','criteria','timeline'], // 全部ILP欄位
+  F12: ['s_name','env_review','teacher_review','self_review'], // 3項心得
+  F13: ['s_name','note'], // 姓名+備注
+  F14: ['s_name','case_title'], // 姓名+題目
+  D01: ['s_name','s_date','complexity','s_feeling'], // 基本資料+複雜度+心得
+  D02: ['s_name','s_date','complexity','s_feeling'],
+  D03: ['s_name','s_date','complexity','s_feeling'],
+  D04: ['s_name','s_date','complexity','s_feeling'],
+  E01: ['s_name','s_date','s_note'], // 姓名+日期+觀察紀錄
+  E02: ['s_name','s_date','s_note'],
+  E03: ['s_name','s_date','s_note'],
+  F15: ['s_name','s_comment'], // 姓名+自評語
 };
 
 /* 老師評分欄位 */
@@ -707,10 +707,12 @@ function getStatus(id){
     const postCount = Array.from({length:28},(_,i)=>i).filter(i=>d['f01_post_'+i]&&d['f01_post_'+i]!=='').length;
     if(preCount===0&&postCount===0)return'partial'; // 學前學後都沒填
   } else if(required.length > 0){
-    // 一般表單：必填欄位至少要有一個有值才算「有在填」
-    // 全部都填才算學生完成
-    const filledCount = required.filter(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null).length;
-    if(filledCount < required.length) return'partial'; // 學生必填欄位未全填
+    // 必填欄位全部都有值才算學生完成
+    const allFilled = required.every(function(k){
+      var v=d[k];
+      return v!==undefined&&v!==''&&v!==false&&v!==null;
+    });
+    if(!allFilled) return'partial'; // 學生必填欄位未全填
   }
 
   // 學生必填都填完了，判斷是否需要老師評分
