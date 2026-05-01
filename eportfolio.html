@@ -8,7 +8,7 @@
 <style>
 :root{
   --cream:#F9F6F0; --paper:#FDFBF7; --ink:#1A1612; --ink2:#3D3530; --ink3:#7A706A;
-  --gold:#B8860B; --gold2:#D4A017; --red:#8B2020; --green:#2D5A27; --blue:#1A3A5C;
+  --gold:#B8860B; --gold2:#D4A017; --red:#C0392B; --green:#27AE60; --blue:#2471A3;
   --border:#D4C9BB; --border2:#EAE2D8; --shadow:rgba(26,22,18,.08);
   --ff-serif:'Noto Serif TC',serif; --ff-sans:'Noto Sans TC',sans-serif;
   --r:6px; --r2:10px;
@@ -706,12 +706,10 @@ function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 function getStatus(id){
   const formKey=getFormKey(id);
   const d=APP.formData[formKey]||{};
-  const sLogs=(APP.historyLog[formKey+'_s']||[]);
-  const tLogs=(APP.historyLog[formKey+'_t']||[]);
-  // 合併 history（向下相容舊格式）
   const logs=APP.historyLog[formKey]||[];
-  const hasStudentSaved = sLogs.length>0 || logs.some(function(l){return l.role==='student';});
-  const hasTeacherSaved = tLogs.length>0 || logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
+  // 檢查是否有學生和老師各自的儲存紀錄
+  const hasStudentSaved = logs.some(function(l){return l.role==='student';});
+  const hasTeacherSaved = logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
 
   // 完全沒資料 = 未填寫
   const hasAnyData=Object.keys(d).some(function(k){return hasValue(d[k]);});
@@ -728,16 +726,19 @@ function getStatus(id){
   const f=findForm(id);
   const needsTeacher=f&&f.roles==='both';
 
-  // ── 已完成：學生+老師都儲存過，且老師有填資料 ──
+  // ── 已完成：雙方都儲存過，學生必填全填，老師也有資料 ──
   if(needsTeacher && hasStudentSaved && hasTeacherSaved && hasTeacherData && studentFieldsFilled) return 'done';
 
-  // ── 待老師評分：學生必填全填且已儲存，老師尚未填 ──
-  if(needsTeacher && hasStudentSaved && studentFieldsFilled && !hasTeacherData) return 'wait';
+  // ── 待老師評分：學生必填全填且已儲存，老師尚未儲存 ──
+  if(needsTeacher && hasStudentSaved && studentFieldsFilled && !hasTeacherSaved) return 'wait';
 
-  // ── 不需要老師的表單：學生儲存就算完成 ──
+  // ── 不需要老師的表單：學生儲存且必填完成 ──
   if(!needsTeacher && hasStudentSaved && studentFieldsFilled) return 'done';
 
-  // ── 進行中：有任何資料（不管是否儲存過）但未達完成條件 ──
+  // ── 進行中：有儲存紀錄但未達完成條件 ──
+  if(logs.length > 0) return 'partial';
+
+  // ── 有資料但未儲存也算進行中 ──
   return 'partial';
 }
 
@@ -1125,7 +1126,7 @@ async function openForm(id){
     <button class="btn-back" onclick="renderFormList()">← 返回總覽</button>
     <div class="form-footer-right">
       <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
-      <button class="btn-pdf" id="btn-pdf" ${hasSaved?'style="display:inline-block;"':''} onclick="downloadPDF('${id}')">⬇ 下載 PDF</button>
+      <button class="btn-pdf" id="btn-pdf" ${canDownloadPDF(id)?'style="display:inline-block;"':''} onclick="checkAndDownloadPDF('${id}')">⬇ 下載 PDF</button>
       <button class="btn-save" onclick="saveForm('${id}')">儲存表單</button>
     </div>
   </div>`;
@@ -1205,7 +1206,14 @@ function saveForm(id){
   const msg=document.getElementById('saved-msg');
   if(msg){msg.style.display='inline';setTimeout(()=>msg.style.display='none',2500);}
   const pdfBtn=document.getElementById('btn-pdf');
-  if(pdfBtn)pdfBtn.style.display='inline-block';
+  if(pdfBtn){
+    if(canDownloadPDF(id)){
+      pdfBtn.style.display='inline-block';
+      pdfBtn.title='';
+    } else {
+      pdfBtn.style.display='none';
+    }
+  }
 
   // Update history display
   const histWrap=document.getElementById('history-wrap');
@@ -1294,6 +1302,38 @@ function buildHistoryItems(id){
 }
 
 /* ═══════════ PDF DOWNLOAD ═══════════ */
+function canDownloadPDF(id){
+  // PDF 只有雙方都儲存過才能下載
+  const formKey=getFormKey(id);
+  const logs=APP.historyLog[formKey]||[];
+  const f=findForm(id);
+  if(!f||f.roles!=='both') return logs.length>0; // 單方表單有儲存即可
+  const hasStudentSaved=logs.some(function(l){return l.role==='student';});
+  const hasTeacherSaved=logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
+  return hasStudentSaved && hasTeacherSaved;
+}
+
+function checkAndDownloadPDF(id){
+  if(!canDownloadPDF(id)){
+    const f=findForm(id);
+    const needsTeacher=f&&f.roles==='both';
+    if(needsTeacher){
+      const formKey=getFormKey(id);
+      const logs=APP.historyLog[formKey]||[];
+      const hasStudentSaved=logs.some(function(l){return l.role==='student';});
+      const hasTeacherSaved=logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
+      var missing=[];
+      if(!hasStudentSaved) missing.push('學生');
+      if(!hasTeacherSaved) missing.push('臨床老師');
+      toast('⚠ 尚未完成：'+missing.join('、')+'的資料尚未儲存，雙方都儲存後才可下載 PDF', false);
+    } else {
+      toast('⚠ 請先儲存表單再下載 PDF', false);
+    }
+    return;
+  }
+  downloadPDF(id);
+}
+
 function downloadPDF(id){
   const formKey=getFormKey(id);
   const f=findForm(id);
@@ -1829,7 +1869,7 @@ function buildF01A(f,d,canT,fkey,canS){
   function mkBtn(key2,v,isTeacher){
     var cur=d[key2]||'';
     var isSel=cur===v;
-    var bg=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#fff';
+    var bg=isSel?(isTeacher?'#C0392B':'#2471A3'):'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
     var dis=(isTeacher&&!canT)||(!isTeacher&&!canS);
@@ -1870,7 +1910,7 @@ function buildF01B(f,d,canT,fkey,canS){
   function mkBtn(key2,v,isTeacher){
     var cur=d[key2]||'';
     var isSel=cur===v;
-    var bg=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#fff';
+    var bg=isSel?(isTeacher?'#C0392B':'#2471A3'):'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
     var dis=(isTeacher&&!canT)||(!isTeacher&&!canS);
@@ -2053,7 +2093,7 @@ function buildCbD(f,d,canT,fkey,canS){
     h+='</tr>';
   });
   // 防呆提示區
-  h+='<tr><td colspan="11" id="cbd-warn-'+fid+'" style="display:none;background:#FFF3CD;color:#8B6914;font-size:11px;padding:6px 10px;border-radius:4px;">⚠ 注意：評分 ≤ 4 分，UGY須≥5分才合格，請確認評分是否正確。</td></tr>';
+  h+='<tr><td colspan="11"><div id="cbd-warn-'+fid+'" style="display:none;background:#FFF3CD;border:1px solid #F0C040;color:#8B6914;font-size:12px;padding:8px 12px;border-radius:4px;font-weight:600;">⚠ 注意：評分 ≤ 4 分，UGY 須 ≥5 分才合格，請確認評分是否正確！</div></td></tr>';
   h+='</table></div></div>';
   // 雙向回饋 - 無字數限制
   h+='<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">';
@@ -3001,7 +3041,7 @@ function cbdClick(btn){
   if(warn){
     var score=parseInt(v);
     if(!isNaN(score)&&score<=4){
-      warn.style.display='table-cell';
+      warn.style.display='block';
       setTimeout(function(){if(warn)warn.style.display='none';},4000);
     } else {
       warn.style.display='none';
