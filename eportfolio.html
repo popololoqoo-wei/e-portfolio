@@ -1713,61 +1713,41 @@ function basicInfoCard(fid,d,extraFields){
 /* ─── F01 ─── */
 function buildF01(f,d,canT,fkey){
   const fid=fkey||f.id;
-  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與(團隊查房、跨團隊會議、晨會等)'];
+  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
 
-  function makeBtn(fid2, key, v, role, disabled) {
-    var cur = (d[key]||'');
-    var isSel = cur===v;
-    var bg = isSel ? (role==='t'?'#8B2020':'#1A3A5C') : '#ffffff';
-    var color2 = isSel ? '#ffffff' : '#7A706A';
-    var fw = isSel ? '700' : '400';
-    var cursor2 = disabled ? 'not-allowed' : 'pointer';
-    var opacity2 = disabled ? '0.35' : '1';
-    var disAttr = disabled ? ' disabled' : '';
-    var style2 = 'width:36px;height:32px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+color2+';font-size:12px;cursor:'+cursor2+';opacity:'+opacity2+';font-weight:'+fw+';';
-    return '<button'+disAttr+' data-fid="'+fid2+'" data-rkey="'+key+'" data-rval="'+v+'" style="'+style2+'" onclick="f01Click(this)">'+v+'</button>';
+  function mkBtn(key2,v,isTeacher){
+    var cur=d[key2]||'';
+    var isSel=cur===v;
+    var bg=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#fff';
+    var col=isSel?'#fff':'#7A706A';
+    var fw=isSel?'700':'400';
+    var dis=isTeacher&&!canT;
+    var disAttr=dis?' disabled':'';
+    var cursor=dis?'not-allowed':'pointer';
+    var op=dis?'0.35':'1';
+    return '<button'+disAttr+' data-fid="'+fid+'" data-rkey="'+key2+'" data-rval="'+v+'" data-teacher="'+(isTeacher?1:0)+'" onclick="f01Click(this)" style="width:26px;height:26px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+col+';font-size:10px;cursor:'+cursor+';opacity:'+op+';font-weight:'+fw+';">'+v+'</button>';
   }
 
-  function makeRow(fid2, skill, i, preKey, p1Key, p2Key, postKey, naKey) {
-    var row = '<div style="padding:7px 0;border-bottom:1px solid var(--border2);">';
-    row += '<div style="font-size:12px;margin-bottom:5px;">'+(i+1)+'. '+skill+'</div>';
-    row += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">';
-    // Student pre
-    row += '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:10px;color:var(--ink3);margin-right:2px;">學前：</span>';
-    row += makeBtn(fid2,preKey,'佳','s',false)+makeBtn(fid2,preKey,'可','s',false)+makeBtn(fid2,preKey,'差','s',false);
-    row += '</div>';
-    // Teacher 1
-    row += '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:10px;color:var(--red);margin-right:2px;">評核1：</span>';
-    row += makeBtn(fid2,p1Key,'佳','t',!canT)+makeBtn(fid2,p1Key,'可','t',!canT)+makeBtn(fid2,p1Key,'差','t',!canT);
-    row += '</div>';
-    // Teacher 2
-    row += '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:10px;color:var(--red);margin-right:2px;">評核2：</span>';
-    row += makeBtn(fid2,p2Key,'佳','t',!canT)+makeBtn(fid2,p2Key,'可','t',!canT)+makeBtn(fid2,p2Key,'差','t',!canT);
-    row += '</div>';
-    // Student post
-    row += '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:10px;color:var(--ink3);margin-right:2px;">學後：</span>';
-    row += makeBtn(fid2,postKey,'佳','s',false)+makeBtn(fid2,postKey,'可','s',false)+makeBtn(fid2,postKey,'差','s',false);
-    row += '</div>';
-    var naChecked2 = d[naKey] ? 'checked' : '';
-    var naEl = document.createElement('input');
-    naEl.type = 'checkbox'; naEl.setAttribute('data-fid', fid2); naEl.setAttribute('data-key', naKey);
-    if(d[naKey]) naEl.checked = true;
-    naEl.setAttribute('onchange', 'APP.formData[' + JSON.stringify(fid2) + ']=APP.formData[' + JSON.stringify(fid2) + ']||{};APP.formData[' + JSON.stringify(fid2) + '][' + JSON.stringify(naKey) + ']=this.checked');
-    naEl.style.accentColor = 'var(--gold)';
-    row += '<label style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:3px;">' + naEl.outerHTML + ' 未評</label>';
-    row += '</div></div>';
-    return row;
-  }
-
-  let h = basicInfoCard(fid,d,'');
-  h += '<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body">';
+  let h=basicInfoCard(fid,d,'');
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學前自評</th><th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th><th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th><th colspan="3">學生學後自評</th><th>未評</th></tr>';
+  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th></th></tr>';
   skills.forEach(function(skill,i){
-    h += makeRow(fid, skill, i, 'f01_pre_'+i, 'f01_p1_'+i, 'f01_p2_'+i, 'f01_post_'+i, 'f01_na_'+i);
+    var kp='f01_pre_'+i,k1='f01_p1_'+i,k2i='f01_p2_'+i,kpo='f01_post_'+i,kna='f01_na_'+i;
+    var naChk=d[kna]?'checked':'';
+    h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kp,v,false)+'</td>';});
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k1,v,true)+'</td>';});
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k2i,v,true)+'</td>';});
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kpo,v,false)+'</td>';});
+    var naOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+kna+"']=this.checked";
+    h+='<td style="text-align:center;"><input type="checkbox" '+naChk+' data-fid="'+fid+'" data-key="'+kna+'" onchange="'+naOC+'" style="accent-color:var(--gold);"></td></tr>';
   });
-  h += '</div></div>';
-  h += '<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+signRow(fid,'s_sign','t_sign',canT)+'</div></div>';
+  h+='</table></div></div>';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+signRow(fid,'s_sign','t_sign',canT)+'</div></div>';
   return h;
 }
+
 
 /* ─── F02 ─── */
 function buildF02(f,d,canT,fkey){
