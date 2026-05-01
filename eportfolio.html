@@ -314,6 +314,7 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
     <div class="topbar-right">
       <span id="topbar-user" class="user-badge"></span>
       <span id="topbar-role" class="role-chip"></span>
+      <button id="btn-home" onclick="renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -612,6 +613,16 @@ function enterApp(){
   document.getElementById('topbar-user').textContent=u.name;
   const rc=document.getElementById('topbar-role');
   rc.textContent=roleLabel;rc.className='role-chip '+roleClass;
+  const homeBtn=document.getElementById('btn-home');
+  if(homeBtn) homeBtn.style.display=(APP.currentRole==='teacher'||APP.currentRole==='admin')?'inline-block':'none';
+  // 登入時載入所有草稿資料到 APP.formData
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    Object.keys(drafts).forEach(function(fkey){
+      if(!APP.formData[fkey])APP.formData[fkey]={};
+      Object.assign(APP.formData[fkey],drafts[fkey]);
+    });
+  }catch(e){}
   renderSidebar();
   if(APP.currentRole==='admin'){renderAdmin();}
   else{renderFormList(); setTimeout(showUnfilledNotification, 800);}
@@ -655,76 +666,72 @@ function getFormKey(id){
   return id; // fallback
 }
 
-/* 各表單學生必填欄位定義（所有欄位都填才算學生完成）*/
+/* 各表單學生必填欄位定義 */
 const REQUIRED_STUDENT_FIELDS = {
-  F01: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}), // 28題學前自評全填
-  F02: ['s_name','s_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})), // 姓名+日期+10題全填
-  F03: ['topic','speaker','s_sign'], // 課程主題+演講者+簽名
-  F04: ['diagnosis','medical_focus','rt_plan','s_date'], // 主診斷+醫療重點+計畫+日期
-  F05: ['teacher_name'].concat(Array.from({length:10},function(_,i){return 'f05_'+i;})), // 老師名+10題
-  F06: ['s_name','case_dx','s_feeling','s_improve'], // 基本資料+診斷+心得
-  F07: ['s_name','s_fb'], // 姓名+學生回饋
-  F08: ['s_name','discuss_生','discuss_心'], // 姓名+全人討論
-  F09: ['s_name','c1','c2','s_feeling'], // 姓名+討論+心得
-  F10: ['s_q2','s_q3','s_q4','s_q5','s_q6'], // 5題學生填寫
-  F11: ['s_name','goal','motivation','strategy','difficulty','criteria','timeline'], // 全部ILP欄位
-  F12: ['s_name','env_review','teacher_review','self_review'], // 3項心得
-  F13: ['s_name','note'], // 姓名+備注
-  F14: ['s_name','case_title'], // 姓名+題目
-  D01: ['s_name','s_date','complexity','s_feeling'], // 基本資料+複雜度+心得
+  F01: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}),
+  F02: ['s_name','s_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
+  F03: ['topic','speaker','s_sign'],
+  F04: ['diagnosis','medical_focus','rt_plan','s_date'],
+  F05: ['teacher_name'].concat(Array.from({length:10},function(_,i){return 'f05_'+i;})),
+  F06: ['s_name','case_dx','s_feeling'],
+  F07: ['s_name','s_fb'],
+  F08: ['s_name','discuss_生','discuss_心'],
+  F09: ['s_name','c1','c2','s_feeling'],
+  F10: ['s_q2','s_q3','s_q4','s_q5','s_q6'],
+  F11: ['s_name','goal','motivation','strategy'],
+  F12: ['s_name','env_review','teacher_review','self_review'],
+  F13: ['s_name','note'],
+  F14: ['s_name','case_title'],
+  D01: ['s_name','s_date','complexity','s_feeling'],
   D02: ['s_name','s_date','complexity','s_feeling'],
   D03: ['s_name','s_date','complexity','s_feeling'],
   D04: ['s_name','s_date','complexity','s_feeling'],
-  E01: ['s_name','s_date','s_note'], // 姓名+日期+觀察紀錄
+  E01: ['s_name','s_date','s_note'],
   E02: ['s_name','s_date','s_note'],
   E03: ['s_name','s_date','s_note'],
-  F15: ['s_name','s_comment'], // 姓名+自評語
+  F15: ['s_name','s_comment'],
 };
 
-/* 老師評分欄位 */
-const TEACHER_FIELDS = ['t_fb','t_sign','t_comment','t_good','t_improve','cbd_score','epa_level','result','score','director_fb','f15_att_0','f15_skl_0','f15_com_0','f06_0','f07_0','att','skill','comm'];
+const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
+
+function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
   const formKey=getFormKey(id);
   const d=APP.formData[formKey]||{};
+  const sLogs=(APP.historyLog[formKey+'_s']||[]);
+  const tLogs=(APP.historyLog[formKey+'_t']||[]);
+  // 合併 history（向下相容舊格式）
   const logs=APP.historyLog[formKey]||[];
+  const hasStudentSaved = sLogs.length>0 || logs.some(function(l){return l.role==='student';});
+  const hasTeacherSaved = tLogs.length>0 || logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
 
   // 完全沒資料 = 未填寫
-  const hasAnyData=Object.keys(d).some(k=>{
-    const v=d[k];
-    return v!==undefined&&v!==''&&v!==false&&v!==null;
-  });
-  if(!hasAnyData)return'new';
+  const hasAnyData=Object.keys(d).some(function(k){return hasValue(d[k]);});
+  if(!hasAnyData) return 'new';
 
-  // 有資料但沒有儲存記錄 = 進行中
-  if(logs.length===0)return'partial';
+  // 判斷學生必填欄位
+  const req=REQUIRED_STUDENT_FIELDS[id]||[];
+  const studentFieldsFilled = req.length===0 || req.every(function(k){return hasValue(d[k]);});
 
-  // 檢查學生必填欄位是否都填完
-  const required = REQUIRED_STUDENT_FIELDS[id]||[];
-  
-  // F01 特殊：28題中至少要填 >= 5題學前自評才算完成
-  if(id==='F01'){
-    const preCount = Array.from({length:28},(_,i)=>i).filter(i=>d['f01_pre_'+i]&&d['f01_pre_'+i]!=='').length;
-    const postCount = Array.from({length:28},(_,i)=>i).filter(i=>d['f01_post_'+i]&&d['f01_post_'+i]!=='').length;
-    if(preCount===0&&postCount===0)return'partial'; // 學前學後都沒填
-  } else if(required.length > 0){
-    // 必填欄位全部都有值才算學生完成
-    const allFilled = required.every(function(k){
-      var v=d[k];
-      return v!==undefined&&v!==''&&v!==false&&v!==null;
-    });
-    if(!allFilled) return'partial'; // 學生必填欄位未全填
-  }
+  // 判斷老師欄位是否有資料
+  const hasTeacherData = TEACHER_FIELDS_KEY.some(function(k){return hasValue(d[k]);}) ||
+    Object.keys(d).some(function(k){return /^f(05|06|07|15)_/.test(k)&&hasValue(d[k]);});
 
-  // 學生必填都填完了，判斷是否需要老師評分
   const f=findForm(id);
   const needsTeacher=f&&f.roles==='both';
-  if(!needsTeacher)return'done';
 
-  // 檢查老師欄位
-  const hasTeacherData=TEACHER_FIELDS.some(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null);
-  if(hasTeacherData)return'done';
-  return'wait'; // 待老師評分
+  // ── 已完成：學生+老師都儲存過，且老師有填資料 ──
+  if(needsTeacher && hasStudentSaved && hasTeacherSaved && hasTeacherData && studentFieldsFilled) return 'done';
+
+  // ── 待老師評分：學生必填全填且已儲存，老師尚未填 ──
+  if(needsTeacher && hasStudentSaved && studentFieldsFilled && !hasTeacherData) return 'wait';
+
+  // ── 不需要老師的表單：學生儲存就算完成 ──
+  if(!needsTeacher && hasStudentSaved && studentFieldsFilled) return 'done';
+
+  // ── 進行中：有任何資料（不管是否儲存過）但未達完成條件 ──
+  return 'partial';
 }
 
 function getStatusSummary(){
@@ -1014,6 +1021,8 @@ async function openForm(id){
   loadDraft(formKey);
 
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
+  // 學生欄位：只有學生自己才能填（老師不能改學生的）
+  const canS=APP.currentRole==='student';
   const d=APP.formData[formKey]||{};
 
   // 老師端：顯示學生選擇器
@@ -1092,7 +1101,7 @@ async function openForm(id){
   }
 
   // Form content - pass formKey so all data-fid use student-specific key
-  html+=buildFormBody(f,d,canT,formKey);
+  html+=buildFormBody(f,d,canT,formKey,canS);
 
   // Footer
   const hasSaved=APP.historyLog[formKey]&&APP.historyLog[formKey].length>0;
@@ -1109,6 +1118,22 @@ async function openForm(id){
   html+=buildHistoryLog(id);
   html+='</div>';
   mc.innerHTML=html;
+
+  // 老師登入：鎖定學生欄位（防止竄改）
+  if(APP.currentRole==='teacher'){
+    mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+      var key=el.dataset.key||'';
+      var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
+        'epa_level','result','score','director_fb'].some(function(p){return key.startsWith(p);}) ||
+        /^f(05|06|07|15)_/.test(key);
+      if(!isTField) el.disabled=true;
+    });
+    mc.querySelectorAll('button[data-teacher="0"]').forEach(function(btn){
+      btn.disabled=true;
+      btn.style.opacity='0.35';
+      btn.style.cursor='not-allowed';
+    });
+  }
 }
 
 function inlineUnlock(){
@@ -1142,12 +1167,17 @@ function saveForm(id){
     APP.formData[formKey]=Object.assign({},APP.formData[id]);
   }
 
-  // Record history
+  // Record history (shared log)
   if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
   const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
   const now = new Date();
   const ts = now.toISOString();
-  APP.historyLog[formKey].unshift({ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name});
+  const logEntry={ts,role:APP.currentRole,roleLabel,name:APP.currentUser.name};
+  APP.historyLog[formKey].unshift(logEntry);
+  // Also track in role-specific log for status detection
+  const roleLogKey=formKey+'_'+(APP.currentRole==='admin'?'t':APP.currentRole);
+  if(!APP.historyLog[roleLogKey])APP.historyLog[roleLogKey]=[];
+  APP.historyLog[roleLogKey].unshift(logEntry);
 
   // Save to shared storage (GAS)
   saveFormToSheets(formKey);
@@ -1164,6 +1194,8 @@ function saveForm(id){
 
   // Also upload summary to sheets tab
   uploadToSheets(id);
+  // 清除草稿（已正式儲存）
+  clearDraft(formKey);
   toast('表單已儲存 ✓');
   renderSidebar(); // update status dots
 }
@@ -1739,8 +1771,9 @@ function rBtnTable(fid,key,v,role,disabled){
 }
 
 /* ═══════════ FORM BUILDERS ═══════════ */
-function buildFormBody(f,d,canT,formKey){
-  formKey=formKey||f.id; // fallback to f.id if not provided
+function buildFormBody(f,d,canT,formKey,canS){
+  formKey=formKey||f.id;
+  if(canS===undefined) canS=true; // default: student can edit student fields
   const builders={
     F01:buildF01,F02:buildF02,F03:buildF03,F04:buildF04,F05:buildF05,
     F06:buildF06,F07:buildF07,F08:buildF08,F09:buildF09,F10:buildF10,
@@ -1752,8 +1785,9 @@ function buildFormBody(f,d,canT,formKey){
   return (builders[f.id]||buildGeneric)(f,d,canT);
 }
 
-function buildGeneric(f,d,canT,fkey){
+function buildGeneric(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   return`<div class="card"><div class="card-head"><div class="card-head-title">表單內容</div></div><div class="card-body"><div class="field"><label>備注</label>${ta(f.id,'note',4,false)}</div></div></div>`;
 }
 
@@ -1768,7 +1802,8 @@ function basicInfoCard(fid,d,extraFields){
 }
 
 /* ─── F01 ─── */
-function buildF01(f,d,canT,fkey){
+function buildF01(f,d,canT,fkey,canS){
+  if(canS===undefined)canS=true;
   const fid=fkey||f.id;
   const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
 
@@ -1807,8 +1842,9 @@ function buildF01(f,d,canT,fkey){
 
 
 /* ─── F02 ─── */
-function buildF02(f,d,canT,fkey){
+function buildF02(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
   let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">臨床表現評估（非常好5 / 好4 / 普通3 / 不好2 / 非常差1）</div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
@@ -1829,8 +1865,9 @@ function buildF02(f,d,canT,fkey){
 }
 
 /* ─── F03 Satisfaction ─── */
-function buildF03(f,d,canT,fkey){
+function buildF03(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   // Dropdown for topic and speaker (admin-managed)
   const topicOpts=APP.courseTopics.map(t=>`<option value="${t}" ${d['topic']===t?'selected':''}>${t}</option>`).join('');
   const speakerOpts=APP.courseSpeakers.map(s=>`<option value="${s}" ${d['speaker']===s?'selected':''}>${s}</option>`).join('');
@@ -1868,8 +1905,9 @@ function buildF03(f,d,canT,fkey){
 }
 
 /* ─── F04 Bedside ─── */
-function buildF04(f,d,canT,fkey){
+function buildF04(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">病人基本資料</div></div><div class="card-body">
     <div class="g3"><div class="field"><label>實習單位</label><div class="check-group">${['內科','外科'].map(v=>`<label class="check-item"><input type="checkbox" ${d['unit_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['unit_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>病床號</label>${fi(f.id,'bed','text',false)}</div>
@@ -1899,8 +1937,9 @@ function buildF04(f,d,canT,fkey){
 }
 
 /* ─── F05 Teacher Eval ─── */
-function buildF05(f,d,canT,fkey){
+function buildF05(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const items=['具備專業知識及臨床工作能力','創造生動活潑的教學環境與學習氣氛','教學時態度熱心、誠懇、積極、詳盡指導學員','教學內容考量學員需要，充實合宜','事實刺激學員主動學習與發問','引導學員思考問題與解答問題','重視學員感受與反應、有技巧的糾正學員的缺失','對於學員的學習情況能及時給予回饋','能與學員互相討論，有達到教學相長的成效','讓學員了解跨領域團隊合作的溝通與協調'];
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">評核（優5 良4 普3 差2 劣1 不適任0）</div></div><div class="card-body">
     <div class="g2"><div class="field"><label>臨床實習老師姓名</label>${fi(f.id,'teacher_name','text',false)}</div><div class="field"><label>教學期間</label>${fi(f.id,'period','text',false,'yyyy/mm/dd ~ yyyy/mm/dd')}</div></div>
@@ -1922,8 +1961,9 @@ function buildF05(f,d,canT,fkey){
 }
 
 /* ─── F06 CbD ─── */
-function buildF06(f,d,canT,fkey){
+function buildF06(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
   let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">${['易','適中','難'].map(v=>`<label class="check-item"><input type="radio" name="f06_cx" ${d['complexity']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['complexity']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div><div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評量項目 (1-9分；UGY≥5合格)<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
@@ -1950,8 +1990,9 @@ function buildF06(f,d,canT,fkey){
 }
 
 /* ─── F07 360 ─── */
-function buildF07(f,d,canT,fkey){
+function buildF07(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const rows=[
     ['態度','基本禮儀','儀容、禮貌合宜',['+2','+1','0','-1','-2']],
     ['','','守時/出席狀況',['+2','+1','0','-1','-2']],
@@ -1995,8 +2036,9 @@ function buildF07(f,d,canT,fkey){
 }
 
 /* ─── F08 全人照護 ─── */
-function buildF08(f,d,canT,fkey){
+function buildF08(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
   let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>
@@ -2016,8 +2058,9 @@ function buildF08(f,d,canT,fkey){
 }
 
 /* ─── F09 跨領域 ─── */
-function buildF09(f,d,canT,fkey){
+function buildF09(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
   let h=basicInfoCard(fid,d,`<div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div>
     <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
@@ -2035,8 +2078,9 @@ function buildF09(f,d,canT,fkey){
 }
 
 /* ─── F10 輔導 ─── */
-function buildF10(f,d,canT,fkey){
+function buildF10(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const tqs=[['q_basic','學生基本資料是否填寫？'],['q_self','學生自我評量是否填寫？'],['q_progress','表單填寫是否符合進度？'],['q_detail','表單內容是否詳細？'],['q_t_sign','老師是否評分並簽名？'],['q_feeling','學生有無填寫心得？'],['q_t_fb','老師有無回饋並簽名？'],['q_all_sign','老師是否都已簽名？']];
   const sqs=[['s_q2','臨床實習老師床邊教學是否認真？',['是','否']],['s_q3','老師有無指導或修改呼吸監護記錄？',['有','無']],['s_q4','老師有無指導醫療照護工作？',['有','無']],['s_q5','核心課程學習有無需要再補強？',['有','無']],['s_q6','生活方面有無困難？',['有','無']]];
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g2">
@@ -2063,8 +2107,9 @@ function buildF10(f,d,canT,fkey){
 }
 
 /* ─── F11 ILP ─── */
-function buildF11(f,d,canT,fkey){
+function buildF11(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   let h=basicInfoCard(fid,d,'');
   const flds=[['goal','學習目標（你想學什麼？）',4],['motivation','學習動機',3],['strategy','學習策略與資源',3],['difficulty','可能遭遇的困難',2],['criteria','評估內容與指標',3],['timeline','預計時程',2]];
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">個人化學習計畫（學生填寫）</div></div><div class="card-body">
@@ -2082,8 +2127,9 @@ function buildF11(f,d,canT,fkey){
 }
 
 /* ─── F12 心得 ─── */
-function buildF12(f,d,canT,fkey){
+function buildF12(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">學習心得與建議</div></div><div class="card-body">
     <div class="field"><label>工作單位環境與學習成效</label>${ta(f.id,'env_review',4,false)}</div>
@@ -2102,8 +2148,9 @@ function buildF12(f,d,canT,fkey){
 }
 
 /* ─── F13 書面個案 ─── */
-function buildF13(f,d,canT,fkey){
+function buildF13(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估（含個案簡介）',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫與措施',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
   let h=basicInfoCard(fid,d,'');
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
@@ -2124,8 +2171,9 @@ function buildF13(f,d,canT,fkey){
 }
 
 /* ─── F14 PPT ─── */
-function buildF14(f,d,canT,fkey){
+function buildF14(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const sections=[
     {title:'報告技巧',items:[['報告技巧1：口語表達清晰流暢',5],['報告技巧2：台風穩健',5],['報告技巧3：熟悉報告主題及內容',10],['報告技巧4：時間掌握良好',5]]},
     {title:'內容',items:[['前言與入院經過',10],['身體評估',10],['疾病流程圖與呼吸照護主要問題',10],['呼吸照護計畫',10],['討論與文獻回顧',15],['回答問題',10]]},
@@ -2173,8 +2221,9 @@ const DOPS_DATA={
     {hd:'執行後',items:['評估結果(RSBI<105；CLT>140mL)','解釋測量結果','回復姿勢整理環境','清潔歸位','洗手','記錄與交班']}]},
 };
 
-function buildDOPS(f,d,canT,fkey){
+function buildDOPS(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const data=DOPS_DATA[f.id];if(!data)return buildGeneric(f,d,canT);
   let h=basicInfoCard(fid,d,'');
   let itemIdx=0;
@@ -2218,8 +2267,9 @@ function setDOPS(fid,key,val,btn){
 
 /* ─── EPA ─── */
 const EPA_NAMES={E01:'(6) 侵襲性呼吸器初始設定及照護',E02:'(8) 使用呼吸器病人之緊急處置',E03:'(10) 侵襲性呼吸器病人之脫離照護'};
-function buildEPA(f,d,canT,fkey){
+function buildEPA(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const lvls=[['1','僅觀察，不得獨立操作'],['2','需主動協助，可在直接監督下操作'],['3','需被動協助，可在間接監督下操作'],['4','可獨立操作，只需遠端監督'],['5','可指導他人操作']];
   let h=basicInfoCard(fid,d,`<div class="card" style="margin-top:0;background:var(--cream);border:1px solid var(--border2);"><div class="card-body" style="padding:.7rem 1rem;"><strong style="font-size:13px;">EPA 項目：</strong><span style="font-size:13px;">${EPA_NAMES[f.id]||f.name}</span></div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">可信賴等級<span class="t-badge">老師評定</span></div></div><div class="card-body">`;
@@ -2247,8 +2297,9 @@ function setEPA(fid,lv){
 }
 
 /* ─── F15 課程評值 ─── */
-function buildF15(f,d,canT,fkey){
+function buildF15(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
+  if(canS===undefined)canS=true;
   const atts=['能確立個人學習目標','能主動參與所有教學活動、尋求學習機會','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
   const skills=['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃選擇適當治療項目並評值','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力，能統整專業知識'];
   const comms=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
@@ -2676,21 +2727,21 @@ function showUnfilledNotification() {
       <div style="font-size:36px;margin-bottom:.75rem;">📋</div>
       <div style="font-family:var(--ff-serif);font-size:17px;font-weight:600;margin-bottom:1rem;">學習護照完成狀況</div>
       <div style="display:flex;justify-content:center;gap:16px;margin-bottom:1.25rem;flex-wrap:wrap;">
-        <div style="text-align:center;">
-          <div style="font-size:28px;font-weight:700;color:var(--green);">${sm2.done}</div>
-          <div style="font-size:11px;color:var(--ink3);">已完成</div>
+        <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('done');">
+          <div style="font-size:28px;font-weight:700;color:var(--green);text-decoration:underline;">${sm2.done}</div>
+          <div style="font-size:11px;color:var(--ink3);">✅ 已完成</div>
         </div>
-        <div style="text-align:center;">
-          <div style="font-size:28px;font-weight:700;color:var(--gold);">${sm2.wait}</div>
-          <div style="font-size:11px;color:var(--ink3);">待老師評分</div>
+        <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('wait');">
+          <div style="font-size:28px;font-weight:700;color:var(--gold);text-decoration:underline;">${sm2.wait}</div>
+          <div style="font-size:11px;color:var(--ink3);">⏳ 待老師評分</div>
         </div>
-        <div style="text-align:center;">
-          <div style="font-size:28px;font-weight:700;color:#5A8AAA;">${sm2.partial}</div>
-          <div style="font-size:11px;color:var(--ink3);">進行中</div>
+        <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('partial');">
+          <div style="font-size:28px;font-weight:700;color:#5A8AAA;text-decoration:underline;">${sm2.partial}</div>
+          <div style="font-size:11px;color:var(--ink3);">📝 進行中</div>
         </div>
-        <div style="text-align:center;">
-          <div onclick="closeNotify();renderUnfilledSection();" style="font-size:28px;font-weight:700;color:var(--red);cursor:pointer;text-decoration:underline;">${sm2.newF}</div>
-          <div style="font-size:11px;color:var(--ink3);">未填寫</div>
+        <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('new');">
+          <div style="font-size:28px;font-weight:700;color:var(--red);text-decoration:underline;">${sm2.newF}</div>
+          <div style="font-size:11px;color:var(--ink3);">⭕ 未填寫</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:center;">
@@ -2706,6 +2757,41 @@ function closeNotify() {
   const el = document.getElementById('unfilled-notify');
   if (el) el.remove();
 }
+
+function renderStatusSection(filterStatus){
+  APP.currentFormId='__status_'+filterStatus;
+  renderSidebar();
+  const mc=document.getElementById('main-content');
+  const labelMap={done:'✅ 已完成',wait:'⏳ 待老師評分',partial:'📝 進行中',new:'⭕ 未填寫'};
+  const colorMap={done:'var(--green)',wait:'var(--gold)',partial:'#5A8AAA',new:'var(--red)'};
+  const filtered=FORMS.filter(function(f){return getStatus(f.id)===filterStatus;});
+  let html='<div class="form-list-view">';
+  html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <button onclick="renderFormList()" style="padding:6px 14px;background:none;border:1px solid var(--border);border-radius:var(--r);font-size:12px;cursor:pointer;color:var(--ink3);">← 返回總覽</button>
+    <div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;">${labelMap[filterStatus]}</div>
+    <span style="background:${colorMap[filterStatus]};color:#fff;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;">${filtered.length} 份</span>
+  </div>`;
+  if(filtered.length===0){
+    html+=`<div style="text-align:center;padding:3rem;color:var(--ink3);">此分類目前沒有表單</div>`;
+  } else {
+    html+='<div class="form-grid">';
+    filtered.forEach(function(f){
+      const st=getStatus(f.id);
+      const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':st==='partial'?'dot-partial':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='wait'?'⏳ 待老師評分':st==='partial'?'📝 進行中':'⭕ 未填寫';
+      const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
+      html+=`<div class="form-card" onclick="openForm('${f.id}')">
+        <div class="form-card-num">${f.num}</div>
+        <div class="form-card-name">${f.name}</div>
+        <div class="form-card-sub">${f.sub}</div>
+        <div class="form-card-meta"><span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  mc.innerHTML=html;
+}
 </script>
 </body>
 </html>
@@ -2714,15 +2800,22 @@ function closeNotify() {
 function autoSaveDraft(id){
   const formKey=getFormKey(id);
   if(!APP.formData[formKey])APP.formData[formKey]={};
+  // 收集所有 input/textarea/select 欄位
   document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(function(el){
     if(!el.disabled){
       APP.formData[formKey][el.dataset.key]=el.type==='checkbox'?el.checked:el.value;
     }
   });
+  // APP.formData[formKey] 已包含 rating 按鈕資料（f01Click 直接存入）
+  // 存到 localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    drafts[formKey]=APP.formData[formKey];
-    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+    // 只儲存有實際資料的表單
+    var data=APP.formData[formKey];
+    if(data&&Object.keys(data).some(function(k){return data[k]!==''&&data[k]!==false&&data[k]!==null&&data[k]!==undefined;})){
+      drafts[formKey]=data;
+      localStorage.setItem('form_drafts',JSON.stringify(drafts));
+    }
   }catch(e){}
 }
 
@@ -2731,13 +2824,25 @@ function loadDraft(formKey){
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(drafts[formKey]&&Object.keys(drafts[formKey]).length>0){
       if(!APP.formData[formKey])APP.formData[formKey]={};
-      Object.keys(drafts[formKey]).forEach(function(k){
-        if(!APP.formData[formKey][k])APP.formData[formKey][k]=drafts[formKey][k];
+      // 合併草稿（草稿優先，但不覆蓋從 GAS 載入的資料）
+      var draft=drafts[formKey];
+      Object.keys(draft).forEach(function(k){
+        if(draft[k]!==''&&draft[k]!==false&&draft[k]!==null){
+          APP.formData[formKey][k]=draft[k];
+        }
       });
       return true;
     }
   }catch(e){}
   return false;
+}
+
+function clearDraft(formKey){
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    delete drafts[formKey];
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
 }
 
 /* F01 專用點擊處理 */
