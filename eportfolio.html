@@ -1195,8 +1195,13 @@ async function openForm(id){
   </div>`;
   }
 
-  // Form content - pass formKey so all data-fid use student-specific key
-  html+=buildFormBody(f,d,canT,formKey,canS);
+  // Form content
+  try{
+    html+=buildFormBody(f,d,canT,formKey,canS);
+  }catch(buildErr){
+    console.error('buildFormBody error:',buildErr);
+    html+='<div class="card"><div class="card-body" style="color:var(--red);">⚠ 表單載入失敗：'+buildErr.message+'</div></div>';
+  }
 
   // Footer
   const hasSaved=APP.historyLog[formKey]&&APP.historyLog[formKey].length>0;
@@ -1960,16 +1965,16 @@ function rBtnTable(fid,key,v,role,disabled){
 /* ═══════════ FORM BUILDERS ═══════════ */
 function buildFormBody(f,d,canT,formKey,canS){
   formKey=formKey||f.id;
-  if(canS===undefined) canS=true; // default: student can edit student fields
+  if(canS===undefined) canS=true;
   const builders={
-    F01A:buildF01A,F01B:buildF01B,F02:buildF02,F04M:buildF04Bedside,F04S:buildF04Bedside,F05:buildF05,
+    F01A:buildF01A,F01B:buildF01B,F02:buildF02,F04M:buildF04Bedside,F04S:buildF04Bedside,
     F06M:buildF06M,F06S:buildF06S,F07M:buildF07M,F07S:buildF07S,F08:buildF08,F09:buildF09,F10:buildF10,
     F11:buildF11,F12:buildF12,F13:buildF13,F14:buildF14,
     D01:buildDOPS,D02:buildDOPS,D03:buildDOPS,D04:buildDOPS,
     E01:buildEPA,E02:buildEPA,E03:buildEPA,
     F15:buildF15,
   };
-  return (builders[f.id]||buildGeneric)(f,d,canT);
+  return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
 
 function buildGeneric(f,d,canT,fkey,canS){
