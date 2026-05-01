@@ -95,6 +95,7 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .sidebar-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .dot-done{background:var(--green);}
 .dot-wait{background:var(--gold);}
+.dot-partial{background:#5A8AAA;}
 .dot-new{background:var(--border);}
 .main-content{flex:1;overflow-y:auto;}
 
@@ -771,8 +772,10 @@ function renderSidebar(){
       g.ids.forEach(id=>{
         const f=findForm(id);if(!f)return;
         const shortName=f.name.length>13?f.name.slice(0,13)+'…':f.name;
+        const st2=APP.currentStudentId?getStudentFormStatus(id,APP.currentStudentId):getStatus(id);
+        const dot2=st2==='done'?'dot-done':st2==='wait'?'dot-wait':st2==='partial'?'dot-partial':'dot-new';
         thtml+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
-          <span class="sidebar-dot dot-new"></span>${shortName}
+          <span class="sidebar-dot ${dot2}"></span>${shortName}
         </div>`;
       });
     });
@@ -801,7 +804,7 @@ function renderSidebar(){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
-      const dotC=st==='done'?'dot-done':'dot-new';
+      const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':st==='partial'?'dot-partial':'dot-new';
       const shortName=f.name.length>14?f.name.slice(0,14)+'…':f.name;
       html+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
         <span class="sidebar-dot ${dotC}"></span>${f.num}. ${shortName}
@@ -847,8 +850,9 @@ function selectStudent(sid){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStudentFormStatus(id,sid);
-      const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':'dot-new';
-      const stLabel=st==='done'?'已填寫':st==='wait'?'待老師評分':'未填寫';
+      const dotC=st==='done'?'dot-done':st==='wait'?'dot-wait':st==='partial'?'dot-partial':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='wait'?'⏳ 待老師評分':st==='partial'?'📝 進行中':'⭕ 未填寫';
+      const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       html+=`<div class="form-card" onclick="openForm('${id}')">
         <div class="form-card-num">${f.num}</div>
         <div class="form-card-name">${f.name}</div>
@@ -974,7 +978,7 @@ function renderFormList(){
         <div class="form-card-num">${f.num}</div>
         <div class="form-card-name">${f.name}</div>
         <div class="form-card-sub">${f.sub}</div>
-        <div class="form-card-meta">${rolesTag}<span class="sidebar-dot ${dotC}" style="display:inline-block;"></span><span class="form-card-status">${stLabel}</span></div>
+        <div class="form-card-meta">${rolesTag}<span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
       </div>`;
     });
     html+='</div>';
@@ -985,6 +989,11 @@ function renderFormList(){
 
 /* ═══════════ OPEN FORM ═══════════ */
 async function openForm(id){
+  // 自動暫存目前表單（如果有未儲存的資料）
+  if(APP.currentFormId && APP.currentFormId !== id && APP.currentFormId !== '__unfilled__'){
+    autoSaveDraft(APP.currentFormId);
+  }
+
   APP.currentFormId=id;
   renderSidebar();
   const mc=document.getElementById('main-content');
@@ -997,8 +1006,12 @@ async function openForm(id){
   </div>`;
 
   const formKey = getFormKey(id);
-  // 從 GAS 讀取共享資料
+  // 先載入草稿（快速）
+  loadDraft(formKey);
+  // 從 GAS 讀取共享資料（最新）
   await loadFormFromSheets(formKey);
+  // 再次載入草稿，補充 GAS 沒有的本地草稿資料
+  loadDraft(formKey);
 
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
   const d=APP.formData[formKey]||{};
@@ -2697,6 +2710,36 @@ function closeNotify() {
 </body>
 </html>
 <script>
+/* ── 自動暫存草稿 ── */
+function autoSaveDraft(id){
+  const formKey=getFormKey(id);
+  if(!APP.formData[formKey])APP.formData[formKey]={};
+  document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(function(el){
+    if(!el.disabled){
+      APP.formData[formKey][el.dataset.key]=el.type==='checkbox'?el.checked:el.value;
+    }
+  });
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    drafts[formKey]=APP.formData[formKey];
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
+}
+
+function loadDraft(formKey){
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(drafts[formKey]&&Object.keys(drafts[formKey]).length>0){
+      if(!APP.formData[formKey])APP.formData[formKey]={};
+      Object.keys(drafts[formKey]).forEach(function(k){
+        if(!APP.formData[formKey][k])APP.formData[formKey][k]=drafts[formKey][k];
+      });
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+
 /* F01 專用點擊處理 */
 function f01Click(btn){
   if(btn.disabled)return;
