@@ -770,7 +770,7 @@ function renderSidebar(){
   }
   if(APP.currentRole==='teacher'){
     const groups=[
-      {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+      {label:'學習評估',ids:['F01A','F01B','F02','F03','F04','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
       {label:'個案報告',ids:['F13','F14']},
       {label:'DOPS',ids:['D01','D02','D03','D04']},
       {label:'EPA',ids:['E01','E02','E03']},
@@ -797,7 +797,7 @@ function renderSidebar(){
     return;
   }
   const groups=[
-    {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'學習評估',ids:['F01A','F01B','F02','F03','F04','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
@@ -853,7 +853,7 @@ function selectStudent(sid){
     <div class="fh-meta">${acc.school} ｜ 學號：${sid}</div>
   </div>`;
   const groups=[
-    {label:'學習評估表單',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'學習評估表單',ids:['F01A','F01B','F02','F03','F04','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
@@ -918,7 +918,7 @@ function renderMobileNav(){
   }
   const unfilledCount=typeof getUnfilledForms==='function'?getUnfilledForms().length:0;
   const groups=[
-    {label:'學習評估',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'學習評估',ids:['F01A','F01B','F02','F03','F04','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS',ids:['D01','D02','D03','D04']},
     {label:'EPA',ids:['E01','E02','E03']},
@@ -951,7 +951,7 @@ function renderFormList(){
   renderSidebar();
   const mc=document.getElementById('main-content');
   const groups=[
-    {label:'學習評估表單',count:'12份',ids:['F01','F02','F03','F04','F05','F06','F07','F08','F09','F10','F11','F12']},
+    {label:'學習評估表單',count:'15份',ids:['F01A','F01B','F02','F03','F04','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
     {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
