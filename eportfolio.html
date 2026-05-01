@@ -2826,23 +2826,28 @@ function renderStatusSection(filterStatus){
 function autoSaveDraft(id){
   const formKey=getFormKey(id);
   if(!APP.formData[formKey])APP.formData[formKey]={};
-  // 收集所有 input/textarea/select 欄位
-  document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(function(el){
+  // 收集頁面上所有 input/textarea/select（用 formKey 或 id 都找）
+  document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
     if(!el.disabled){
-      APP.formData[formKey][el.dataset.key]=el.type==='checkbox'?el.checked:el.value;
+      var fid=el.getAttribute('data-fid');
+      // 接受 fid === id 或 fid === formKey
+      if(fid===id||fid===formKey){
+        APP.formData[formKey][el.dataset.key]=el.type==='checkbox'?el.checked:el.value;
+      }
     }
   });
-  // APP.formData[formKey] 已包含 rating 按鈕資料（f01Click 直接存入）
+  // formData[formKey] 已包含 f01Click 存入的評分資料
   // 存到 localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    // 只儲存有實際資料的表單
     var data=APP.formData[formKey];
-    if(data&&Object.keys(data).some(function(k){return data[k]!==''&&data[k]!==false&&data[k]!==null&&data[k]!==undefined;})){
-      drafts[formKey]=data;
+    if(data&&Object.keys(data).some(function(k){
+      var v=data[k]; return v!==''&&v!==false&&v!==null&&v!==undefined;
+    })){
+      drafts[formKey]=JSON.parse(JSON.stringify(data)); // deep copy
       localStorage.setItem('form_drafts',JSON.stringify(drafts));
     }
-  }catch(e){}
+  }catch(e){console.warn('autoSaveDraft error:',e);}
 }
 
 function loadDraft(formKey){
@@ -2850,16 +2855,16 @@ function loadDraft(formKey){
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(drafts[formKey]&&Object.keys(drafts[formKey]).length>0){
       if(!APP.formData[formKey])APP.formData[formKey]={};
-      // 合併草稿（草稿優先，但不覆蓋從 GAS 載入的資料）
+      // 草稿蓋過目前記憶體資料（因為記憶體可能是空的）
       var draft=drafts[formKey];
       Object.keys(draft).forEach(function(k){
-        if(draft[k]!==''&&draft[k]!==false&&draft[k]!==null){
+        if(draft[k]!==''&&draft[k]!==null&&draft[k]!==undefined){
           APP.formData[formKey][k]=draft[k];
         }
       });
       return true;
     }
-  }catch(e){}
+  }catch(e){console.warn('loadDraft error:',e);}
   return false;
 }
 
@@ -2880,11 +2885,20 @@ function f01Click(btn){
   if(!fid||!key||!v)return;
   if(!APP.formData[fid])APP.formData[fid]={};
   APP.formData[fid][key]=v;
+  // 立即存到 localStorage（防止切換表單時遺失）
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!drafts[fid])drafts[fid]={};
+    drafts[fid][key]=v;
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
+  // Update button styles
   var row=btn.parentNode;
   if(row){
     row.querySelectorAll('button[data-rkey="'+key+'"]').forEach(function(b){
       var isSel=b.getAttribute('data-rval')===v;
-      b.style.background=isSel?'#1A3A5C':'#ffffff';
+      var isTeacher=b.getAttribute('data-teacher')==='1';
+      b.style.background=isSel?(isTeacher?'#8B2020':'#1A3A5C'):'#ffffff';
       b.style.color=isSel?'#ffffff':'#7A706A';
       b.style.fontWeight=isSel?'700':'400';
     });
