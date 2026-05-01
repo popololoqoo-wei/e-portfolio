@@ -623,6 +623,29 @@ function enterApp(){
       Object.assign(APP.formData[fkey],drafts[fkey]);
     });
   }catch(e){}
+  // 登入後強制合併：把所有不帶學號的 key 合併到帶學號的版本
+  setTimeout(function(){
+    if(APP.currentUser&&APP.currentUser.sid){
+      var sid=APP.currentUser.sid;
+      Object.keys(APP.formData).forEach(function(k){
+        // 找出不帶學號的 key（如 'F01A'）
+        if(k.indexOf('_P')===-1&&k.indexOf('_'+sid)===-1){
+          var fullKey=k+'_'+sid;
+          if(!APP.formData[fullKey])APP.formData[fullKey]={};
+          // 把短 key 的資料合併到長 key
+          Object.assign(APP.formData[fullKey], APP.formData[k]);
+          // 也存到 localStorage
+          try{
+            var drafts2=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+            if(!drafts2[fullKey])drafts2[fullKey]={};
+            Object.assign(drafts2[fullKey],APP.formData[k]);
+            localStorage.setItem('form_drafts',JSON.stringify(drafts2));
+          }catch(e2){}
+        }
+      });
+      renderSidebar(); // 更新狀態圖示
+    }
+  }, 100);
   renderSidebar();
   if(APP.currentRole==='admin'){renderAdmin();}
   else if(APP.currentRole==='teacher'){renderTeacherHome();}
@@ -1037,10 +1060,55 @@ async function openForm(id){
   </div>`;
 
   const formKey = getFormKey(id);
-  // 先從 GAS 讀取最新共享資料
+  
+  // 合併所有可能 key 的資料到 formKey
+  function mergeAllKeys(){
+    if(!APP.formData[formKey])APP.formData[formKey]={};
+    // 合併所有相關 key（id, formKey, 及任何包含 id 的 key）
+    var keysToMerge=[id, formKey];
+    // 也找 APP.formData 裡所有以 id 開頭的 key
+    Object.keys(APP.formData).forEach(function(k){
+      if(k===id||k.startsWith(id+'_')||k===formKey) keysToMerge.push(k);
+    });
+    // 去重複
+    keysToMerge=keysToMerge.filter(function(v,i,a){return a.indexOf(v)===i;});
+    // 全部合併到 formKey
+    keysToMerge.forEach(function(k){
+      if(k!==formKey&&APP.formData[k]&&Object.keys(APP.formData[k]).length>0){
+        Object.assign(APP.formData[formKey], APP.formData[k]);
+      }
+    });
+    // 載入草稿（所有相關 key）
+    try{
+      var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      keysToMerge.forEach(function(k){
+        if(drafts[k]){
+          Object.keys(drafts[k]).forEach(function(dk){
+            if(drafts[k][dk]!==''&&drafts[k][dk]!==null&&drafts[k][dk]!==undefined){
+              APP.formData[formKey][dk]=drafts[k][dk];
+            }
+          });
+        }
+      });
+    }catch(e){}
+    // 合併 historyLog
+    if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
+    keysToMerge.forEach(function(k){
+      if(k!==formKey&&APP.historyLog[k]&&APP.historyLog[k].length>0){
+        APP.historyLog[k].forEach(function(entry){
+          var exists=APP.historyLog[formKey].some(function(e){return e.ts===entry.ts;});
+          if(!exists)APP.historyLog[formKey].push(entry);
+        });
+        APP.historyLog[formKey].sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
+      }
+    });
+  }
+  
+  mergeAllKeys();
+  // 從 GAS 讀取（合併，本地優先）
   await loadFormFromSheets(formKey);
-  // 再載入本地草稿（草稿蓋過GAS，確保最新填寫不遺失）
-  loadDraft(formKey);
+  // GAS 載入後再次合併確保本地資料不被覆蓋
+  mergeAllKeys();
 
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
   // 學生欄位：只有學生自己才能填（老師不能改學生的）
@@ -1178,6 +1246,22 @@ function saveForm(id){
   const formKey = getFormKey(id);
   // Collect all inputs (only editable fields for current role)
   if(!APP.formData[formKey])APP.formData[formKey]={};
+  // 合併所有 key 的資料到 formKey
+  if(id!==formKey && APP.formData[id]){
+    Object.assign(APP.formData[formKey], APP.formData[id]);
+  }
+  // 也從草稿合併
+  try{
+    var saveDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    [id,formKey].forEach(function(k){
+      if(saveDrafts[k]){
+        Object.keys(saveDrafts[k]).forEach(function(dk){
+          var dv=saveDrafts[k][dk];
+          if(dv!==''&&dv!==null&&dv!==undefined)APP.formData[formKey][dk]=dv;
+        });
+      }
+    });
+  }catch(e){}
   // Collect text inputs, textareas, selects
   document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(el=>{
     if(!el.disabled){
@@ -1232,8 +1316,8 @@ function saveForm(id){
 
   // Also upload summary to sheets tab
   uploadToSheets(id);
-  // 清除草稿（已正式儲存）
-  clearDraft(formKey);
+  // 保留草稿作為備份（不清除，讓使用者隨時可以看到資料）
+  // clearDraft(formKey); // 已停用清除草稿
   
   // 儲存後立即鎖回老師欄位（不重新載頁，直接在DOM操作）
   if(APP.currentRole==='student' && APP.teacherUnlocked){
@@ -1318,16 +1402,19 @@ async function loadFormFromSheets(id){
     const data=await resp.json();
     if(data.formData){
       if(!APP.formData[id])APP.formData[id]={};
-      const loaded=JSON.parse(data.formData);
-      // 合併：GAS 資料為基底，本地記憶體資料（草稿）優先覆蓋
-      APP.formData[id]=Object.assign({},loaded,APP.formData[id]);
+      try{
+        const loaded=JSON.parse(data.formData);
+        // GAS 資料為基底，本地記憶體優先（本地比 GAS 新）
+        APP.formData[id]=Object.assign({},loaded,APP.formData[id]);
+      }catch(e2){console.warn('formData parse error:',e2);}
     }
     if(data.history){
-      // 合併歷史記錄（不覆蓋本地已有的）
-      const remoteLog=JSON.parse(data.history);
-      if(!APP.historyLog[id]||APP.historyLog[id].length===0){
-        APP.historyLog[id]=remoteLog;
-      }
+      try{
+        const remoteLog=JSON.parse(data.history);
+        // 合併歷史：取較多的那份
+        const localLog=APP.historyLog[id]||[];
+        APP.historyLog[id]=localLog.length>=remoteLog.length?localLog:remoteLog;
+      }catch(e2){}
     }
   }catch(e){console.warn('loadFormFromSheets:',e);}
 }
@@ -2597,13 +2684,18 @@ document.addEventListener('change', function(e){
   if(!APP.formData[fid])APP.formData[fid]={};
   var v=el.type==='checkbox'?el.checked:el.value;
   APP.formData[fid][key]=v;
-  // 同步到 formKey（防止 fid 是舊的 id）
+  // 同步到 formKey
   if(APP.currentFormId){
     var cfk=getFormKey(APP.currentFormId);
-    if(cfk!==fid){
-      if(!APP.formData[cfk])APP.formData[cfk]={};
-      APP.formData[cfk][key]=v;
-    }
+    if(!APP.formData[cfk])APP.formData[cfk]={};
+    APP.formData[cfk][key]=v;
+    // 存到 localStorage
+    try{
+      var gd=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      if(!gd[cfk])gd[cfk]={};
+      gd[cfk][key]=v;
+      localStorage.setItem('form_drafts',JSON.stringify(gd));
+    }catch(e2){}
   }
   // 存草稿
   try{
@@ -3028,13 +3120,20 @@ function loadDraft(formKey){
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(drafts[formKey]&&Object.keys(drafts[formKey]).length>0){
       if(!APP.formData[formKey])APP.formData[formKey]={};
-      // 草稿蓋過目前記憶體資料（因為記憶體可能是空的）
       var draft=drafts[formKey];
       Object.keys(draft).forEach(function(k){
         if(draft[k]!==''&&draft[k]!==null&&draft[k]!==undefined){
           APP.formData[formKey][k]=draft[k];
         }
       });
+      // 同時同步到可能的 formKey 版本
+      if(APP.currentUser&&APP.currentUser.sid){
+        var altKey=formKey+'_'+APP.currentUser.sid;
+        if(altKey!==formKey){
+          if(!APP.formData[altKey])APP.formData[altKey]={};
+          Object.assign(APP.formData[altKey],APP.formData[formKey]);
+        }
+      }
       return true;
     }
   }catch(e){console.warn('loadDraft error:',e);}
@@ -3091,13 +3190,18 @@ function f01Click(btn){
     drafts[fid][key]=v;
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
-  // 同步到 APP.currentFormId 的 formKey（防止 fid 是舊的 id）
+  // 同步到 formKey（確保兩個 key 都有資料）
   if(APP.currentFormId){
     var currentFKey=getFormKey(APP.currentFormId);
-    if(currentFKey!==fid){
-      if(!APP.formData[currentFKey])APP.formData[currentFKey]={};
-      APP.formData[currentFKey][key]=v;
-    }
+    if(!APP.formData[currentFKey])APP.formData[currentFKey]={};
+    APP.formData[currentFKey][key]=v;
+    // 也存到 localStorage 的兩個 key
+    try{
+      var drafts2=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      if(!drafts2[currentFKey])drafts2[currentFKey]={};
+      drafts2[currentFKey][key]=v;
+      localStorage.setItem('form_drafts',JSON.stringify(drafts2));
+    }catch(e){}
   }
   // 單選互斥：找同一個 fid+key 的所有按鈕（document 全域）
   document.querySelectorAll('button[data-fid="'+fid+'"][data-rkey="'+key+'"]').forEach(function(b){
