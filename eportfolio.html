@@ -1718,22 +1718,14 @@ function buildF01(f,d,canT,fkey){
   function makeBtn(fid2, key, v, role, disabled) {
     var cur = (d[key]||'');
     var isSel = cur===v;
-    var bg = isSel ? (role==='t'?'var(--red)':'var(--blue)') : '#fff';
-    var color2 = isSel ? '#fff' : 'var(--ink3)';
+    var bg = isSel ? (role==='t'?'#8B2020':'#1A3A5C') : '#ffffff';
+    var color2 = isSel ? '#ffffff' : '#7A706A';
     var fw = isSel ? '700' : '400';
     var cursor2 = disabled ? 'not-allowed' : 'pointer';
     var opacity2 = disabled ? '0.35' : '1';
-    var style2 = 'width:36px;height:32px;border:1px solid var(--border);border-radius:4px;background:' + bg + ';color:' + color2 + ';font-size:12px;cursor:' + cursor2 + ';opacity:' + opacity2 + ';font-weight:' + fw + ';';
-    var onclick2 = "setRating('" + fid2 + "','" + key + "','" + v + "','" + role + "',this)";
-    var el = document.createElement('button');
-    if(disabled) el.disabled = true;
-    el.setAttribute('onclick', onclick2);
-    el.setAttribute('data-fid', fid2);
-    el.setAttribute('data-rkey', key);
-    el.setAttribute('data-rval', v);
-    el.setAttribute('style', style2);
-    el.textContent = v;
-    return el.outerHTML;
+    var disAttr = disabled ? ' disabled' : '';
+    var style2 = 'width:36px;height:32px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+color2+';font-size:12px;cursor:'+cursor2+';opacity:'+opacity2+';font-weight:'+fw+';';
+    return '<button'+disAttr+' data-fid="'+fid2+'" data-rkey="'+key+'" data-rval="'+v+'" style="'+style2+'" onclick="f01Click(this)">'+v+'</button>';
   }
 
   function makeRow(fid2, skill, i, preKey, p1Key, p2Key, postKey, naKey) {
@@ -2680,3 +2672,24 @@ function closeNotify() {
 </script>
 </body>
 </html>
+<script>
+/* F01 專用點擊處理 */
+function f01Click(btn){
+  if(btn.disabled)return;
+  var fid=btn.getAttribute('data-fid');
+  var key=btn.getAttribute('data-rkey');
+  var v=btn.getAttribute('data-rval');
+  if(!fid||!key||!v)return;
+  if(!APP.formData[fid])APP.formData[fid]={};
+  APP.formData[fid][key]=v;
+  var row=btn.parentNode;
+  if(row){
+    row.querySelectorAll('button[data-rkey="'+key+'"]').forEach(function(b){
+      var isSel=b.getAttribute('data-rval')===v;
+      b.style.background=isSel?'#1A3A5C':'#ffffff';
+      b.style.color=isSel?'#ffffff':'#7A706A';
+      b.style.fontWeight=isSel?'700':'400';
+    });
+  }
+}
+</script>
