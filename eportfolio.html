@@ -2173,94 +2173,185 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
 
-  // 呼吸問題確立（複選）
-  var rtProblems=['通氣障礙','氧合障礙','氣道清除困難','呼吸功增加','呼吸衰竭','其他'];
-  var savedProblems=[];
-  try{savedProblems=JSON.parse(d['rt_problems']||'[]');}catch(e){}
-  var problemsHtml='';
-  rtProblems.forEach(function(p){
-    var chk=savedProblems.indexOf(p)>=0?'checked':'';
-    var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['rt_problems']||'[]');}catch(e){}if(this.checked){if(a.indexOf('"+p+"')<0)a.push('"+p+"');}else{a=a.filter(function(x){return x!=='"+p+"';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_problems']=JSON.stringify(a);";
-    problemsHtml+='<label class="check-item"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+p+'</label>';
-  });
-
-  // 呼吸器模式下拉
-  var modes=['IPPV/CMV','SIMV','CPAP/PSV','BiPAP','PRVC','APRV','HFOV','其他'];
-  var curMode=d['vent_mode']||'';
-  var modeOpts=modes.map(function(m){return '<option value="'+m+'" '+(curMode===m?'selected':'')+'>'+m+'</option>';}).join('');
-  var modeOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_mode']=this.value";
-  var modeSelect='<select data-fid="'+fid+'" data-key="vent_mode" onchange="'+modeOC+'" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇</option>'+modeOpts+'</select>';
-
-  function num(key,label,unit,disabled){
+  // 輔助：多行文字框
+  function area(key,rows,disabled){
     var v=d[key]||'';
     var dis=disabled?' disabled':'';
     var bg=disabled?'var(--cream)':'#fff';
     var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
-    return '<div class="field"><label>'+label+(unit?' ('+unit+')':'')+'</label><input type="number" value="'+v+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'"'+dis+' style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;"></div>';
+    return '<textarea rows="'+rows+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:12px;resize:vertical;"'+dis+'>'+v+'</textarea>';
+  }
+  function inp(key,placeholder,disabled){
+    var v=d[key]||'';
+    var dis=disabled?' disabled':'';
+    var bg=disabled?'var(--cream)':'#fff';
+    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
+    return '<input type="text" value="'+v+'" placeholder="'+(placeholder||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'"'+dis+' style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:12px;">';
+  }
+  function numInp(key,placeholder){
+    var v=d[key]||'';
+    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
+    return '<input type="text" value="'+v+'" placeholder="'+(placeholder||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center;">';
   }
 
-  let h=basicInfoCard(fid,d,'');
+  // 性別
+  var genderHtml='';
+  ['男','女'].forEach(function(g){
+    var chk=d['gender']===g?'checked':'';
+    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['gender']='"+g+"'";
+    genderHtml+='<label style="margin-right:10px;font-size:12px;"><input type="radio" name="'+fid+'_gender" '+chk+' onchange="'+oc+'"> '+g+'</label>';
+  });
 
-  // 病患基本資料（無病歷號碼）
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">病患資料</div></div><div class="card-body">';
+  // 呼吸問題確立（Indications of mechanical ventilation）
+  var indications=['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'];
+  var savedInd=[];
+  try{savedInd=JSON.parse(d['rt_ind']||'[]');}catch(e){}
+  var indHtml='';
+  indications.forEach(function(ind){
+    var chk=savedInd.indexOf(ind)>=0?'checked':'';
+    var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['rt_ind']||'[]');}catch(e){}"+
+      "if(this.checked){if(a.indexOf('"+ind+"')<0)a.push('"+ind+"');}else{a=a.filter(function(x){return x!=='"+ind+"';});}"+
+      "APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_ind']=JSON.stringify(a);";
+    indHtml+='<label style="font-size:11px;margin-right:8px;margin-bottom:4px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+ind+'</label>';
+  });
+  // Others 文字框
+  var othersOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_ind_others']=this.value";
+  indHtml+='<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><span style="font-size:11px;">Others:</span><input type="text" value="'+(d['rt_ind_others']||'')+'" data-fid="'+fid+'" data-key="rt_ind_others" onchange="'+othersOC+'" style="width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"></div>';
+
+  // 呼吸器機型（複選）
+  var ventTypes=['PB840','Servo','Hamilton-G5','Drager','NKV-550'];
+  var savedVent=[];
+  try{savedVent=JSON.parse(d['vent_type']||'[]');}catch(e){}
+  var ventHtml='';
+  ventTypes.forEach(function(vt){
+    var chk=savedVent.indexOf(vt)>=0?'checked':'';
+    var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['vent_type']||'[]');}catch(e){}"+
+      "if(this.checked){if(a.indexOf('"+vt+"')<0)a.push('"+vt+"');}else{a=a.filter(function(x){return x!=='"+vt+"';});}"+
+      "APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_type']=JSON.stringify(a);";
+    ventHtml+='<label style="font-size:11px;margin-right:10px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+vt+'</label>';
+  });
+  // Servo 和 Drager 有附加說明欄
+  var servoOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_servo_note']=this.value";
+  var dragerOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_drager_note']=this.value";
+
+  // 表單標題
+  var isMedical=f.id==='F04M';
+  let h='<div class="card" style="border-top:4px solid var(--blue);">';
+  h+='<div class="card-body" style="padding:12px 16px;">';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:1px;text-align:center;">實習學生—床邊教學訓練記錄表（'+(isMedical?'內科':'外科')+'）</div>';
+  h+='</div></div>';
+
+  // 基本資料（學生）
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生資料</div></div><div class="card-body">';
   h+='<div class="g2">';
-  h+='<div class="field"><label>床號</label>'+fi(fid,'bed','text',false)+'</div>';
-  h+='<div class="field"><label>主診斷（不限字數）</label>'+ta(fid,'diagnosis',3,false)+'</div>';
-  h+='</div>';
-  h+='<div class="field"><label>呼吸問題確立（複選）</label><div class="check-group" style="flex-wrap:wrap;gap:8px;">'+problemsHtml+'</div></div>';
-  h+='</div></div>';
-
-  // 呼吸器設定參數
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">呼吸器設定參數<span class="t-badge">老師</span></div></div><div class="card-body">';
-  h+='<div class="field"><label>呼吸器模式</label>'+modeSelect+'</div>';
-  h+='<div class="g3">';
-  h+=num('fio2','FiO2','%',!canT);
-  h+=num('peep','PEEP','cmH₂O',!canT);
-  h+=num('vt_set','Vt set','mL',!canT);
-  h+='</div><div class="g3">';
-  h+=num('vt_exp','Vt exp','mL',!canT);
-  h+=num('rr_set','RR set','bpm',!canT);
-  h+=num('rr_total','RR total','bpm',!canT);
-  h+='</div><div class="g3">';
-  h+=num('peak','Peak pressure','cmH₂O',!canT);
-  h+=num('plateau','Plateau pressure','cmH₂O',!canT);
-  h+=num('pip','PIP','cmH₂O',!canT);
-  h+='</div><div class="g3">';
-  h+=num('ie_ratio','I:E ratio','',!canT);
-  h+=num('flow','Flow','L/min',!canT);
-  h+=num('spo2','SpO₂','%',!canT);
+  // 學生姓名
+  var sn=d['s_name']||'';
+  if(APP.currentRole==='student'&&APP.currentUser) sn=APP.currentUser.name;
+  h+='<div class="field"><label>學生姓名</label><input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name"'+(APP.currentRole==='student'&&APP.currentUser?' readonly':'')+' style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(APP.currentRole==='student'?'var(--cream)':'#fff')+';font-size:13px;"></div>';
+  // 實習學校下拉
+  var sc=d['school']||'';
+  var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部','中山醫學大學','中國醫藥大學','弘光科技大學','中臺科技大學','朝陽科技大學'];
+  var schoolOpts=schools.map(function(s){return '<option value="'+s+'" '+(sc===s?'selected':'')+'>'+s+'</option>';}).join('');
+  var schoolOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['school']=this.value";
+  h+='<div class="field"><label>實習學校</label><select data-fid="'+fid+'" data-key="school" onchange="'+schoolOC+'" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇</option>'+schoolOpts+'</select></div>';
   h+='</div></div></div>';
 
-  // ABG（動脈血氣體）
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">動脈血氣體分析<span class="t-badge">老師</span></div></div><div class="card-body"><div class="g3">';
-  h+=num('ph','pH','',!canT);
-  h+=num('paco2','PaCO₂','mmHg',!canT);
-  h+=num('pao2','PaO₂','mmHg',!canT);
-  h+='</div><div class="g2">';
-  h+=num('hco3','HCO₃','mEq/L',!canT);
-  h+=num('be','BE','',!canT);
-  h+='</div></div></div>';
-
-  // 呼吸治療計畫
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">呼吸治療計畫<span class="t-badge">老師</span></div></div><div class="card-body">';
-  h+='<div class="field"><label>醫療重點</label>'+ta(fid,'medical_focus',3,!canT)+'</div>';
-  h+='<div class="field"><label>治療計畫</label>'+ta(fid,'rt_plan',3,!canT)+'</div>';
-  h+='<div class="field"><label>老師回饋</label>'+ta(fid,'t_fb',3,!canT)+'</div>';
+  // 病患基本資料
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">病患資料</div></div><div class="card-body">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  h+='<tr>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病床號</label><br>'+inp('bed','')+'</td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病人名</label><br>'+inp('pt_name','')+'</td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>性別</label><br>'+genderHtml+'</td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>出生日期</label><br>';
+  var bdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['birth_date']=this.value";
+  h+='<input type="date" value="'+(d['birth_date']||'')+'" data-fid="'+fid+'" data-key="birth_date" onchange="'+bdOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></td>';
+  h+='</tr></table>';
   h+='</div></div>';
 
-  // 學生評量
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生自評</div></div><div class="card-body">';
-  h+='<div class="field"><label>學生心得（不限字數）</label>'+ta(fid,'s_feeling',4,false)+'</div>';
+  // 一、診斷
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">一、診斷</div></div><div class="card-body">';
+  h+=area('diagnosis',3,false);
   h+='</div></div>';
 
-  // 簽名區（含學生簽名和日期）
+  // 二、呼吸問題確立
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">二、呼吸問題確立 — Indications of mechanical ventilation</div></div><div class="card-body">';
+  h+='<div style="flex-wrap:wrap;display:flex;gap:4px 16px;margin-bottom:8px;">'+indHtml+'</div>';
+  h+='</div></div>';
+
+  // 三、呼吸治療評估
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">三、呼吸治療評估</div></div><div class="card-body">';
+  h+='<div style="margin-bottom:10px;">';
+  h+='<label style="font-size:12px;font-weight:600;">呼吸器機型：</label>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px;">'+ventHtml+'</div>';
+  h+='<div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap;">';
+  h+='<span style="font-size:11px;">Servo 型號：</span><input type="text" value="'+(d['vent_servo_note']||'')+'" data-fid="'+fid+'" data-key="vent_servo_note" onchange="'+servoOC+'" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">';
+  h+='<span style="font-size:11px;">Drager 型號：</span><input type="text" value="'+(d['vent_drager_note']||'')+'" data-fid="'+fid+'" data-key="vent_drager_note" onchange="'+dragerOC+'" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">';
+  h+='</div></div>';
+
+  // 呼吸器設定參數（完整依Word原稿）
+  h+='<div style="font-size:12px;font-weight:600;margin:10px 0 6px;">目前呼吸器設定：</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+
+  function paramCell(label,key,unit){
+    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
+    return '<td style="border:1px solid var(--border);padding:4px 6px;white-space:nowrap;">'+label+'：<input type="text" value="'+(d[key]||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:50px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:11px;"> '+(unit||'')+'</td>';
+  }
+  function paramCell2(label,key1,key2,unit){
+    var oc1="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key1+"']=this.value";
+    var oc2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key2+"']=this.value";
+    return '<td style="border:1px solid var(--border);padding:4px 6px;white-space:nowrap;">'+label+'：<input type="text" value="'+(d[key1]||'')+'" data-fid="'+fid+'" data-key="'+key1+'" onchange="'+oc1+'" style="width:40px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:11px;">/<input type="text" value="'+(d[key2]||'')+'" data-fid="'+fid+'" data-key="'+key2+'" onchange="'+oc2+'" style="width:40px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:11px;"> '+(unit||'')+'</td>';
+  }
+
+  h+='<tr>';
+  h+=paramCell('Mode','vent_mode','');
+  h+=paramCell('FiO₂','fio2','%');
+  h+=paramCell('PEEP','peep','cmH₂O');
+  h+='</tr><tr>';
+  h+=paramCell2('Vt set/exp','vt_set','vt_exp','mL');
+  h+=paramCell('Flow','flow','L');
+  h+=paramCell2('PS/PC','ps','pc','cmH₂O');
+  h+='</tr><tr>';
+  h+=paramCell2('RR set/total','rr_set','rr_total','bpm');
+  h+=paramCell2('Ti/I:E','ti','ie','');
+  h+=paramCell('MV','mv','L');
+  h+='</tr><tr>';
+  h+=paramCell2('Peak/Plateau','peak','plateau','cmH₂O');
+  h+=paramCell('MAP','map','cmH₂O');
+  h+=paramCell2('Cst/Raw','cst','raw','');
+  h+='</tr></table>';
+  h+='<div style="margin-top:8px;"><label style="font-size:12px;">其他：</label>'+area('vent_others',2,false)+'</div>';
+  h+='</div></div>';
+
+  // 四、目前醫療重點
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">四、目前醫療重點<span class="t-badge">老師</span></div></div><div class="card-body">';
+  h+='<label style="font-size:11px;color:var(--ink3);">醫師意見或其它醫療團隊人員建議：</label>';
+  h+=area('medical_focus',3,!canT);
+  h+='</div></div>';
+
+  // 五、呼吸治療計畫
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">五、呼吸治療計畫<span class="t-badge">老師</span></div></div><div class="card-body">';
+  h+=area('rt_plan',3,!canT);
+  h+='</div></div>';
+
+  // 臨床實習老師回饋
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">臨床實習老師回饋<span class="t-badge">老師</span></div></div><div class="card-body">';
+  h+=area('t_fb',3,!canT);
+  h+='</div></div>';
+
+  // 簽名（老師 + 學生）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">';
-  h+=signRow(fid,'s_sign','t_sign',canT);
-  var ssd=d['s_sign_date']||'';
-  var ssdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_sign_date']=this.value";
+  h+='<div class="g2">';
+  h+='<div class="field"><label>臨床實習老師簽名<span class="t-badge">老師</span></label>'+fi(fid,'t_sign','text',!canT,'')+'</div>';
+  var tDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['t_sign_date']=this.value";
+  h+='<div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+(d['t_sign_date']||'')+'" data-fid="'+fid+'" data-key="t_sign_date" onchange="'+tDateOC+'"'+(canT?'':' disabled')+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(canT?'#fff':'var(--cream)')+';font-size:13px;"></div>';
+  h+='</div>';
   h+='<div class="g2" style="margin-top:8px;">';
-  h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+ssd+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+ssdOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
-  h+='</div></div></div>';
+  h+='<div class="field"><label>學生簽名</label>'+fi(fid,'s_sign','text',false,'')+'</div>';
+  var sDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_sign_date']=this.value";
+  h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+(d['s_sign_date']||'')+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+sDateOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;font-size:13px;"></div>';
+  h+='</div>';
+  h+='</div></div>';
   return h;
 }
 
