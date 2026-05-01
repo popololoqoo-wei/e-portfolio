@@ -164,9 +164,9 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 
 /* ─── DOPS TABLE ─── */
 .dops-tbl{width:100%;border-collapse:collapse;font-size:11px;}
-.dops-tbl th{background:var(--ink);color:#fff;padding:5px 4px;text-align:center;font-size:10px;}
+.dops-tbl th{background:#2471A3;color:#fff;border:1px solid #1A5276;padding:5px 4px;text-align:center;font-size:10px;}
 .dops-tbl td{padding:5px 4px;border:1px solid var(--border2);vertical-align:middle;}
-.dops-tbl .item-cell{font-size:11px;color:var(--ink);padding-right:8px;}
+.dops-tbl .item-cell{font-size:11px;color:#1A5276;background:#EBF5FB;padding:4px 8px;border:1px solid #AED6F1;}
 .d-btn{width:24px;height:24px;border-radius:4px;border:1px solid #AED6F1;background:#EBF5FB;font-size:11px;cursor:pointer;color:#1A5276;transition:all .12s;}
 .d-btn:not(:disabled):hover{background:#AED6F1;color:#fff;}
 .d-btn.sel{background:#2471A3;color:#fff;border-color:#1A5276;font-weight:700;}
@@ -1284,9 +1284,8 @@ function unlockTeacherFieldsInDOM(){
       el.style.opacity='';
     }
   });
-  // 解鎖所有老師評分按鈕（包含 r-btn, d-btn, epa-level）
-  mc.querySelectorAll('button[disabled],button.r-btn,button.d-btn,button[data-teacher="1"]').forEach(function(btn){
-    // 只解鎖老師欄位的按鈕（學生按鈕不動）
+  // 解鎖所有老師評分按鈕和輸入欄位
+  mc.querySelectorAll('button[disabled],button.r-btn,button.d-btn').forEach(function(btn){
     var isStudentBtn=btn.getAttribute('data-teacher')==='0';
     if(!isStudentBtn){
       btn.disabled=false;
@@ -1294,6 +1293,17 @@ function unlockTeacherFieldsInDOM(){
       btn.style.cursor='pointer';
       btn.style.pointerEvents='';
     }
+  });
+  // 解鎖所有 disabled 的 input/textarea/select（老師欄位）
+  mc.querySelectorAll('input[disabled],textarea[disabled],select[disabled]').forEach(function(el){
+    var key=el.getAttribute('data-key')||'';
+    // 不解鎖學生姓名（唯讀）
+    if(el.hasAttribute('readonly')) return;
+    el.disabled=false;
+    el.style.background='#fff';
+    el.style.color='var(--ink)';
+    el.style.cursor='';
+    el.style.opacity='';
   });
   // 解鎖 EPA 等級卡片
   mc.querySelectorAll('.epa-level').forEach(function(el){
@@ -2051,11 +2061,24 @@ function basicInfoCard(fid,d,extraFields,dateLabel){
   var sd=d['s_date']||'';
   var dateField=dateRangeField(fid,'s_date',false);
 
-  return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g3">'+
+  // 實習類別
+  var cats=['重症','小兒','長照'];
+  var catHtml='<div style="display:flex;gap:12px;flex-wrap:wrap;">';
+  cats.forEach(function(c){
+    var chk=(d['intern_cat']||'')=== c?'checked':'';
+    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['intern_cat']='"+c+"'";
+    catHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="radio" name="'+fid+'_icat" '+chk+' onchange="'+oc+'" style="accent-color:var(--blue);"> '+c+'</label>';
+  });
+  catHtml+='</div>';
+
+  return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body">'+
+    '<div class="g3">'+
     '<div class="field"><label>學生姓名</label>'+snField+'</div>'+
     '<div class="field"><label>實習學校</label>'+schoolField+'</div>'+
     '<div class="field"><label>'+(dateLabel||'實習日期')+'</label>'+dateField+'</div>'+
-    '</div>'+(extraFields||'')+'</div></div>';
+    '</div>'+
+    '<div class="field" style="margin-top:8px;"><label>實習類別</label>'+catHtml+'</div>'+
+    (extraFields||'')+'</div></div>';
 }
 
 /* ─── F01A 核心課程內容自我學前評值表 ─── */
@@ -2092,7 +2115,7 @@ function buildF01A(f,d,canT,fkey,canS){
   var f01a_sd=d['s_sign_date']||'';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名區</div></div><div class="card-body">';
   h+='<div class="g2">';
-  h+='<div class="field"><label>學生簽名</label>'+fi(fid,'s_sign','text',false,'姓名')+'</div>';
+  h+='<div class="field"><label>學生簽名</label>'+makeDropdown(fid,'s_sign',getStudentList(),false,'請選擇學生')+'</div>';
   var f01a_oc="APP.formData['" +fid+ "']=(APP.formData['" +fid+ "']||{});APP.formData['" +fid+ "']['s_sign_date']=this.value";
   h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+f01a_sd+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+f01a_oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
   h+='</div></div></div>';
@@ -2405,12 +2428,12 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   // 簽名（老師 + 學生）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">';
   h+='<div class="g2">';
-  h+='<div class="field"><label>臨床實習老師簽名<span class="t-badge">老師</span></label>'+fi(fid,'t_sign','text',!canT,'')+'</div>';
+  h+='<div class="field"><label>臨床實習老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師')+'</div>';
   var tDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['t_sign_date']=this.value";
   h+='<div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+(d['t_sign_date']||'')+'" data-fid="'+fid+'" data-key="t_sign_date" onchange="'+tDateOC+'"'+(canT?'':' disabled')+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(canT?'#fff':'var(--cream)')+';font-size:13px;"></div>';
   h+='</div>';
   h+='<div class="g2" style="margin-top:8px;">';
-  h+='<div class="field"><label>學生簽名</label>'+fi(fid,'s_sign','text',false,'')+'</div>';
+  h+='<div class="field"><label>學生簽名</label>'+makeDropdown(fid,'s_sign',getStudentList(),false,'請選擇學生')+'</div>';
   var sDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_sign_date']=this.value";
   h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+(d['s_sign_date']||'')+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+sDateOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;font-size:13px;"></div>';
   h+='</div>';
@@ -2595,8 +2618,11 @@ function build360(f,d,canT,fkey,canS){
   h+='<div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>'+ta(fid,'director_fb',3,!canT)+'</div>';
   h+='<div class="field"><label>學生回饋</label>'+ta(fid,'s_fb',3,false)+'</div>';
   h+=signRow(fid,'s_sign','s_sign',''); // student sign
+  // 實習計畫主持人下拉（包含固定選項張維倫）
+  var hostList=['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';}));
+  var hostField=makeDropdown(fid,'host_sign',hostList,!canT,'請選擇主持人');
   h+='<div class="g2">';
-  h+='<div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>'+fi(fid,'host_sign','text',!canT)+'</div>';
+  h+='<div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>'+hostField+'</div>';
   var hsd=d['host_sign_date']||'';
   var hsdis=!canT?' disabled':'';
   var hsbg=!canT?'var(--cream)':'#fff';
@@ -2823,7 +2849,7 @@ function buildDOPS(f,d,canT,fkey,canS){
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評量結果<span class="t-badge">老師</span></div></div><div class="card-body">';
     h+='<div class="field"><label>評量結果</label><div class="check-group">';
     ['合格','不合格'].forEach(function(v){
-      var chk=d['result']===v?'checked':'';
+      var chk=(d['result']&&d['result']===v)?'checked':'';
       var dis=!canT?'disabled':'';
       var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['result']='"+v+"'";
       h+='<label class="check-item"><input type="radio" name="'+f.id+'_result" '+chk+' '+dis+' onchange="'+oc+'" style="accent-color:var(--gold);"> '+v+'</label>';
@@ -2876,7 +2902,7 @@ function buildEPA(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   const task=EPA_TASKS[f.id]||{};
-  const lvls=[['1','Level 1：僅觀察，不得獨立操作'],['2','Level 2：需主動協助，可在直接監督下操作（UGY最高至此）'],['3','Level 3：需被動協助，可在間接監督下操作'],['4','Level 4：可獨立操作，只需遠端監督'],['5','Level 5：可指導他人操作']];
+  const lvls=[['1','Level 1：學習者在旁觀察'],['2','Level 2：教師直接觀察'],['3','Level 3：教師間接觀察'],['4','Level 4：可獨立執行'],['5','Level 5：可對其他人進行教學']];
 
   // 任務說明
   var taskHtml='<div class="card" style="border-left:4px solid var(--blue);"><div class="card-body">';
