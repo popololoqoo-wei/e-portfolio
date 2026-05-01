@@ -1210,6 +1210,11 @@ async function openForm(id){
   html+='</div>';
   mc.innerHTML=html;
 
+  // 360度評估表：初始化自動計算
+  if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
+    setTimeout(function(){calc360Score(APP.currentFormId);},100);
+  }
+
   // 老師登入：鎖定學生欄位（防止竄改）
   if(APP.currentRole==='teacher'){
     mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
@@ -1232,12 +1237,48 @@ function inlineUnlock(){
   const msg=document.getElementById('inline-msg');
   if(pin===APP.teacherPIN){
     APP.teacherUnlocked=true;
-    APP._skipPinReset=true; // 標記：重載表單時不重置PIN
+    APP._skipPinReset=true;
     msg.style.color='var(--green)';msg.textContent='解鎖成功！';
-    setTimeout(()=>openForm(APP.currentFormId),400);
+    // 直接在 DOM 解鎖老師欄位（不重新載入頁面）
+    unlockTeacherFieldsInDOM();
   } else {
     msg.style.color='var(--red)';msg.textContent='PIN碼錯誤';
   }
+}
+
+function unlockTeacherFieldsInDOM(){
+  var mc=document.getElementById('main-content');
+  if(!mc)return;
+  // 解鎖所有老師 input/textarea/select
+  mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+    var key=el.getAttribute('data-key')||'';
+    var isT=['t_fb','t_sign','t_comment','t_good','t_improve','t_note','t_title',
+      'epa_level','result','score','director_fb','peer_good','peer_suggest',
+      'host_sign','host_sign_date','host_date'].some(function(p){return key===p||key.startsWith(p);})
+      ||/^f(05|06|07|15)_/.test(key);
+    if(isT){
+      el.disabled=false;
+      el.style.background='';
+      el.style.color='';
+      el.style.cursor='';
+      el.style.opacity='';
+    }
+  });
+  // 解鎖老師評分按鈕（r-btn 和 data-teacher=1）
+  mc.querySelectorAll('button.r-btn,button[data-teacher="1"]').forEach(function(btn){
+    var rkey=btn.getAttribute('data-rkey')||'';
+    var isTeacherRating=btn.getAttribute('data-teacher')==='1'
+      ||/^f(06|07|05|15)_/.test(rkey);
+    if(isTeacherRating){
+      btn.disabled=false;
+      btn.style.opacity='1';
+      btn.style.cursor='pointer';
+      btn.style.pointerEvents='';
+    }
+  });
+  // 隱藏 lock-bar
+  var lb=mc.querySelector('.lock-bar');
+  if(lb) lb.style.display='none';
 }
 
 async function reloadFormKeepUnlocked(id){}
@@ -2212,10 +2253,39 @@ function build360(f,d,canT,fkey,canS){
   rows.forEach(function(row,i){
     var key='f07_'+i;
     h+='<tr><td style="font-size:11px;font-weight:500;">'+row[0]+'</td><td style="font-size:11px;">'+row[1]+'</td><td class="row-label">'+row[2]+'</td>';
-    row[3].forEach(function(v){h+='<td style="text-align:center;">'+rBtnTable(fid,key,v,'t',!canT)+'</td>';});
+    row[3].forEach(function(v){
+      // 使用 setRating360 讓評分後即時更新分數
+      var cur2=d['f07_'+i]||'';
+      var isSel2=cur2==v||cur2===String(v);
+      var selC2=isSel2?'sel-t':'';
+      var dis2=!canT?'disabled':'';
+      var oc360="setRating360('"+fid+"','"+key+"','"+v+"','t',this)";
+      h+='<td style="text-align:center;"><button class="r-btn '+selC2+'" '+dis2+' data-rkey="'+key+'" data-rval="'+v+'" data-fid="'+fid+'" data-teacher="1" onclick="'+oc360+'">'+v+'</button></td>';
+    });
     h+='</tr>';
   });
-  h+='</table></div></div>';
+  h+='</table>';
+  // 自動計算顯示區
+  h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:10px 14px;margin-top:8px;font-size:12px;">';
+  h+='<div style="font-weight:700;color:var(--blue);margin-bottom:6px;">📊 分數自動計算</div>';
+  h+='<div style="display:flex;gap:24px;flex-wrap:wrap;">';
+  // 態度：基本分80
+  h+='<div>';
+  h+='<div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">態度得分（基本分 80）</div>';
+  h+='<div style="font-size:13px;font-weight:600;color:var(--blue);" id="score-att-'+fid+'">計算中...</div>';
+  h+='</div>';
+  // 臨床智能：基本分75
+  h+='<div>';
+  h+='<div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">臨床智能得分（基本分 75）</div>';
+  h+='<div style="font-size:13px;font-weight:600;color:var(--blue);" id="score-clin-'+fid+'">計算中...</div>';
+  h+='</div>';
+  // 總分
+  h+='<div>';
+  h+='<div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">換算總分</div>';
+  h+='<div style="font-size:16px;font-weight:700;color:var(--green);" id="score-total-'+fid+'">計算中...</div>';
+  h+='</div>';
+  h+='</div></div>';
+  h+='</div></div>';
   // 各方回饋
   h+='<div class="card"><div class="card-head"><div class="card-head-title">各方回饋</div></div><div class="card-body">';
   // 臨床老師
@@ -3147,6 +3217,68 @@ function clearDraft(formKey){
   }catch(e){}
 }
 
+
+
+/* ── 360度評估表自動計算 ── */
+function calc360Score(formId){
+  var fid=getFormKey(formId)||formId;
+  var d=Object.assign({},APP.formData[formId]||{},APP.formData[fid]||{});
+  
+  // 態度：題目 0-7（基本分80）
+  // 臨床智能：題目 8-13（基本分75）
+  var attBase=80, clinBase=75;
+  var attDelta=0, clinDelta=0;
+  
+  var attWeights=['+2','+1','0','-1','-2',
+                  '+2','+1','0','-1','-2',
+                  '+3','+2','0','-2','-3',
+                  '+2','+1','0','-1','-2',
+                  '+2','+1','0','-1','-2',
+                  '+3','+2','0','-2','-3',
+                  '+3','+2','0','-2','-3',
+                  '+3','+2','0','-2','-3'];
+  
+  // 計算每題得分
+  for(var i=0;i<8;i++){
+    var v=d['f07_'+i];
+    if(v!==undefined&&v!==''&&v!==null){
+      attDelta+=parseFloat(String(v).replace('+',''))||0;
+    }
+  }
+  for(var j=8;j<14;j++){
+    var v2=d['f07_'+j];
+    if(v2!==undefined&&v2!==''&&v2!==null){
+      clinDelta+=parseFloat(String(v2).replace('+',''))||0;
+    }
+  }
+  
+  var attScore=attBase+attDelta;
+  var clinScore=clinBase+clinDelta;
+  var total=attScore+clinScore;
+  
+  // 更新顯示
+  var elAtt=document.getElementById('score-att-'+fid)||document.getElementById('score-att-'+formId);
+  var elClin=document.getElementById('score-clin-'+fid)||document.getElementById('score-clin-'+formId);
+  var elTotal=document.getElementById('score-total-'+fid)||document.getElementById('score-total-'+formId);
+  
+  if(elAtt) elAtt.textContent='80 + ('+attDelta+') = '+attScore+' 分';
+  if(elClin) elClin.textContent='75 + ('+clinDelta+') = '+clinScore+' 分';
+  if(elTotal){
+    var grade=total>=90?'優（90+）':total>=80?'良（80-89）':total>=70?'佳（70-79）':total>=60?'尚可（60-69）':'差（<60）';
+    elTotal.textContent=total+' / 155 分（'+grade+'）';
+    elTotal.style.color=total>=80?'var(--green)':total>=60?'var(--gold)':'var(--red)';
+  }
+}
+
+/* ── 360評分點擊後即時更新分數 ── */
+function setRating360(fid,key,val,role,btn){
+  setRating(fid,key,val,role,btn);
+  // 延遲計算（等 setRating 存完資料）
+  setTimeout(function(){
+    var formId=APP.currentFormId;
+    if(formId==='F07M'||formId==='F07S') calc360Score(formId);
+  },50);
+}
 
 /* ── 鎖定老師欄位（學生帳號儲存後呼叫） ── */
 function lockTeacherFields(){
