@@ -631,7 +631,7 @@ function enterApp(){
 
 /* ═══════════ FORM DEFINITIONS ═══════════ */
 const FORMS=[
-  {id:'F01A',num:'柒(上)',name:'核心課程內容自我學前評值表',sub:'訓練前技能評核',roles:'both'},
+  {id:'F01A',num:'柒(上)',name:'核心課程內容自我學前評值表',sub:'訓練前技能評核',roles:'student'},
   {id:'F01B',num:'柒(下)',name:'核心課程內容自我學後評值表',sub:'訓練後技能評核',roles:'both'},
   {id:'F02',num:'捌',name:'臨床表現自我學後評值表',sub:'學後臨床表現評估',roles:'both'},
   {id:'F03',num:'玖',name:'課程滿意度調查表',sub:'授課教師評估',roles:'student',special:'satisfaction'},
@@ -1358,13 +1358,23 @@ function canDownloadPDF(id){
   const formKey=getFormKey(id);
   const logs=APP.historyLog[formKey]||[];
   const d=APP.formData[formKey]||{};
-  // 條件：有任何儲存記錄 + 所有必填欄位都有資料
+  // 條件1：有儲存記錄
   if(logs.length===0) return false;
-  // 檢查是否有實質資料（至少有5個以上欄位有值）
-  const filledCount=Object.keys(d).filter(function(k){
-    var v=d[k]; return v!==undefined&&v!==''&&v!==false&&v!==null;
-  }).length;
-  return filledCount >= 3; // 至少有3個欄位有值就顯示下載
+  // 條件2：所有必填欄位都有資料
+  const req=REQUIRED_STUDENT_FIELDS[id]||[];
+  if(req.length>0){
+    const allFilled=req.every(function(k){
+      var v=d[k]; return v!==undefined&&v!==''&&v!==false&&v!==null;
+    });
+    if(!allFilled) return false;
+  } else {
+    // 沒有定義必填欄位：至少要有3個欄位有值
+    const count=Object.keys(d).filter(function(k){
+      var v=d[k]; return v!==undefined&&v!==''&&v!==false&&v!==null;
+    }).length;
+    if(count<3) return false;
+  }
+  return true;
 }
 
 function checkAndDownloadPDF(id){
@@ -1391,13 +1401,12 @@ function checkAndDownloadPDF(id){
 function downloadPDF(id){
   const formKey=getFormKey(id);
   const f=findForm(id);
+  if(!f)return;
   const d=APP.formData[formKey]||{};
   const logs=APP.historyLog[formKey]||[];
-  const lastSave=logs.length>0?logs[0]:null;
-  const fieldNames=getFieldNames(id);
-
-  // 找到對應的學生資訊
-  let studentName='', studentSchool='', studentId='';
+  
+  // 取得學生資訊
+  let studentName='',studentSchool='',studentId='';
   if(APP.currentRole==='student'&&APP.currentUser){
     studentName=APP.currentUser.name;
     studentSchool=APP.currentUser.school||'';
@@ -1406,296 +1415,222 @@ function downloadPDF(id){
     const stu=APP.students[APP.currentStudentId];
     if(stu){studentName=stu.name;studentSchool=stu.school||'';studentId=APP.currentStudentId;}
   }
-
-  let content_html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-  @page{size:A4;margin:1.5cm;}
-  body{font-family:'Noto Sans TC',sans-serif;font-size:10pt;color:#1A1612;margin:0;padding:0;}
-  .outer-border{border:2px solid #1A1612;padding:1cm;}
-  .page-header{text-align:center;border-bottom:2px solid #B8860B;padding-bottom:10px;margin-bottom:14px;}
-  .hosp{font-size:9pt;color:#7A706A;letter-spacing:1px;}
-  .title{font-size:15pt;font-weight:700;margin:6px 0 3px;}
-  .sub{font-size:9pt;color:#7A706A;}
-  .save-info{font-size:8pt;color:#7A706A;margin-top:4px;}
-  .section-title{font-size:10pt;font-weight:700;background:#F0EDE8;border-left:3px solid #B8860B;padding:4px 8px;margin:12px 0 6px;}
-  table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:9.5pt;}
-  th{background:#2D2A26;color:#fff;padding:5px 8px;text-align:left;font-weight:600;font-size:9pt;}
-  th.center{text-align:center;}
-  td{padding:5px 8px;border:1px solid #D4C9BB;vertical-align:top;}
-  td.label{background:#F5F2EE;font-weight:600;color:#3D3530;width:30%;white-space:nowrap;}
-  td.value{white-space:pre-wrap;word-break:break-word;}
-  td.center{text-align:center;}
-  td.t-field{background:#FFF8F5;}
-  tr:nth-child(even) td{background:#FDFBF7;}
-  tr:nth-child(even) td.label{background:#EDE9E4;}
-  tr:nth-child(even) td.t-field{background:#FFF0EC;}
-  .rating-table th{background:#1A3A5C;font-size:8pt;}
-  .history-section{border-top:1px solid #D4C9BB;margin-top:12px;padding-top:8px;}
-  .history-title{font-size:8pt;font-weight:700;color:#7A706A;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
-  .history-row{font-size:8pt;color:#7A706A;padding:2px 0;border-bottom:1px solid #EAE2D8;}
-  .badge{display:inline-block;padding:1px 6px;border-radius:999px;font-size:8pt;}
-  .badge-t{background:#F5EBE8;color:#8B2020;}
-  .badge-s{background:#E8F0EE;color:#1A3A5C;}
-</style></head><body><div class="outer-border">`;
-
-  content_html+=`<div class="page-header">
-    <div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>
-    <div class="title">${f.name}</div>
-    <div class="sub">${f.num}、${f.sub}</div>
-    ${studentName?`<div class="save-info">學生：${studentName}（${studentId}）　${studentSchool}</div>`:''}
-    ${lastSave?`<div class="save-info">最後儲存：${new Date(lastSave.ts).toLocaleString('zh-TW')}　by ${lastSave.roleLabel}：${lastSave.name}</div>`:''}
-  </div>`;
-
-  // ── 基本資料表格 ──
-  const basicFields=['s_name','school','s_date','date','t_name','teacher_name','period'];
-  const basicData=basicFields.filter(k=>d[k]).map(k=>`<tr><td class="label">${fieldNames[k]||k}</td><td class="value">${d[k]}</td></tr>`).join('');
-  if(basicData){
-    content_html+=`<div class="section-title">基本資料</div><table>${basicData}</table>`;
+  if(!studentName&&d['s_name']) studentName=d['s_name'];
+  if(!studentSchool&&d['school']) studentSchool=d['school'];
+  
+  const lastSave=logs.length>0?logs[0]:null;
+  const lastTs=lastSave?new Date(lastSave.ts).toLocaleString('zh-TW'):'';
+  
+  // 取得所有欄位的中文名稱
+  const fn=getFieldNames(id);
+  
+  // 輔助：取值並顯示
+  function val(key){ var v=d[key]; return (v!==undefined&&v!==null&&v!==''&&v!==false)?String(v):''; }
+  function row(label,key,isTeacher){
+    var v=val(key);
+    if(!v) return '';
+    var bg=isTeacher?'#FFF5F5':'#FAFBFF';
+    return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:11pt;">'+label+'</td><td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:11pt;white-space:pre-wrap;">'+v+'</td></tr>';
   }
-
-  // ── 根據表單ID生成對應表格 ──
-  content_html += buildPDFTable(id,f,d,fieldNames);
-
-  // ── 簽名欄位 ──
-  const signFields=['s_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_date'];
-  const signData=signFields.filter(k=>d[k]);
-  if(signData.length>0){
-    content_html+=`<div class="section-title">簽名</div><table>`;
-    for(let i=0;i<signData.length;i+=2){
-      const k1=signData[i],k2=signData[i+1];
-      const isT1=k1&&(k1.startsWith('t_')||k1.startsWith('host'));
-      const isT2=k2&&(k2&&(k2.startsWith('t_')||k2.startsWith('host')));
-      content_html+=`<tr>
-        <td class="label">${fieldNames[k1]||k1}</td>
-        <td class="value${isT1?' t-field':''}">${d[k1]||''}</td>
-        ${k2?`<td class="label">${fieldNames[k2]||k2}</td><td class="value${isT2?' t-field':''}">${d[k2]||''}</td>`:'<td></td><td></td>'}
-      </tr>`;
-    }
-    content_html+=`</table>`;
-  }
-
-  // ── 歷次修改紀錄 ──
+  function section(title,color){ return '<tr><td colspan="2" style="background:'+color+';color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>'; }
+  
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+f.name+'</title><style>';
+  html+='@page{size:A4;margin:1.5cm;} body{font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;font-size:11pt;color:#1A1612;margin:0;} ';
+  html+='table{width:100%;border-collapse:collapse;margin-bottom:12px;} ';
+  html+='.header{text-align:center;border-bottom:3px solid #B8860B;padding-bottom:10px;margin-bottom:15px;} ';
+  html+='.hosp{font-size:10pt;color:#666;letter-spacing:1px;margin-bottom:4px;} ';
+  html+='.title{font-size:16pt;font-weight:700;color:#1A1612;margin:6px 0;} ';
+  html+='.sub{font-size:10pt;color:#888;} ';
+  html+='.info-bar{font-size:9pt;color:#666;margin-top:6px;} ';
+  html+='.section-head{background:#1A3A5C;color:#fff;font-weight:700;padding:5px 10px;font-size:11pt;margin-top:10px;margin-bottom:0;} ';
+  html+='.rating-grid{display:grid;border:1px solid #DDD;} ';
+  html+='.r-cell{border:1px solid #DDD;padding:4px 6px;text-align:center;font-size:9pt;} ';
+  html+='.r-head{background:#2471A3;color:#fff;font-weight:700;} ';
+  html+='.r-sel-s{background:#2471A3;color:#fff;font-weight:700;} ';
+  html+='.r-sel-t{background:#C0392B;color:#fff;font-weight:700;} ';
+  html+='.sign-box{border-top:1px solid #B8860B;padding-top:10px;margin-top:10px;} ';
+  html+='</style></head><body>';
+  
+  // ── 頁首 ──
+  html+='<div class="header">';
+  html+='<div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
+  html+='<div class="title">'+f.num+'、'+f.name+'</div>';
+  html+='<div class="sub">'+f.sub+'</div>';
+  html+='<div class="info-bar">';
+  if(studentName) html+='學生：'+studentName+'　';
+  if(studentId) html+='學號：'+studentId+'　';
+  if(studentSchool) html+='學校：'+studentSchool+'　';
+  if(lastTs) html+='最後儲存：'+lastTs;
+  html+='</div></div>';
+  
+  // ── 表單內容（依表單類型） ──
+  html+=buildPDFContent(id,f,d,val,row,section,studentName,studentSchool);
+  
+  // ── 修改紀錄 ──
   if(logs.length>0){
-    content_html+=`<div class="history-section"><div class="history-title">修改紀錄</div>`;
-    logs.forEach((l,i)=>{
-      const dt=new Date(l.ts);
-      const ts=dt.toLocaleString('zh-TW');
-      const badge=`<span class="badge ${l.role==='teacher'?'badge-t':'badge-s'}">${l.roleLabel}：${l.name}</span>`;
-      content_html+=`<div class="history-row">#${logs.length-i}　${ts}　${badge}</div>`;
+    html+='<div style="border-top:1px solid #DDD;margin-top:15px;padding-top:8px;">';
+    html+='<div style="font-size:9pt;font-weight:700;color:#666;margin-bottom:4px;">修改紀錄</div>';
+    logs.forEach(function(l,i){
+      var ts=new Date(l.ts).toLocaleString("zh-TW");
+      html+='<div style="font-size:9pt;color:#888;padding:2px 0;">#'+(logs.length-i)+'　'+ts+'　'+l.roleLabel+'：'+l.name+'</div>';
     });
-    content_html+=`</div>`;
+    html+='</div>';
   }
-
-  content_html+=`</div></body></html>`;
-
-  const blob=new Blob([content_html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
+  
+  html+='</body></html>';
+  
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
   a.href=url;
-  const fname=`${f.num}_${f.name}${studentName?'_'+studentName:''}.html`;
-  a.download=fname;a.click();
+  a.download=(f.num+'_'+f.name+(studentName?'_'+studentName:'')+'.html').replace(/[/\\:*?"<>|]/g,'_');
+  a.click();
   URL.revokeObjectURL(url);
-  toast('PDF 已產生（請在瀏覽器列印為PDF）');
+  toast('PDF 已產生，請在瀏覽器中選擇「列印→另存PDF」');
 }
 
-/* ── 各表單專屬PDF表格 ── */
-function buildPDFTable(id,f,d,fieldNames){
-  let h='';
-
-  // F01 核心課程自我評值表
-  if(id==='F01'){
-    const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣系統','認識不同的人工氣道','12.1 抽痰','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
-    h+=`<div class="section-title">核心技能評核矩陣</div>
-    <table class="rating-table"><tr><th style="width:40%;">核心技能學習目標</th><th class="center">學前自評</th><th class="center">指導者評核(1)</th><th class="center">指導者評核(2)</th><th class="center">學後自評</th><th class="center">未評</th></tr>`;
-    skills.forEach((skill,i)=>{
-      const pre=d[`f01_pre_${i}`]||'—',p1=d[`f01_p1_${i}`]||'—',p2=d[`f01_p2_${i}`]||'—',post=d[`f01_post_${i}`]||'—',na=d[`f01_na_${i}`]?'✓':'';
-      h+=`<tr><td>${i+1}. ${skill}</td><td class="center">${pre}</td><td class="center t-field">${p1}</td><td class="center t-field">${p2}</td><td class="center">${post}</td><td class="center">${na}</td></tr>`;
+function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool){
+  var html='';
+  
+  // F01A 核心課程學前評值表
+  if(id==='F01A'){
+    var skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣系統','認識不同的人工氣道','12.1 抽痰','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
+    html+='<div class="section-head">學生學前自評</div>';
+    html+='<table><tr><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能學習目標</th><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:60px;">佳</th><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:60px;">可</th><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:60px;">差</th></tr>';
+    skills.forEach(function(skill,i){
+      var pre=d['f01_pre_'+i]||'';
+      html+='<tr><td style="padding:4px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+skill+'</td>';
+      ['佳','可','差'].forEach(function(v){
+        var isSel=pre===v;
+        html+='<td style="text-align:center;border:1px solid #DDD;background:'+(isSel?'#2471A3':'#fff')+';color:'+(isSel?'#fff':'#ccc')+';">'+(isSel?'<b>●</b>':'')+'</td>';
+      });
+      html+='</tr>';
     });
-    h+=`</table>`;
-    return h;
+    html+='</table>';
+    html+='<table>'+row('學生姓名','s_sign',false)+row('簽名日期','s_sign_date',false)+'</table>';
+    return html;
   }
-
+  
+  // F01B 核心課程學後評值表
+  if(id==='F01B'){
+    var skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣系統','認識不同的人工氣道','12.1 抽痰','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
+    html+='<div class="section-head">核心技能評核（學後）</div>';
+    html+='<table><tr><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能</th><th colspan="3" style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">學後自評</th><th colspan="3" style="background:#C0392B;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(1)</th><th colspan="3" style="background:#922B21;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(2)</th></tr>';
+    html+='<tr><th style="border:1px solid #DDD;"></th><th style="background:#D6EAF8;border:1px solid #DDD;width:40px;">佳</th><th style="background:#D6EAF8;border:1px solid #DDD;width:40px;">可</th><th style="background:#D6EAF8;border:1px solid #DDD;width:40px;">差</th><th style="background:#FADBD8;border:1px solid #DDD;width:40px;">佳</th><th style="background:#FADBD8;border:1px solid #DDD;width:40px;">可</th><th style="background:#FADBD8;border:1px solid #DDD;width:40px;">差</th><th style="background:#FADBD8;border:1px solid #DDD;width:40px;">佳</th><th style="background:#FADBD8;border:1px solid #DDD;width:40px;">可</th><th style="background:#FADBD8;border:1px solid #DDD;width:40px;">差</th></tr>';
+    skills.forEach(function(skill,i){
+      var post=d['f01_post_'+i]||'',p1=d['f01_p1_'+i]||'',p2=d['f01_p2_'+i]||'';
+      html+='<tr><td style="padding:3px 6px;border:1px solid #DDD;font-size:9pt;">'+(i+1)+'. '+skill+'</td>';
+      ['佳','可','差'].forEach(function(v){html+='<td style="text-align:center;border:1px solid #DDD;font-size:10pt;">'+(post===v?'<b>'+v+'</b>':'')+'</td>';});
+      ['佳','可','差'].forEach(function(v){html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF9F9;font-size:10pt;">'+(p1===v?'<b>'+v+'</b>':'')+'</td>';});
+      ['佳','可','差'].forEach(function(v){html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF9F9;font-size:10pt;">'+(p2===v?'<b>'+v+'</b>':'')+'</td>';});
+      html+='</tr>';
+    });
+    html+='</table>';
+    html+='<table>'+row('學生簽名','s_sign',false)+row('學生簽名日期','s_sign_date',false)+row('老師簽名','t_sign',true)+row('老師簽名日期','t_sign_date',true)+'</table>';
+    return html;
+  }
+  
   // F02 臨床表現自我學後評值表
   if(id==='F02'){
-    const items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
-    h+=`<div class="section-title">臨床表現評估（5分制）</div>
-    <table><tr><th style="width:70%;">評估項目</th><th class="center">自評分數</th></tr>`;
-    items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center">${d[`f02_${i}`]||'—'}</td></tr>`);
-    h+=`</table>`;
-  }
-
-  // F06 CbD
-  if(id==='F06'){
-    const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
-    h+=`<div class="section-title">CbD 評量（1-9分；UGY≥5合格）</div>
-    <table><tr><th style="width:60%;">評量項目</th><th class="center">評分</th></tr>`;
-    items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center t-field">${d[`f06_${i}`]||'—'}</td></tr>`);
-    h+=`</table>`;
-  }
-
-  // F13 書面個案報告
-  if(id==='F13'){
-    const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
-    const total=items.reduce((s,[k])=>s+(parseInt(d[k])||0),0);
-    h+=`<div class="section-title">書面個案報告評分（滿分100分）</div>
-    <table><tr><th style="width:60%;">評分項目</th><th class="center">配分</th><th class="center">得分</th></tr>`;
-    items.forEach(([k,label,max])=>h+=`<tr><td>${label}</td><td class="center">${max}分</td><td class="center t-field">${d[k]||'—'}</td></tr>`);
-    h+=`<tr><td style="font-weight:700;text-align:right;">合計</td><td class="center">100分</td><td class="center t-field" style="font-weight:700;">${total}</td></tr></table>`;
-  }
-
-  // F14 PPT
-  if(id==='F14'){
-    const sections=[{t:'報告技巧',items:[['報告技巧1：口語表達清晰流暢',5],['報告技巧2：台風穩健',5],['報告技巧3：熟悉報告主題及內容',10],['報告技巧4：時間掌握良好',5]]},{t:'內容',items:[['前言與入院經過',10],['身體評估',10],['疾病流程圖與呼吸照護主要問題',10],['呼吸照護計畫',10],['討論與文獻回顧',15],['回答問題',10]]},{t:'其他',items:[['期刊選擇-內容完整度',5],['與老師討論-準時認真',5]]}];
-    h+=`<div class="section-title">PPT評分（滿分100分）</div><table><tr><th style="width:50%;">評分項目</th><th class="center">配分</th><th class="center">得分</th></tr>`;
-    let ki=0;
-    sections.forEach(sec=>{
-      h+=`<tr><td colspan="3" style="background:#E8E0D8;font-weight:700;font-size:9pt;">${sec.t}</td></tr>`;
-      sec.items.forEach(([label,max])=>{h+=`<tr><td>${label}</td><td class="center">${max}分</td><td class="center t-field">${d[`f14_${ki}`]||'—'}</td></tr>`;ki++;});
+    var items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
+    html+='<table>'+row('學生姓名','s_name',false)+row('實習學校','school',false)+row('實習日期','s_date',false)+'</table>';
+    html+='<div class="section-head">臨床表現評估（5=非常好，1=非常差）</div>';
+    html+='<table><tr><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評估項目</th><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:60px;text-align:center;">分數</th></tr>';
+    items.forEach(function(item,i){
+      var score=val('f02_'+i);
+      html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td><td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#2471A3;">'+score+'</td></tr>';
     });
-    h+=`</table>`;
+    html+='</table>';
+    html+='<table>'+row('學生心得','s_comment',false)+row('學生簽名','s_sign',false)+row('學生簽名日期','s_sign_date',false)+row('老師回饋','t_fb',true)+row('老師簽名','t_sign',true)+row('老師簽名日期','t_sign_date',true)+'</table>';
+    return html;
   }
-
-  // F15 課程評值表
-  if(id==='F15'){
-    const sections=[
-      {t:'一、學習態度（30%）',items:['能確立個人學習目標','能主動參與所有教學活動','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'],prefix:'f15_att'},
-      {t:'二、專業知識及技能（50%）',items:['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力'],prefix:'f15_skl'},
-      {t:'三、溝通、協調與專業態度（20%）',items:['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'],prefix:'f15_com'},
-    ];
-    h+=`<div class="section-title">實習課程評值表</div>
-    <table><tr><th style="width:70%;">評值項目</th><th class="center">評分（1-5）</th></tr>`;
-    sections.forEach(sec=>{
-      h+=`<tr><td colspan="2" style="background:#E8E0D8;font-weight:700;font-size:9pt;">${sec.t}</td></tr>`;
-      sec.items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center t-field">${d[`${sec.prefix}_${i}`]||'—'}</td></tr>`);
+  
+  // F06M/F06S CbD
+  if(id==='F06M'||id==='F06S'){
+    var items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
+    html+='<table>'+row('學生姓名','s_name',false)+row('病情複雜度','complexity',false)+row('主診斷','diagnosis',false)+'</table>';
+    html+='<div class="section-head">評量項目（1-9分；1-3=有待加強，4-6=合乎標準，7-9=優良；UGY≥5合格）</div>';
+    html+='<table><tr><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評量項目</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;width:80px;text-align:center;">評分</th></tr>';
+    items.forEach(function(item,i){
+      var score=val('f06_'+i);
+      var scoreNum=parseInt(score);
+      var scoreColor=scoreNum>=7?'#27AE60':scoreNum>=4?'#F39C12':'#E74C3C';
+      var scoreLabel=scoreNum>=7?'優良':scoreNum>=4?'合乎標準':'有待加強';
+      html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF9F9;">';
+      if(score==='NA'||score==='na'){html+='<span style="color:#888;">NA</span>';}
+      else if(score){html+='<span style="font-size:14pt;font-weight:700;color:'+scoreColor+';">'+score+'</span><br><span style="font-size:8pt;color:'+scoreColor+';">'+scoreLabel+'</span>';}
+      html+='</td></tr>';
     });
-    h+=`</table>`;
+    html+='</table>';
+    html+='<div class="section-head">雙向回饋</div>';
+    html+='<table>';
+    html+=row('學員學習心得','s_feeling',false);
+    html+=row('自覺可再加強','s_improve',false);
+    html+=row('表現良好項目','t_good',true);
+    html+=row('建議加強項目','t_improve',true);
+    html+='</table>';
+    html+='<table>'+row('學生簽名','s_sign',false)+row('學生簽名日期','s_sign_date',false)+row('老師簽名','t_sign',true)+row('老師簽名日期','t_sign_date',true)+'</table>';
+    return html;
   }
-
-  // DOPS 表單
-  if(['D01','D02','D03','D04'].includes(id)){
-    const dopsData={'D01':{name:'抽痰技術',items:['確認醫囑','確認病人並解釋','洗手戴口罩','備物：無菌抽痰包、聽診器','選擇合適抽痰管','調整抽吸器壓力','床頭抬高30-45度','抽痰前100%氧氣1分鐘','打開抽痰包','單手戴無菌手套連接抽痰管','間歇旋轉抽吸勿超15秒','抽痰順序：氣管→鼻→口','評估咳嗽能力、痰液性質','注意生命徵象','沖洗後取下關掉抽吸器','抽痰後100%氧氣1分鐘','恢復床邊安全','聽診呼吸音','技術後洗手','正確記錄']},'D02':{name:'MDI配合呼吸器',items:['確認醫囑與適應症','確認病人並解釋','洗手戴口罩','三讀五對','備物','維持呼吸道通暢','搖晃儲藥罐5-10秒','執行前抽痰','Aero-chamber接Y型接頭','MDI卡榫接上','按下MDI注入藥物','間隔30-60秒','等待6次完整吸吐氣','觀察副作用','觀察生命徵象及藥效','恢復床邊安全','Aero-chamber清潔','技術後洗手']},'D03':{name:'呼吸器技術操作',items:['確認醫囑與適應症','確認病人','洗手戴口罩','備物','正確組裝管路','呼吸器功能測試','呼吸器初步設定','監測：聽診、生命徵象','障礙排除先檢查病人','依警報原因調整','面板每日漂白水擦拭','技術後洗手','正確記錄','管路依分類處理','面板表面漂白水擦拭','Exp.cassette酒精浸泡烘乾','細菌過濾器高溫殺菌','管路巴斯德消毒']},'D04':{name:'呼吸器脫離指標測量',items:['確認醫囑','評估是否符合脫離','洗手戴口罩','備物','維持呼吸道通暢','確認病人並解釋','協助半坐臥45-90度','測量RR及VE','計算Vt及RSBI','測量MIP(最大吸氣力量)','測量MEP(最大吐氣力量)','測氣囊漏氣量CLT','觀察生命徵象','評估結果','解釋測量結果','回復姿勢整理環境','清潔歸位','洗手','記錄與交班']}};
-    const dops=dopsData[id];
-    h+=`<div class="section-title">DOPS：${dops.name} — 直接觀察評估（1-9分；NA=未評）</div>
-    <table><tr><th style="width:70%;">評核內容</th><th class="center">評分</th></tr>`;
-    dops.items.forEach((item,i)=>h+=`<tr><td>${i+1}. ${item}</td><td class="center t-field">${d[`${id}_i${i+1}`]||'—'}</td></tr>`);
-    h+=`</table>`;
-    h+=`<table><tr><td class="label">評量結果</td><td class="t-field">${d['result']||'—'}</td><td class="label">評分分數</td><td class="t-field">${d['score']||'—'}</td></tr>
-    <tr><td class="label">技術複雜度</td><td>${d['complexity']||'—'}</td><td class="label">學生心得</td><td>${d['s_feeling']||'—'}</td></tr></table>`;
-  }
-
-  // EPA 表單
-  if(['E01','E02','E03'].includes(id)){
-    const epaNames={'E01':'(6) 侵襲性呼吸器初始設定及照護','E02':'(8) 使用呼吸器病人之緊急處置','E03':'(10) 侵襲性呼吸器病人之脫離照護'};
-    const lvls=['僅觀察，不得獨立操作','需主動協助，可在直接監督下操作','需被動協助，可在間接監督下操作','可獨立操作，只需遠端監督','可指導他人操作'];
-    const lv=parseInt(d['epa_level'])||0;
-    h+=`<div class="section-title">EPA：${epaNames[id]}</div>
-    <table><tr><td class="label">可信賴等級</td><td class="t-field" style="font-weight:700;font-size:12pt;">等級 ${lv||'—'}</td></tr>
-    ${lv?`<tr><td class="label">等級說明</td><td>${lvls[lv-1]||''}</td></tr>`:''}
-    <tr><td class="label">老師回饋</td><td class="t-field">${d['t_fb']||'—'}</td></tr>
-    <tr><td class="label">學生觀察紀錄</td><td>${d['s_note']||'—'}</td></tr></table>`;
-  }
-
-  // 通用文字欄位（fb、comment等）
-  const textFields=['s_comment','s_fb','s_feeling','s_self','t_fb','t_good','t_improve','t_comment','director_fb',
-    'peer_good','peer_suggest','ilp_fb','t_note','env_review','teacher_review','self_review',
-    'goal','motivation','strategy','difficulty','criteria','timeline',
-    'pt_info','care_plan','reflection','c1','c2','c3',
-    'content','feeling','medical_focus','rt_plan','diagnosis',
-    'case_name','case_dx','self_discuss','cbd_score','cbd_fb',
-    'teacher_suggest','content_suggest','counsel_notes','s_suggest',
-    'leave_pub','leave_sick','leave_priv','late_cnt','bonus'];
-  const textData=textFields.filter(k=>d[k]&&String(d[k]).trim());
-  if(textData.length>0){
-    h+=`<div class="section-title">詳細內容</div><table>`;
-    textData.forEach(k=>{
-      const isT=k.startsWith('t_')||k==='director_fb'||k==='peer_good'||k==='peer_suggest';
-      h+=`<tr><td class="label">${fieldNames[k]||k}</td><td class="value${isT?' t-field':''}">${String(d[k])}</td></tr>`;
+  
+  // F07M/F07S 360度評估表
+  if(id==='F07M'||id==='F07S'){
+    var rows=[['態度','基本禮儀','儀容、禮貌合宜'],[,'','守時/出席狀況'],[,'學習態度','自動自發及敬業精神'],[,'','提供照護及討論前之準備'],[,'團隊合作','同事之間的溝通'],[,'','與醫療團隊成員合作精神'],[,'專業倫理','醫病溝通'],[,'','同理心及同情心'],['臨床智能','呼吸紀錄','確立呼吸照護問題之正確性'],[,'','呼吸計畫之完整性'],[,'','病歷記載之完整性與邏輯性'],[,'照護技術','技術之正確性與熟練度'],[,'交班能力','資料收集整合及分析、時間掌控'],[,'知識考評','單位自行評值呼吸治療知識']];
+    html+='<table>'+row('學生姓名','s_name',false)+row('實習日期','s_date',false)+'</table>';
+    html+='<div class="section-head">360 度評核</div>';
+    html+='<table><tr><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;">類別</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;">面向</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評核細項</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;width:50px;">評分</th></tr>';
+    rows.forEach(function(r,i){
+      var score=val('f07_'+i);
+      html+='<tr><td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;font-weight:500;">'+(r[0]||'')+'</td>';
+      html+='<td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;">'+(r[1]||'')+'</td>';
+      html+='<td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;">'+r[2]+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#C0392B;background:#FEF9F9;">'+score+'</td></tr>';
     });
-    h+=`</table>`;
+    html+='</table>';
+    html+='<div class="section-head">回饋意見</div>';
+    html+='<table>'+row('臨床老師優點','peer_good',true)+row('臨床老師建議','peer_suggest',true)+row('臨床老師簽名','t_sign',true)+row('職稱','t_title',true)+row('其他團隊人員優點','team_good',false)+row('其他團隊人員建議','team_suggest',false)+row('其他團隊人員簽名','team_sign',false)+row('職稱','team_title',false)+row('實習指導教師綜合評語','director_fb',true)+row('學生回饋','s_fb',false)+'</table>';
+    html+='<table>'+row('學生簽名','s_sign',false)+row('計畫主持人簽名','host_sign',true)+row('主持人簽名日期','host_sign_date',true)+'</table>';
+    return html;
   }
-
-  return h;
-}
-
-function getFieldNames(id){
-  // F02 臨床表現自我學後評值表
-  const f02Items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
-  const f02Names={};
-  f02Items.forEach((item,i)=>f02Names[`f02_${i}`]=`第${i+1}題：${item}`);
-
-  // F05 對臨床實習老師評值表
-  const f05Items=['具備專業知識及臨床工作能力','創造生動活潑的教學環境與學習氣氛','教學時態度熱心、誠懇、積極、詳盡指導學員','教學內容考量學員需要，充實合宜','事實刺激學員主動學習與發問','引導學員思考問題與解答問題','重視學員感受與反應、有技巧的糾正學員的缺失','對於學員的學習情況能及時給予回饋','能與學員互相討論，有達到教學相長的成效','讓學員了解跨領域團隊合作的溝通與協調'];
-  const f05Names={};
-  f05Items.forEach((item,i)=>f05Names[`f05_${i}`]=`第${i+1}題：${item}`);
-
-  // F06 CbD
-  const f06Items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
-  const f06Names={};
-  f06Items.forEach((item,i)=>f06Names[`f06_${i}`]=`CbD評項${i+1}：${item}`);
-
-  // F03 滿意度
-  const f03tItems=['教學主題明確','內容條理分明','內容難易適中','表達能力良好','投影片製作及內涵','時間掌控良好','講義可讀性','與學員互動良好','說話音量適中'];
-  const f03cItems=['課後對我的未知的知識技能有幫助','課後對我的已知的知識技能有幫助','課程內容有符合我的需求'];
-  const f03Names={};
-  f03tItems.forEach((item,i)=>f03Names[`f03t_${i}`]=`對授課老師-${item}`);
-  f03cItems.forEach((item,i)=>f03Names[`f03c_${i}`]=`對課程內容-${item}`);
-
-  // F15 課程評值表
-  const f15attItems=['能確立個人學習目標','能主動參與所有教學活動','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
-  const f15sklItems=['能利用適當工具執行病人評估','能依病人問題擬定適當治療計劃','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器','具備病人照護基本知識與技能','具備邏輯思考能力'];
-  const f15comItems=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
-  const f15Names={};
-  f15attItems.forEach((item,i)=>f15Names[`f15_att_${i}`]=`學習態度${i+1}：${item}`);
-  f15sklItems.forEach((item,i)=>f15Names[`f15_skl_${i}`]=`專業技能${i+1}：${item}`);
-  f15comItems.forEach((item,i)=>f15Names[`f15_com_${i}`]=`溝通態度${i+1}：${item}`);
-
-  return {
-    // 基本欄位
-    s_name:'學生姓名', school:'實習學校', date:'日期', s_date:'實習日期',
-    t_name:'老師姓名', s_sign:'學生簽名', t_sign:'老師簽名',
-    s_sign_date:'學生簽名日期', t_sign_date:'老師簽名日期',
-    t_fb:'老師回饋', s_comment:'學生心得', s_fb:'學生回饋',
-    diagnosis:'診斷', topic:'課程主題', speaker:'演講者', overall:'整體分數',
-    goal:'學習目標', motivation:'學習動機', strategy:'學習策略',
-    difficulty:'可能困難', criteria:'評估指標', timeline:'預計時程',
-    t_note:'老師備註', s_note:'學生觀察紀錄', s_feeling:'學生心得感受',
-    env_review:'工作環境與學習成效', teacher_review:'臨床老師教學與互動',
-    self_review:'自我學習評估與感言', t_comment:'老師綜合意見',
-    case_title:'個案報告題目', pt_name:'病人姓名', bed:'病床號',
-    s_date:'實習日期', mode:'呼吸器 Mode', fio2:'FiO₂(%)',
-    peep:'PEEP(cmH₂O)', vt:'Vt set/exp', rr:'RR set/total',
-    peak_plat:'Peak/Plateau', medical_focus:'目前醫療重點', rt_plan:'呼吸治療計畫',
-    teacher_name:'臨床實習老師姓名', period:'教學期間', comment:'綜合評語及建議',
-    score:'評分分數', result:'評量結果', complexity:'技術複雜度',
-    epa_level:'EPA 可信賴等級', leave_pub:'公假(天)', leave_sick:'病假(天)',
-    leave_priv:'事假(天)', late_cnt:'遲到(次)', bonus:'加分項目',
-    ilp_fb:'老師回饋', host_sign:'計畫主持人簽名', host_date:'主持人簽名日期',
-    follow_date:'建議追蹤日期', c1:'我的專業可以提供', c2:'請求協助事項', c3:'我可以幫助的部分',
-    peer_good:'同儕優點', peer_suggest:'同儕建議', director_fb:'指導教師綜合評語',
-    s1:'整體架構(5分)', s2a:'前言(5分)', s2b:'評估(20分)', s2c:'問題確立(10分)',
-    s2d:'治療計畫與措施(20分)', s2e:'結果評值(5分)', s2f:'文獻查證(15分)',
-    s2g:'結論與討論(15分)', s2h:'參考資料(5分)',
-    // 動態欄位
-    ...f02Names, ...f05Names, ...f06Names, ...f03Names, ...f15Names,
-  };
-}
-
-function buildSatisfactionSummaryHTML(d){
-  const sections=[
-    {title:'對授課老師的評估',items:['教學主題明確','內容條理分明','內容難易適中','表達能力良好','投影片製作及內涵','時間掌控良好','講義可讀性','與學員互動良好','說話音量適中'],prefix:'f03t'},
-    {title:'對課程內容之評估',items:['課後對我的未知的知識技能有幫助','課後對我的已知的知識技能有幫助','課程內容有符合我的需求'],prefix:'f03c'},
-  ];
-  let html=`<div class="section-title">課程滿意度統計（本次填寫）</div><table><tr><th>題目</th><th>分數</th></tr>`;
-  sections.forEach(s=>{
-    html+=`<tr><td colspan="2" style="background:#F0F4F8;font-weight:700;">${s.title}</td></tr>`;
-    s.items.forEach((item,i)=>{
-      const val=d[s.prefix+'_'+i];
-      html+=`<tr><td>${item}</td><td>${val||'—'}</td></tr>`;
+  
+  // 通用表單（F03-F15, DOPS, EPA）
+  html+='<table>';
+  // 基本資料
+  var basicKeys=['s_name','school','s_date','date','t_name','teacher_name','period','topic','speaker','pt_info','bed','mode','fio2','peep','vt','rr'];
+  basicKeys.forEach(function(k){ if(d[k]) html+=row(getFieldNames(id)[k]||k,k,false); });
+  html+='</table>';
+  
+  // 評分項目（數字型）
+  var scoreKeys=Object.keys(d).filter(function(k){ return /^(f\d+_|dops_|epa_)/.test(k)&&d[k]!==''&&d[k]!==null; });
+  if(scoreKeys.length>0){
+    html+='<div class="section-head">評分項目</div><table>';
+    scoreKeys.forEach(function(k){
+      var label=getFieldNames(id)[k]||k;
+      html+=row(label,k,true);
     });
+    html+='</table>';
+  }
+  
+  // 文字欄位
+  var textKeys=['diagnosis','medical_focus','rt_plan','goal','motivation','strategy','s_comment','s_fb','s_feeling','s_improve','s_note','s_suggest','s_self','t_fb','t_good','t_improve','t_comment','t_note','director_fb','peer_good','peer_suggest','env_review','teacher_review','self_review','content','feeling','c1','c2','c3','ilp_fb','host_note','overall','result','complexity'];
+  html+='<table>';
+  textKeys.forEach(function(k){
+    if(d[k]&&d[k]!=='') html+=row(getFieldNames(id)[k]||k,k,['t_fb','t_good','t_improve','t_comment','t_note','director_fb','peer_good','peer_suggest'].includes(k));
   });
   html+='</table>';
+  
+  // 簽名區
+  html+='<div class="sign-box"><table>';
+  var signKeys=['s_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_date'];
+  signKeys.forEach(function(k){
+    if(d[k]) html+=row(getFieldNames(id)[k]||k,k,k.startsWith('t_')||k.startsWith('host'));
+  });
+  html+='</table></div>';
+  
   return html;
 }
+
 
 /* ═══════════ GOOGLE SHEETS UPLOAD ═══════════ */
 async function uploadToSheets(id) {
