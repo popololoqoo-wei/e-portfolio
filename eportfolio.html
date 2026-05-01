@@ -1415,7 +1415,6 @@ function saveForm(id){
   }
   // 更新進度條
   renderSidebar();
-  renderSidebar();
   updateQuickNav();
 }
 
@@ -2041,7 +2040,7 @@ function signDateWithTimestamp(fid,key,disabled){
   return '<input type="date" value="'+dateVal+'"'+dis+' onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
 }
 
-function basicInfoCard(fid,d,extraFields,dateLabel){
+function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
   // 學生姓名：學生登入時自動填入（唯讀），老師/管理員可手動輸入
   var sn=d['s_name']||'';
   if(APP.currentRole==='student'&&APP.currentUser) sn=APP.currentUser.name;
@@ -2059,7 +2058,14 @@ function basicInfoCard(fid,d,extraFields,dateLabel){
 
   // 實習日期
   var sd=d['s_date']||'';
-  var dateField=dateRangeField(fid,'s_date',false);
+  var dateField;
+  if(singleDate){
+    var sd2=d['s_date']||'';
+    var sdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_date']=this.value";
+    dateField='<input type="date" value="'+sd2+'" data-fid="'+fid+'" data-key="s_date" onchange="'+sdOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;">';
+  } else {
+    dateField=dateRangeField(fid,'s_date',false);
+  }
 
   // 實習類別
   var cats=['重症','小兒','長照'];
@@ -2804,29 +2810,148 @@ function buildF14(f,d,canT,fkey,canS){
 
 /* ─── DOPS ─── */
 const DOPS_DATA={
-  D01:{name:'抽痰技術',groups:[
-    {hd:'執行前',items:['確認醫囑','確認病人(兩種方式)並解釋','洗手、戴口罩、隔離衣','備物：無菌抽痰包、聽診器','選擇合適抽痰管','調整合適抽吸器壓力(-100~-120 mmHg)','床頭抬高(30-45度)','抽痰前給予100%氧氣 1分鐘']},
-    {hd:'執行中',items:['打開抽痰包','單手戴無菌手套、連接抽痰管','間歇旋轉抽吸，勿超過15秒','抽痰順序：氣管→鼻→口','評估咳嗽能力、痰液性質','注意生命徵象及黏膜是否出血','沖洗後取下，反脫包住','關掉抽吸器','抽痰後給予100%氧氣 1分鐘']},
-    {hd:'執行後',items:['恢復病人床邊安全','聽診呼吸音','執行後洗手','正確記錄']}]},
-  D02:{name:'MDI配合呼吸器',groups:[
-    {hd:'使用前',items:['確認醫囑與適應症','確認病人並解釋','洗手戴口罩','三讀五對','備物','維持呼吸道通暢','搖晃儲藥罐(5-10秒)','執行前抽痰']},
-    {hd:'使用中',items:['Aero-chamber接Y型接頭吸氣端','MDI儲藥罐卡榫接上','按下MDI注入藥物','間隔30-60秒','等待6次完整吸吐氣','觀察副作用']},
-    {hd:'使用後',items:['觀察生命徵象及藥效','恢復床邊安全','Aero-chamber清潔','執行後洗手']}]},
-  D03:{name:'呼吸器技術操作',groups:[
-    {hd:'使用前',items:['確認醫囑與適應症','確認病人','洗手戴口罩','備物','正確組裝管路','呼吸器功能測試','呼吸器初步設定']},
-    {hd:'使用中',items:['監測：聽診、病人呼吸型態、生命徵象','障礙排除：先檢查病人','依警報原因調整','面板每日漂白水擦拭','執行後洗手','正確記錄']},
-    {hd:'使用後',items:['管路依分類處理','面板及表面漂白水擦拭','Exp.cassette酒精浸泡烘乾','細菌過濾器高溫殺菌','管路巴斯德消毒']}]},
-  D04:{name:'呼吸器脫離指標測量',groups:[
-    {hd:'執行前',items:['確認醫囑','評估是否符合脫離','洗手戴口罩','備物','維持呼吸道通暢']},
-    {hd:'執行中',items:['確認病人並解釋','協助半坐臥(45-90度)','測量RR及VE','計算Vt及RSBI','測量MIP(最大吸氣力量)','測量MEP(最大吐氣力量)','測氣囊漏氣量CLT','觀察生命徵象']},
-    {hd:'執行後',items:['評估結果(RSBI<105；CLT>140mL)','解釋測量結果','回復姿勢整理環境','清潔歸位','洗手','記錄與交班']}]},
+  D01:{
+    topic:'抽痰技術(Suction)',
+    groups:[
+      {hd:'執行技術前',items:[
+        '1.確認醫囑',
+        '2.確認病人(兩種方式)並解釋',
+        '3.技術執行前洗手、戴口罩、隔離衣(隔離病人)',
+        '4.備物：無菌抽痰包、聽診器',
+        '5.選擇合適抽痰管(Endo size乘3，再除2)',
+        '6.調整合適抽吸器壓力(成人:-100 ~ -120 mmHg)',
+        '7.協助病人床頭抬高(30-45度)',
+        '8.抽痰前給予100%氧氣，1分鐘',
+      ]},
+      {hd:'執行技術中',items:[
+        '9.技術執行步驟 9.1打開抽痰包封口(注意勿汙染手套)',
+        '9.2單手戴無菌手套，取出無菌抽痰管，另一手拿取連接抽痰機的長管與之連接',
+        '9.3以無菌方式放入抽痰管，插入時勿按住抽痰管之抽吸控制口，且放入深度適宜(Endo長度到底，回抽1~2公分)；間歇、旋轉、抽吸。※勿超過15秒',
+        '9.4抽痰順序:氣管內管(或氣切)->鼻腔->口腔',
+        '9.5過程評估:咳嗽能力、痰液性質',
+        '9.6過程注意生命徵象、口腔鼻黏膜是否出血',
+        '9.7抽痰完畢並接回呼吸器，將抽痰管放入清水中沖洗後取下，反脫包住抽痰管',
+        '9.8關掉抽吸器',
+        '9.9抽痰後給予病人100%氧氣，1分鐘',
+      ]},
+      {hd:'執行技術後',items:[
+        '10.恢復病人床邊安全及整理病人環境',
+        '11.聽診呼吸音',
+        '11.技術執行後洗手',
+        '12.正確紀錄',
+      ]},
+    ]
+  },
+  D02:{
+    topic:'定量噴霧器(MDI)配合呼吸器使用技術操作',
+    groups:[
+      {hd:'MDI使用前',items:[
+        '1.確認醫囑與適應症',
+        '2.確認病人(兩種方式)並解釋治療',
+        '3.技術執行前洗手、戴口罩、隔離衣(隔離病人)',
+        '核對藥物的三讀五對 4.1三讀：取藥、給藥、歸藥時 4.2五對：醫囑、藥名、人名、給藥時間、給藥途徑',
+        '5.備物：MDI藥物、Aero-chamber(吸入輔助器)',
+        '6.維持呼吸道通暢，必要時予以抽痰',
+        '7.將儲藥罐取出，儲藥罐用手握住，以提高儲藥罐的溫度，並上下搖晃噴霧器(至少5~10秒)；若初次使用或多日未用，要先對大氣中噴1~4次',
+        '8.執行吸藥前，維持呼吸道通暢，必要時予以抽痰',
+      ]},
+      {hd:'MDI使用中',items:[
+        '9.Aero-chamber接在呼吸器之Y型接頭吸氣端的管路上',
+        '10.MDI儲藥罐卡榫接於Aero-chamber上，並保持垂直位置',
+        '11.在呼吸器吸氣前或吐(或配合病患呼吸狀態)，按下MDI，將藥物注入Aero-chamber儲藥腔',
+        '12.兩次使用之間，至少間隔30~60秒',
+        '13.給藥後，至少等待6次完整吸、吐氣後，移去MDI的儲藥罐及Aero-chamber',
+        '14.觀察是否有藥物的副作用發生(如：心博過速、肌肉震顫等)',
+      ]},
+      {hd:'MDI使用後',items:[
+        '15.觀察病人生命徵象、藥效(如呼吸音、肺功能改善)等',
+        '16.恢復病人床邊安全及整理病人環境',
+        '17.Aero-chamber清潔時機與方法',
+        '18.技術執行後洗手',
+      ]},
+    ]
+  },
+  D03:{
+    topic:'呼吸器技術操作(Adult)',
+    extra:'呼吸器機型：⬜PB840/ ⬜Servo系列(I/C/U/AIR) /⬜Drager系列(V/VN)/ ⬜Hamilton-G5 /⬜其他',
+    groups:[
+      {hd:'呼吸器使用前',items:[
+        '1.確認醫囑與適應症',
+        '2.確認病人(兩種方式)',
+        '3.技術執行前洗手、戴口罩、隔離衣(隔離病人)',
+        '4.備物：呼吸器、呼吸器管路及附屬配件、自動加水器/MR850、無菌蒸餾水、吐氣端短軟管、細菌過濾器、吐氣端蓄水瓶、氧氣分析儀、測試肺、酒精棉片',
+        '5.正確操作組裝管路',
+        '6.呼吸器功能測試',
+        '7.呼吸器初步設定',
+      ]},
+      {hd:'呼吸器使用中',items:[
+        '8.監測：聽診呼吸音、病人呼吸型態是否和呼吸器同步、生命徵象及ABG',
+        '9.呼吸器障礙排除 9.1先檢查病人',
+        '9.2依照呼吸器警報發生原因(管路積水、分泌物增加、漏氣)，調整呼吸器設定、改善病人呼吸的狀況、恢復警報或更換異常呼吸器',
+        '10.病人使用之呼吸器面板，每日需使用漂白水布',
+        '11.技術執行後應洗手',
+        '12.正確記錄',
+      ]},
+      {hd:'呼吸器使用後',items:[
+        '13.管路及附屬配件依分類處理',
+        '14.呼吸器面板及呼吸器表面以漂白水布擦拭',
+        '15.泡消 15.1 Exp. cassette 75% 酒精浸泡30分鐘，烘乾即可。(servo系列)',
+        '15.2細菌過濾器高溫殺菌消毒',
+        '15.3管路以巴斯德消毒',
+      ]},
+    ]
+  },
+  D04:{
+    topic:'呼吸器脫離指標測量 ( Weaning Index )',
+    groups:[
+      {hd:'執行技術前',items:[
+        '1.確認醫囑',
+        '2.評估病人是否符合呼吸器脫離',
+        '3.技術執行前洗手、戴口罩、隔離衣(隔離病人)',
+        '4.備物：Halo-scale、Boehringer Inspiratory Force Meter、單向閥、22mm、短蛇行管、空針、HMEF、酒精棉片、Cuff pressure manometer',
+        '5.執行技術前，維持呼吸道通暢，必要時予以抽痰',
+      ]},
+      {hd:'執行技術中',items:[
+        '6.確認病人(兩種方式)並解釋',
+        '7.技術執行步驟 7.1協助病人採半坐臥式(45-90度)',
+        '7.2測量RR及VE 以肺計量器(Halo-scale)測量RR、VE將肺計量器接上氣管內管，將on打開，計算1分鐘病人呼吸次數及VE，1分鐘後關到off處，觀察肺計量器的值即為每分鐘換氣量(VE)。',
+        '7.3計算Vt及RSBI 平均呼吸潮氣容積=每分鐘換氣量÷呼吸次數；RSBI ( RSBI=RR bpm/Vt)',
+        '7.4測量最大吸氣力量 (Maximum Expiratory Pressure; MIP) 7.4.1向病人解釋說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
+        '7.4.2將指標放在負壓端並歸零',
+        '7.4.3接上壓力計，請病人吐氣吐乾淨後，用最大的力量吸氣，病人吸氣的同時將通氣孔塞住，測量最大的吸氣壓力',
+        '7.4.4至少測量3次，每次測量間必須有適當的休息，取最好的一次',
+        '7.4.5無法配合的病人，則持續阻塞通氣孔15-20秒，來測得病人最大的吸氣力量',
+        '7.5測最大吐氣力量 (Maximum Expiratory Pressure; MEP) 7.5.1向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
+        '7.5.2將指標放在正壓端並歸零',
+        '7.5.3接上壓力計，請病人吸飽氣後，用最大的力量吐氣，病人吸氣的同時將通氣孔塞住，測量最大的吐氣壓力',
+        '7.5.4至少測量3次，每次測量間必須有適當的休息，取最好的一次',
+        '7.5.5無法配合的病人，則持續阻塞通氣孔15-20秒，來測得病人最大的吸氣力量',
+        '7.6測量氣囊漏氣量（CLT） 7.6.1向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
+        '7.6.2調整呼吸器設定VCV（8ml/kg-PBW）',
+        '7.6.3紀錄平靜時吐氣潮氣容積 Vt baseline',
+        '7.6.4待病人呼吸平靜後，鬆開cuff',
+        '7.6.5觀察病人平靜呼吸6次後，紀錄吐氣潮氣容積Vt deflated',
+        '7.6.6將cuff打飽，並測量cuff pressure * 正常值:25-35cmH2O之間',
+        '7.6.7調回病人之前使用的呼吸器設定',
+        '測量其間須觀察生命徵象、當生命徵象不穩定時，立即停止測量。',
+      ]},
+      {hd:'執行技術後',items:[
+        '9.評估測量結果 9.1 RSBI<105 9.2 CLT>140mL',
+        '10.向病人/照護者，及醫療團隊解釋測量結果',
+        '11.回復病人姿勢與整理床邊環境',
+        '12.用酒精棉片清潔用物與歸位',
+        '13.執行後應洗手與脫除防護裝備',
+        '14.紀錄與交班',
+      ]},
+    ]
+  },
 };
 
 function buildDOPS(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   const data=DOPS_DATA[f.id];if(!data)return buildGeneric(f,d,canT);
-  let h=basicInfoCard(fid,d,'');
+  let h=basicInfoCard(fid,d,'','實習日期',true);
   let itemIdx=0;
   data.groups.forEach(g=>{
     h+='<div class="card"><div class="card-head" style="background:linear-gradient(90deg,#EAF2FB,#F5F9FC);"><div class="card-head-title" style="color:#1A5276;">'+g.hd+'<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">';
@@ -2915,13 +3040,25 @@ function buildEPA(f,d,canT,fkey,canS){
   if(task.limit) taskHtml+='<div style="font-size:11px;color:var(--red);font-weight:600;">⚠ 限制：'+task.limit+'</div>';
   taskHtml+='</div></div>';
 
-  let h=basicInfoCard(fid,d,taskHtml,'評核日期');
+  let h=basicInfoCard(fid,d,taskHtml,'評核日期',true);
 
   // 臨床情境複選
   if(task.scenarios&&task.scenarios.length>0){
     var saved=[];try{saved=JSON.parse(d[task.skey]||'[]');}catch(e){}
     h+='<div class="card"><div class="card-head"><div class="card-head-title">臨床情境（可複選）<span class="s-badge">學生</span></div></div><div class="card-body"><div class="check-group" style="flex-wrap:wrap;gap:10px;">';
     task.scenarios.forEach(function(sc){
+      if(sc==='其他'){
+        // 其他：文字輸入框
+        var othersVal=d[task.skey+'_others']||'';
+        var othOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"_others']=this.value";
+        var othChkOC="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['"+task.skey+"']||'[]');}catch(e){}if(this.checked){if(a.indexOf('其他')<0)a.push('其他');}else{a=a.filter(function(x){return x!=='其他';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"']=JSON.stringify(a);";
+        var othChk=saved.indexOf('其他')>=0?'checked':'';
+        h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+        h+='<label class="check-item"><input type="checkbox" '+othChk+' onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
+        h+='<input type="text" value="'+othersVal+'" placeholder="請說明（不限字數）" onchange="'+othOC+'" data-fid="'+fid+'" data-key="'+task.skey+'_others" style="flex:1;min-width:150px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;">';
+        h+='</div>';
+        return;
+      }
       var chk=saved.indexOf(sc)>=0?'checked':'';
       var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['"+task.skey+"']||'[]');}catch(e){}if(this.checked){if(a.indexOf('"+sc+"')<0)a.push('"+sc+"');}else{a=a.filter(function(x){return x!=='"+sc+"';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"']=JSON.stringify(a);";
       h+='<label class="check-item"><input type="checkbox" '+chk+' onchange="'+oc+'" style="accent-color:var(--blue);"> '+sc+'</label>';
