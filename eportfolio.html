@@ -672,7 +672,6 @@ const FORMS=[
   {id:'F02',num:'捌',name:'臨床表現自我學後評值表',sub:'學後臨床表現評估',roles:'both'},
   {id:'F04M',num:'壹拾(內)',name:'床邊教學訓練記錄表（內科）',sub:'床邊教學紀錄',roles:'both'},
   {id:'F04S',num:'壹拾(外)',name:'床邊教學訓練記錄表（外科）',sub:'床邊教學紀錄',roles:'both'},
-  {id:'F05',num:'壹拾壹',name:'對臨床實習老師評值表',sub:'學生匿名評值',roles:'student'},
   {id:'F06M',num:'壹拾貳(內)',name:'病例導向評估表 CbD（內科）',sub:'Case-Based Discussion',roles:'both'},
   {id:'F06S',num:'壹拾貳(外)',name:'病例導向評估表 CbD（外科）',sub:'Case-Based Discussion',roles:'both'},
   {id:'F07M',num:'壹拾參(內)',name:'360 度評估表（內科）',sub:'多面向評核',roles:'both'},
@@ -714,7 +713,6 @@ const REQUIRED_STUDENT_FIELDS = {
   F03: ['topic','speaker','s_sign'],
   F04M: ['s_name','s_date','diagnosis'],
   F04S: ['s_name','s_date','diagnosis'],
-  F05: ['teacher_name'].concat(Array.from({length:10},function(_,i){return 'f05_'+i;})),
   F06M: ['s_name','case_dx','s_feeling'],
   F06S: ['s_name','case_dx','s_feeling'],
   F07M: ['s_name','s_fb'],
@@ -813,7 +811,7 @@ function renderSidebar(){
   }
   if(APP.currentRole==='teacher'){
     const groups=[
-      {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
+      {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
       {label:'個案報告',ids:['F13','F14']},
       {label:'DOPS',ids:['D01','D02','D03','D04']},
       {label:'EPA',ids:['E01','E02','E03']},
@@ -840,7 +838,7 @@ function renderSidebar(){
     return;
   }
   const groups=[
-    {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
+    {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
@@ -896,7 +894,7 @@ function selectStudent(sid){
     <div class="fh-meta">${acc.school} ｜ 學號：${sid}</div>
   </div>`;
   const groups=[
-    {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
+    {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
@@ -960,7 +958,7 @@ function renderMobileNav(){
   }
   const unfilledCount=typeof getUnfilledForms==='function'?getUnfilledForms().length:0;
   const groups=[
-    {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
+    {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS',ids:['D01','D02','D03','D04']},
     {label:'EPA',ids:['E01','E02','E03']},
@@ -993,7 +991,7 @@ function renderFormList(){
   renderSidebar();
   const mc=document.getElementById('main-content');
   const groups=[
-    {label:'學習評估表單',count:'15份',ids:['F01A','F01B','F02','F04M','F04S','F05','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
+    {label:'學習評估表單',count:'14份',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
     {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
@@ -1956,7 +1954,7 @@ function buildFormBody(f,d,canT,formKey,canS){
   formKey=formKey||f.id;
   if(canS===undefined) canS=true; // default: student can edit student fields
   const builders={
-    F01A:buildF01A,F01B:buildF01B,F02:buildF02,F03:buildF03,F04:buildF04,F05:buildF05,
+    F01A:buildF01A,F01B:buildF01B,F02:buildF02,F04M:buildF04Bedside,F04S:buildF04Bedside,F05:buildF05,
     F06M:buildF06M,F06S:buildF06S,F07M:buildF07M,F07S:buildF07S,F08:buildF08,F09:buildF09,F10:buildF10,
     F11:buildF11,F12:buildF12,F13:buildF13,F14:buildF14,
     D01:buildDOPS,D02:buildDOPS,D03:buildDOPS,D04:buildDOPS,
