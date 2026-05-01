@@ -654,31 +654,73 @@ function getFormKey(id){
   return id; // fallback
 }
 
+/* 各表單學生必填欄位定義 */
+const REQUIRED_STUDENT_FIELDS = {
+  F01: Array.from({length:28},(_,i)=>['f01_pre_'+i,'f01_post_'+i]).flat(), // 學前+學後至少各填一個
+  F02: Array.from({length:10},(_,i)=>'f02_'+i), // 10題評分
+  F03: ['topic','speaker'], // 課程主題+演講者
+  F04: ['diagnosis','medical_focus','rt_plan'], // 主診斷+醫療重點+治療計畫
+  F05: Array.from({length:10},(_,i)=>'f05_'+i), // 10題評分
+  F06: ['case_dx','s_feeling'], // 主診斷+學員心得
+  F07: ['s_fb'], // 學生回饋
+  F08: ['discuss_生','discuss_心','discuss_靈'], // 全人討論
+  F09: ['c1','c2','c3'], // 團隊照護討論
+  F10: ['s_q2','s_q3','s_q4','s_q5','s_q6'], // 學生填寫區
+  F11: ['goal','motivation','strategy'], // 學習目標+動機+策略
+  F12: ['env_review','teacher_review','self_review'], // 三項心得
+  F13: ['note'], // 備注
+  F14: ['case_title'], // 個案題目
+  D01: ['s_feeling','complexity'], // 心得+複雜度
+  D02: ['s_feeling','complexity'],
+  D03: ['s_feeling','complexity'],
+  D04: ['s_feeling','complexity'],
+  E01: ['s_note'], // 學生觀察紀錄
+  E02: ['s_note'],
+  E03: ['s_note'],
+  F15: ['s_comment','leave_pub'], // 學生自評語+請假紀錄
+};
+
+/* 老師評分欄位 */
+const TEACHER_FIELDS = ['t_fb','t_sign','t_comment','t_good','t_improve','cbd_score','epa_level','result','score','director_fb','f15_att_0','f15_skl_0','f15_com_0','f06_0','f07_0','att','skill','comm'];
+
 function getStatus(id){
   const formKey=getFormKey(id);
   const d=APP.formData[formKey]||{};
   const logs=APP.historyLog[formKey]||[];
-  
+
   // 完全沒資料 = 未填寫
   const hasAnyData=Object.keys(d).some(k=>{
     const v=d[k];
-    return v!==undefined&&v!==''&&v!==false&&v!==null&&v!==0;
+    return v!==undefined&&v!==''&&v!==false&&v!==null;
   });
   if(!hasAnyData)return'new';
-  
+
   // 有資料但沒有儲存記錄 = 進行中
   if(logs.length===0)return'partial';
+
+  // 檢查學生必填欄位是否都填完
+  const required = REQUIRED_STUDENT_FIELDS[id]||[];
   
-  // 有儲存記錄：判斷是否需要老師評分
+  // F01 特殊：28題中至少要填 >= 5題學前自評才算完成
+  if(id==='F01'){
+    const preCount = Array.from({length:28},(_,i)=>i).filter(i=>d['f01_pre_'+i]&&d['f01_pre_'+i]!=='').length;
+    const postCount = Array.from({length:28},(_,i)=>i).filter(i=>d['f01_post_'+i]&&d['f01_post_'+i]!=='').length;
+    if(preCount===0&&postCount===0)return'partial'; // 學前學後都沒填
+  } else if(required.length > 0){
+    // 一般表單：必填欄位至少要有一個有值才算「有在填」
+    // 全部都填才算學生完成
+    const filledCount = required.filter(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null).length;
+    if(filledCount < required.length) return'partial'; // 學生必填欄位未全填
+  }
+
+  // 學生必填都填完了，判斷是否需要老師評分
   const f=findForm(id);
   const needsTeacher=f&&f.roles==='both';
   if(!needsTeacher)return'done';
-  
-  // 老師欄位關鍵字
-  const tKeys=['t_fb','t_sign','t_comment','t_good','t_improve','cbd_score','epa_level','result','score','director_fb','att','skill','comm','eval_att','eval_skill','eval_comm','f15_att_0','f15_skl_0','f15_com_0','f06_0','f07_0'];
-  const hasTeacherData=tKeys.some(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null);
-  
-  if(hasTeacherData)return'done'; // 老師已評
+
+  // 檢查老師欄位
+  const hasTeacherData=TEACHER_FIELDS.some(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null);
+  if(hasTeacherData)return'done';
   return'wait'; // 待老師評分
 }
 
