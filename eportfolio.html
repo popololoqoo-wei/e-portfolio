@@ -1115,22 +1115,16 @@ async function openForm(id){
   }
   
   mergeAllKeys();
-  // 從 GAS 讀取（合併，本地優先）
-  await loadFormFromSheets(formKey);
-  // GAS 載入後再次合併確保本地資料不被覆蓋
-  mergeAllKeys();
 
-  const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
-  // 學生欄位：只有學生自己才能填（老師不能改學生的）
-  const canS=APP.currentRole==='student';
-  // 讀取資料：formKey 優先，同時合併 id key 的資料
-  const d=Object.assign({}, APP.formData[id]||{}, APP.formData[formKey]||{});
-  // 確保 formKey 有完整資料
-  APP.formData[formKey]=Object.assign({},d);
+  // 先用本地資料立即渲染（不等 GAS）
+  const renderForm = async function(skipGAS){
+    const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
+    const canS=APP.currentRole==='student';
+    const d=Object.assign({}, APP.formData[id]||{}, APP.formData[formKey]||{});
+    APP.formData[formKey]=Object.assign({},d);
 
-  // 老師端：顯示學生選擇器
-  let studentBanner='';
-  if(APP.currentRole==='teacher'||APP.currentRole==='admin'){
+    let studentBanner='';
+    if(APP.currentRole==='teacher'||APP.currentRole==='admin'){
     // 計算每位學生此表單的評核狀態
     const stuRows=Object.entries(APP.students).map(([sid,acc])=>{
       const fkey=id+'_'+sid;
@@ -1241,6 +1235,22 @@ async function openForm(id){
       btn.style.opacity='0.35';
       btn.style.cursor='not-allowed';
     });
+  }
+  }; // end renderForm
+
+  // 立即用本地資料渲染
+  renderForm(true);
+
+  // 背景從 GAS 更新（不阻塞 UI）
+  if(GAS_URL && GAS_URL !== 'YOUR_GAS_URL_HERE'){
+    loadFormFromSheets(formKey).then(function(){
+      mergeAllKeys();
+      // 若目前還在同一個表單，靜默更新 history 顯示
+      if(APP.currentFormId===id){
+        var hw=document.getElementById('history-wrap');
+        if(hw) hw.innerHTML=buildHistoryItems(formKey);
+      }
+    }).catch(function(){});
   }
 }
 
@@ -1435,27 +1445,32 @@ async function saveFormToSheets(id){
 /* ── 從 GAS 讀取表單資料（載入時呼叫） ── */
 async function loadFormFromSheets(id){
   try{
+    // 3秒超時，避免網路慢時卡住
+    const controller=new AbortController();
+    const tid=setTimeout(function(){controller.abort();},3000);
     const url=GAS_URL+'?action=loadForm&formId='+encodeURIComponent(id)+'&t='+Date.now();
-    const resp=await fetch(url,{cache:'no-cache'});
+    const resp=await fetch(url,{cache:'no-cache',signal:controller.signal});
+    clearTimeout(tid);
     if(!resp.ok)return;
     const data=await resp.json();
     if(data.formData){
       if(!APP.formData[id])APP.formData[id]={};
       try{
         const loaded=JSON.parse(data.formData);
-        // GAS 資料為基底，本地記憶體優先（本地比 GAS 新）
         APP.formData[id]=Object.assign({},loaded,APP.formData[id]);
-      }catch(e2){console.warn('formData parse error:',e2);}
+      }catch(e2){console.warn('formData parse:',e2);}
     }
     if(data.history){
       try{
         const remoteLog=JSON.parse(data.history);
-        // 合併歷史：取較多的那份
         const localLog=APP.historyLog[id]||[];
         APP.historyLog[id]=localLog.length>=remoteLog.length?localLog:remoteLog;
       }catch(e2){}
     }
-  }catch(e){console.warn('loadFormFromSheets:',e);}
+  }catch(e){
+    // 超時或網路錯誤 - 繼續用本地草稿，不阻塞頁面
+    console.warn('loadFormFromSheets skipped:',id,e.name);
+  }
 }
 
 /* ═══════════ HISTORY ═══════════ */
