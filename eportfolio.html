@@ -1903,6 +1903,23 @@ function dateField(fid,key,disabled,label){
   const tBadge = disabled ? '<span class="t-badge">老師</span>' : '';
   return`<div class="field"><label>${label||'日期'}${tBadge}</label><input type="date" value="${v}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);"></div>`;
 }
+function getStudentList(){
+  return Object.values(APP.students||{}).map(function(s){return s.name;}).filter(Boolean).sort();
+}
+function getTeacherList(){
+  return Object.values(APP.teachers||{}).map(function(t){return t.name;}).filter(Boolean).sort();
+}
+function makeDropdown(fid,key,options,disabled,placeholder){
+  var val=(APP.formData[fid]||{})[key]||'';
+  var dis=disabled?' disabled':'';
+  var bg=disabled?'var(--cream)':'#fff';
+  var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
+  var opts=(options||[]).map(function(o){
+    return '<option value="'+o+'" '+(val===o?'selected':'')+'>'+o+'</option>';
+  }).join('');
+  return '<select data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'"'+dis+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';"><option value="">'+(placeholder||'請選擇')+'</option>'+opts+'</select>';
+}
+
 function signRow(fid,sKey,tKey,canT){
   var d=APP.formData[fid]||{};
   var sDateKey=sKey+'_date';
