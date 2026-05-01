@@ -3068,12 +3068,20 @@ function buildEPA(f,d,canT,fkey,canS){
 
   // 信賴等級
   h+='<div class="card"><div class="card-head"><div class="card-head-title">可信賴等級<span class="t-badge">老師評定</span></div></div><div class="card-body">';
-  if(task.trustNote) h+='<div style="background:#EEF2F8;border-radius:4px;padding:5px 10px;font-size:11px;color:var(--blue);margin-bottom:8px;font-weight:600;">📌 '+task.trustNote+'</div>';
+  h+='<div style="font-size:11px;color:var(--ink3);margin-bottom:10px;">請老師依學生表現點選對應等級：</div>';
   lvls.forEach(function(pair){
     var lv=pair[0],desc=pair[1];
     var sel=(d['epa_level']===lv||d['epa_level']==lv);
     var ocEPA="setEPA('"+f.id+"','"+lv+"','"+fid+"')";
-    var oc=canT?('onclick="'+ocEPA+'"' ):'onclick="alert(\'請先輸入 PIN 碼解鎖後才能評定等級\')"';
+    var selStyle=sel?'border-color:var(--blue);background:#EBF5FB;':'';
+    h+='<div class="epa-level" style="'+selStyle+'cursor:pointer;" id="'+f.id+'_lv'+lv+'" onclick="'+ocEPA+'">';
+    h+='<div style="width:24px;height:24px;border-radius:50%;border:2px solid '+(sel?'var(--blue)':'var(--border)')+';background:'+(sel?'var(--blue)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+    h+=sel?'<span style="color:#fff;font-size:12px;font-weight:700;">✓</span>':'';
+    h+='</div>';
+    h+='<div>';
+    h+='<div style="font-size:13px;font-weight:'+(sel?'700':'400')+';color:'+(sel?'var(--blue)':'var(--ink')+');">Level '+lv+'</div>';
+    h+='<div style="font-size:11px;color:var(--ink3);">'+desc+'</div>';
+    h+='</div></div>';
   });
   h+='</div></div>';
 
