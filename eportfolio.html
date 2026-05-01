@@ -657,25 +657,29 @@ function getFormKey(id){
 function getStatus(id){
   const formKey=getFormKey(id);
   const d=APP.formData[formKey]||{};
-  const keys=Object.keys(d).filter(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null);
-  if(keys.length===0)return'new'; // 完全未填
-
-  // 判斷是否已儲存過（有history記錄）
   const logs=APP.historyLog[formKey]||[];
-  const hasSaved=logs.length>0;
-  if(!hasSaved)return'partial'; // 填了但未儲存
-
-  // 判斷是否有老師欄位需要填寫
+  
+  // 完全沒資料 = 未填寫
+  const hasAnyData=Object.keys(d).some(k=>{
+    const v=d[k];
+    return v!==undefined&&v!==''&&v!==false&&v!==null&&v!==0;
+  });
+  if(!hasAnyData)return'new';
+  
+  // 有資料但沒有儲存記錄 = 進行中
+  if(logs.length===0)return'partial';
+  
+  // 有儲存記錄：判斷是否需要老師評分
   const f=findForm(id);
-  const hasTeacherFields=f&&f.roles==='both';
-
-  // 有儲存記錄，判斷是否有老師資料
-  const tKeys=['t_fb','t_sign','t_comment','t_good','t_improve','cbd_score','cbd_fb','t_assess','epa_level','result','score','director_fb'];
-  const hasTeacherData=tKeys.some(k=>d[k]&&String(d[k]).trim());
-
-  if(hasTeacherFields&&!hasTeacherData)return'wait'; // 學生填完儲存，待老師
-  if(hasTeacherFields&&hasTeacherData)return'done';  // 雙方都填了
-  return'done'; // 學生表單已儲存
+  const needsTeacher=f&&f.roles==='both';
+  if(!needsTeacher)return'done';
+  
+  // 老師欄位關鍵字
+  const tKeys=['t_fb','t_sign','t_comment','t_good','t_improve','cbd_score','epa_level','result','score','director_fb','att','skill','comm','eval_att','eval_skill','eval_comm','f15_att_0','f15_skl_0','f15_com_0','f06_0','f07_0'];
+  const hasTeacherData=tKeys.some(k=>d[k]!==undefined&&d[k]!==''&&d[k]!==false&&d[k]!==null);
+  
+  if(hasTeacherData)return'done'; // 老師已評
+  return'wait'; // 待老師評分
 }
 
 function getStatusSummary(){
@@ -1067,11 +1071,19 @@ function saveForm(id){
   const formKey = getFormKey(id);
   // Collect all inputs (only editable fields for current role)
   if(!APP.formData[formKey])APP.formData[formKey]={};
+  // Collect text inputs, textareas, selects
   document.querySelectorAll('[data-fid="'+id+'"][data-key]').forEach(el=>{
     if(!el.disabled){
       APP.formData[formKey][el.dataset.key] = el.type==='checkbox' ? el.checked : el.value;
     }
   });
+  // Also collect ALL data stored via setRating/setDOPS/setEPA clicks (already in APP.formData[formKey])
+  // These are stored directly, no need to re-collect from DOM
+  // But ensure formKey data is synced
+  if(APP.formData[formKey] && Object.keys(APP.formData[formKey]).length===0 && APP.formData[id]){
+    // migrate old data if exists
+    APP.formData[formKey]=Object.assign({},APP.formData[id]);
+  }
 
   // Record history
   if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
@@ -1666,7 +1678,7 @@ function rBtnTable(fid,key,v,role,disabled){
   const cur=(APP.formData[fid]||{})[key];
   const selC=(cur==v||cur===String(v))?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
   const dis=disabled?'disabled':'';
-  return`<button class="r-btn ${selC}" ${dis} data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)">${v}</button>`;
+  return`<button class="r-btn ${selC}" ${dis} data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)" style="position:relative;z-index:2;touch-action:manipulation;">${v}</button>`;
 }
 
 /* ═══════════ FORM BUILDERS ═══════════ */
@@ -1713,7 +1725,7 @@ function buildF01(f,d,canT,fkey){
     '操作呼吸脫離指標','全人照護參與(團隊查房、跨團隊會議、晨會等)',
   ];
   let h=basicInfoCard(fid,d,'');
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核矩陣<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative;z-index:1;">
   <table class="rating-table">
   <tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th>
     <th colspan="3">學生學前自評</th>
