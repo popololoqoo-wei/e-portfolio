@@ -1111,7 +1111,10 @@ async function openForm(id){
   const canT=APP.currentRole==='teacher'||APP.currentRole==='admin'||APP.teacherUnlocked;
   // 學生欄位：只有學生自己才能填（老師不能改學生的）
   const canS=APP.currentRole==='student';
-  const d=APP.formData[formKey]||{};
+  // 讀取資料：formKey 優先，同時合併 id key 的資料
+  const d=Object.assign({}, APP.formData[id]||{}, APP.formData[formKey]||{});
+  // 確保 formKey 有完整資料
+  APP.formData[formKey]=Object.assign({},d);
 
   // 老師端：顯示學生選擇器
   let studentBanner='';
@@ -1879,7 +1882,11 @@ function setRating(fid,key,val,role,btn){
   });
 }
 function rBtnTable(fid,key,v,role,disabled){
-  const cur=(APP.formData[fid]||{})[key];
+  // 同時查 fid 和 formKey
+  var d=(APP.formData[fid]||{});
+  var fkey=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  if(fkey!==fid) d=Object.assign({},d,APP.formData[fkey]||{});
+  var cur=d[key];
   const selC=(cur==v||cur===String(v))?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
   const dis=disabled?'disabled':'';
   return`<button class="r-btn ${selC}" ${dis} data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)" style="position:relative;z-index:2;touch-action:manipulation;">${v}</button>`;
@@ -2119,6 +2126,13 @@ function buildCbD(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   const items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
   // 主診斷 - 無字數限制
+  // 確保 d 包含 formKey 的資料（防止 fid 和 formKey 不一致）
+  if(APP.currentFormId){
+    var _fkey=getFormKey(APP.currentFormId);
+    if(_fkey!==fid&&APP.formData[_fkey]){
+      d=Object.assign({},APP.formData[_fkey],d);
+    }
+  }
   var cxBtns=['易','適中','難'].map(function(v){
     var chk=d['complexity']===v?'checked':'';
     var oc="APP.formData['"+fid+"']=(APP.formData['"+fid+"']||{});APP.formData['"+fid+"']['complexity']='"+v+"'";
@@ -2168,6 +2182,13 @@ function buildF06S(f,d,canT,fkey,canS){return buildCbD(f,d,canT,fkey,canS);}
 function build360(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   const fid=fkey||f.id;
+  // 確保 d 包含 formKey 的最新資料
+  if(APP.currentFormId){
+    var _fkey360=getFormKey(APP.currentFormId);
+    if(_fkey360!==fid&&APP.formData[_fkey360]){
+      d=Object.assign({},APP.formData[_fkey360],d);
+    }
+  }
   // 評核細項：[類別, 面向, 說明, [優,良,可,劣,差的分數]]
   const rows=[
     ['態度','基本禮儀','儀容、禮貌合宜',['+2','+1','0','-1','-2']],
@@ -3184,7 +3205,11 @@ function lockTeacherFields(){
 
 /* CbD 防呆評分按鈕 */
 function rBtnTableCbD(fid,key,v,role,disabled){
-  var cur=(APP.formData[fid]||{})[key];
+  // 同時查 fid 和 getFormKey 版本（解決 key 不一致問題）
+  var d=(APP.formData[fid]||{});
+  var fkey=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  if(fkey!==fid) d=Object.assign({},d,APP.formData[fkey]||{});
+  var cur=d[key];
   var isSel=cur==v||cur===String(v);
   var selC=isSel?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
   var dis=disabled?'disabled':'';
