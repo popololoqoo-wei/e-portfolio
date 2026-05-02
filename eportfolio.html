@@ -1495,9 +1495,9 @@ function saveForm(id){
   const histWrap=document.getElementById('history-wrap');
   if(histWrap)histWrap.innerHTML=buildHistoryItems(formKey);
 
-  // 顯示 PDF 按鈕（儲存後一律顯示，讓 checkAndDownloadPDF 做進一步判斷）
+  // PDF 按鈕：儲存後更新狀態但不自動下載
   const pdfBtn=document.getElementById('btn-pdf');
-  if(pdfBtn){
+  if(pdfBtn&&canDownloadPDF(id)){
     pdfBtn.style.display='inline-block';
     pdfBtn.setAttribute('onclick',"checkAndDownloadPDF('"+id+"')");
   }
@@ -2286,14 +2286,13 @@ function buildF01B(f,d,canT,fkey,canS){
 
   let h=basicInfoCard(fid,d,'');
   h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學後自評</th><th colspan="3">指導者評核(1)<span class="t-badge">老師</span></th><th colspan="3">指導者評核(2)<span class="t-badge">老師</span></th></tr>';
-  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th></tr>';
+  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學後自評</th><th colspan="3">指導者評核<span class="t-badge">老師</span></th></tr>';
+  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th></tr>';
   skills.forEach(function(skill,i){
-    var k1='f01_p1_'+i,k2i='f01_p2_'+i,kpo='f01_post_'+i;
+    var k1='f01_p1_'+i,kpo='f01_post_'+i;
     h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kpo,v,false)+'</td>';});
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k1,v,true)+'</td>';});
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k2i,v,true)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
@@ -2560,9 +2559,9 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   h+='</div></div>';
 
   // 四、目前醫療重點
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">四、目前醫療重點<span class="t-badge">老師</span></div></div><div class="card-body">';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">四、目前醫療重點</div></div><div class="card-body">';
   h+='<label style="font-size:11px;color:var(--ink3);">醫師意見或其它醫療團隊人員建議：</label>';
-  h+=area('medical_focus',3,!canT);
+  h+=area('medical_focus',3,false);
   h+='</div></div>';
 
   // 五、呼吸治療計畫
@@ -3805,6 +3804,19 @@ function renderTeacherHome(){
   mc.innerHTML=html;
 }
 
+
+/* ── 批次下載已完成表單 PDF ── */
+function batchDownloadPDF(){
+  var doneForms=FORMS.filter(function(f){return getStatus(f.id)==='done';});
+  if(doneForms.length===0){toast('目前沒有已完成的表單',false);return;}
+  toast('開始產生 '+doneForms.length+' 份 PDF，請稍候...');
+  var delay=0;
+  doneForms.forEach(function(f){
+    setTimeout(function(){downloadPDF(f.id);},delay);
+    delay+=800; // 每份間隔 0.8 秒，避免瀏覽器阻擋
+  });
+}
+
 function renderStatusSection(filterStatus){
   APP.currentFormId='__status_'+filterStatus;
   renderSidebar();
@@ -3813,10 +3825,14 @@ function renderStatusSection(filterStatus){
   const colorMap={done:'var(--green)',wait:'var(--gold)',partial:'#5A8AAA',new:'var(--red)'};
   const filtered=FORMS.filter(function(f){return getStatus(f.id)===filterStatus;});
   let html='<div class="form-list-view">';
+  var batchBtn=filterStatus==='done'
+    ?`<button onclick="batchDownloadPDF()" style="padding:6px 16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-weight:600;">⬇ 下載此分類所有 PDF</button>`
+    :'';
   html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
     <button onclick="renderFormList()" style="padding:6px 14px;background:none;border:1px solid var(--border);border-radius:var(--r);font-size:12px;cursor:pointer;color:var(--ink3);">← 返回總覽</button>
     <div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;">${labelMap[filterStatus]}</div>
     <span style="background:${colorMap[filterStatus]};color:#fff;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;">${filtered.length} 份</span>
+    ${batchBtn}
   </div>`;
   if(filtered.length===0){
     html+=`<div style="text-align:center;padding:3rem;color:var(--ink3);">此分類目前沒有表單</div>`;
@@ -4005,7 +4021,7 @@ function lockTeacherFields(){
     't_note','t_title','t_date','epa_level','result','score','director_fb',
     'team_sign','team_title','peer_good','peer_suggest','peer_sign',
     'host_sign','host_sign_date','host_date','t_assess','t_q','t_rate',
-    'satisfaction','f01_p1_','f01_p2_'];
+    'satisfaction','f01_p1_'];
 
   // 【直接鎖定】已知老師欄位（不依賴複雜邏輯）
   var directLockKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
