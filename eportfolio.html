@@ -3228,25 +3228,38 @@ function buildEPA(f,d,canT,fkey,canS){
 }
 
 function setEPA(fid,lv,fid2){
-  // Store in all possible keys
   var realFid=fid2||getFormKey(APP.currentFormId||'')||fid;
   [fid,realFid].forEach(function(k){
     if(!k)return;
     if(!APP.formData[k])APP.formData[k]={};
     APP.formData[k]['epa_level']=lv;
   });
-  // Save to localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     drafts[realFid]=drafts[realFid]||{};
     drafts[realFid]['epa_level']=lv;
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
-  // Update visuals
+  // 更新所有 epa-level div 的視覺狀態
   document.querySelectorAll('[id*="_lv"]').forEach(function(el){
-    if(el.id.startsWith(fid+'_lv')){
-      el.classList.toggle('sel',el.id===fid+'_lv'+lv);
+    if(!el.id.startsWith(fid+'_lv')) return;
+    var thisLv=el.id.replace(fid+'_lv','');
+    var isSel=thisLv===String(lv);
+    // 更新外框樣式
+    el.style.borderColor=isSel?'var(--blue)':'var(--border)';
+    el.style.background=isSel?'#EBF5FB':'';
+    // 更新圓形圖示（第一個子元素）
+    var circle=el.querySelector('div:first-child');
+    if(circle){
+      circle.style.border='2px solid '+(isSel?'var(--blue)':'var(--border)');
+      circle.style.background=isSel?'var(--blue)':'#fff';
+      circle.innerHTML=isSel?'<span style="color:#fff;font-size:12px;font-weight:700;">✓</span>':'';
     }
+    // 更新文字粗細
+    var txt=el.querySelector('div:last-child div:first-child');
+    if(txt) txt.style.fontWeight=isSel?'700':'400';
+    // 更新 class
+    el.classList.toggle('sel',isSel);
   });
 }
 
