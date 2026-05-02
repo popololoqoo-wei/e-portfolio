@@ -1998,15 +1998,17 @@ function getStudentList(){
 function getTeacherList(){
   return Object.values(APP.teachers||{}).map(function(t){return t.name;}).filter(Boolean).sort();
 }
-function makeDropdown(fid,key,options,disabled,placeholder){
+function makeDropdown(fid,key,options,disabled,placeholder,isTeacher){
   var val=(APP.formData[fid]||{})[key]||'';
   var dis=disabled?' disabled':'';
   var bg=disabled?'var(--cream)':'#fff';
-  var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
+  var oc="saveDraftField('"+fid+"','"+key+"',this.value)";
   var opts=(options||[]).map(function(o){
     return '<option value="'+o+'" '+(val===o?'selected':'')+'>'+o+'</option>';
   }).join('');
-  return '<select data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'"'+dis+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';"><option value="">'+(placeholder||'請選擇')+'</option>'+opts+'</select>';
+  // Teacher fields get data-teacher="1" for reliable lock/unlock targeting
+  var tAttr=isTeacher?' data-teacher="1"':'';
+  return '<select data-fid="'+fid+'" data-key="'+key+'"'+tAttr+' onchange="'+oc+'"'+dis+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';"><option value="">'+(placeholder||'請選擇')+'</option>'+opts+'</select>';
 }
 
 function signRow(fid,sKey,tKey,canT){
@@ -2021,10 +2023,10 @@ function signRow(fid,sKey,tKey,canT){
   var sStudents=getStudentList();
   var sTeachers=getTeacherList();
   var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
-  var tField=makeDropdown(fid,tKey,sTeachers,!canT,'請選擇老師');
+  var tField=makeDropdown(fid,tKey,sTeachers,!canT,'請選擇老師',true);
   // 簽名日期（含時間戳）
   var sDate=signDateWithTimestamp(fid,sDateKey,false);
-  var tDate=signDateWithTimestamp(fid,tDateKey,!canT);
+  var tDate=signDateWithTimestamp(fid,tDateKey,!canT,true);
   return '<div class="g2"><div class="field"><label>學生簽名</label>'+sField+'</div><div class="field"><label>學生簽名日期</label>'+sDate+'</div></div>'+
     '<div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>'+tField+'</div><div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label>'+tDate+'</div></div>';
 }
@@ -2109,15 +2111,15 @@ function dateRangeField(fid,key,disabled){
 }
 
 
-function signDateWithTimestamp(fid,key,disabled){
+function signDateWithTimestamp(fid,key,disabled,isTeacher){
   var val=(APP.formData[fid]||{})[key]||'';
   var dis=disabled?' disabled':'';
   var bg=disabled?'var(--cream)':'#fff';
   var oc="saveDraftField('"+fid+"','"+key+"',this.value+' '+new Date().toLocaleString('zh-TW',{hour12:false}));";
   var dateVal=val?val.split(' ')[0].replace(/\//g,'-'):'';
   var tsDisplay=val&&val.indexOf(' ')>0?'<div style="font-size:10px;color:var(--green);margin-top:2px;">⏱ 時間戳：'+val.split(' ').slice(1).join(' ')+'</div>':'';
-  // data-fid 和 data-key 讓 lockTeacherFields 能識別並鎖定
-  return '<input type="date" value="'+dateVal+'"'+dis+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
+  var tAttr=isTeacher?' data-teacher="1"':'';
+  return '<input type="date" value="'+dateVal+'"'+dis+tAttr+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
 }
 
 function saveDraftField(fid, key, val){
@@ -2550,7 +2552,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   // 簽名（老師 + 學生）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">';
   h+='<div class="g2">';
-  h+='<div class="field"><label>臨床實習老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師')+'</div>';
+  h+='<div class="field"><label>臨床實習老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)+'</div>';
   var tDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['t_sign_date']=this.value";
   h+='<div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+(d['t_sign_date']||'')+'" data-fid="'+fid+'" data-key="t_sign_date" onchange="'+tDateOC+'"'+(canT?'':' disabled')+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(canT?'#fff':'var(--cream)')+';font-size:13px;"></div>';
   h+='</div>';
@@ -2723,11 +2725,11 @@ function build360(f,d,canT,fkey,canS){
   h+='<div class="field"><label>優點</label>'+ta(fid,'peer_good',2,!canT)+'</div>';
   h+='<div class="field"><label>建議</label>'+ta(fid,'peer_suggest',2,!canT)+'</div>';
   h+='</div>';
-  h+=makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇臨床老師');
+  h+=makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇臨床老師',true);
   h+=fi(fid,'t_title','text',!canT,'職稱');
   h+='<div style="font-size:10px;color:var(--ink3);margin-top:4px;">※ 以上為臨床老師填寫欄位，需 PIN 碼解鎖</div>';
   // 老師簽名日期（含時間戳，lockTeacherFields 可識別）
-  h+='<div class="field" style="margin-top:8px;"><label>臨床老師簽名日期<span class="t-badge">老師</span></label>'+signDateWithTimestamp(fid,'t_sign_date',!canT)+'</div>';
+  h+='<div class="field" style="margin-top:8px;"><label>臨床老師簽名日期<span class="t-badge">老師</span></label>'+signDateWithTimestamp(fid,'t_sign_date',!canT,true)+'</div>';
   h+='</div>';
   // 其他團隊人員 - 開放給所有人填寫（不鎖定）
   h+='<div style="background:#F5F8FF;border:1px solid #D0D8F0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
@@ -2745,7 +2747,7 @@ function build360(f,d,canT,fkey,canS){
   h+=signRow(fid,'s_sign','s_sign',''); // student sign
   // 實習計畫主持人下拉（包含固定選項張維倫）
   var hostList=['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';}));
-  var hostField=makeDropdown(fid,'host_sign',hostList,!canT,'請選擇主持人');
+  var hostField=makeDropdown(fid,'host_sign',hostList,!canT,'請選擇主持人',true);
   h+='<div class="g2">';
   h+='<div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>'+hostField+'</div>';
   var hsd=d['host_sign_date']||'';
@@ -3212,7 +3214,7 @@ function buildEPA(f,d,canT,fkey,canS){
   // 記錄與回饋（EPA 只有老師回饋，無學生觀察紀錄和簽名）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">老師回饋</div></div><div class="card-body">';
   h+='<div class="field"><label>老師回饋（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_fb',5,!canT)+'</div>';
-  h+='<div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師')+'</div>';
+  h+='<div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)+'</div>';
   var tsdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['t_sign_date']=this.value+' '+new Date().toLocaleTimeString('zh-TW')";
   h+='<div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+(d['t_sign_date']?d['t_sign_date'].split(' ')[0]:'')+'"'+(canT?'':' disabled')+' onchange="'+tsdOC+'" data-fid="'+fid+'" data-key="t_sign_date" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(canT?'#fff':'var(--cream)')+';font-size:13px;"></div></div>';
   h+='</div></div>';
