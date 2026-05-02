@@ -2154,7 +2154,114 @@ function rBtnTable(fid,key,v,role,disabled){
   return`<button class="r-btn ${selC}" ${dis} data-fid="${fid}" data-rkey="${key}" data-rval="${v}"${tAttr} onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)" style="position:relative;z-index:2;touch-action:manipulation;">${v}</button>`;
 }
 
-/* ═══════════ FORM BUILDERS ═══════════ */
+/* CbD 評分按鈕（老師欄位）*/
+function rBtnTableCbD(fid,key,v,role,disabled){
+  var d=APP.formData[fid]||{};
+  var fkey=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  if(fkey!==fid) d=Object.assign({},d,APP.formData[fkey]||{});
+  var cur=d[key];
+  var isSel=(cur==v||cur===String(v));
+  var selC=isSel?'sel-t':'';
+  var dis=disabled?'disabled':'';
+  var warnAttr='';
+  if(isSel&&parseInt(v)<=4) warnAttr=' data-warn="1"';
+  return '<button class="r-btn '+selC+'" '+dis+warnAttr+' data-rkey="'+key+'" data-rval="'+v+'" data-fid="'+fid+'" data-teacher="1" onclick="cbdClick(this)">'+v+'</button>';
+}
+
+function cbdClick(btn){
+  var key=btn.getAttribute('data-rkey');
+  var val=btn.getAttribute('data-rval');
+  var fid=btn.getAttribute('data-fid');
+  var v=parseInt(val);
+  setRating(fid,key,v,'t',btn);
+  if(v<=4){
+    toast('⚠ 此評分（'+val+'）表示有待加強，請確認',false);
+  }
+}
+
+/* f01Click：F01A/F01B 評分按鈕 */
+function f01Click(btn){
+  var key=btn.getAttribute('data-rkey');
+  var val=btn.getAttribute('data-rval');
+  var fid=btn.getAttribute('data-fid');
+  var isTeacher=btn.getAttribute('data-teacher')==='1';
+  var role=isTeacher?'t':'s';
+  setRating(fid,key,val,role,btn);
+}
+
+/* setRating360：360度評估表評分 */
+function setRating360(fid,key,val,role,btn){
+  setRating(fid,key,val,role,btn);
+  setTimeout(function(){calc360Score(fid);},50);
+}
+
+/* calc360Score：360度評估表分數計算 */
+function calc360Score(fid){
+  var d=Object.assign({},APP.formData[fid]||{},APP.formData[getFormKey(APP.currentFormId||fid)]||{});
+  var total=0,count=0;
+  Object.keys(d).forEach(function(k){
+    if(/^f07[MS]?_\d+$/.test(k)||/^f07_\d+$/.test(k)){
+      var v=parseInt(d[k]);
+      if(!isNaN(v)){total+=v;count++;}
+    }
+  });
+  var el=document.getElementById('score360_'+fid);
+  if(el) el.textContent=count>0?Math.round(total/count*10)/10:'-';
+}
+
+/* autoSaveDraft：切換表單時暫存到 localStorage */
+function autoSaveDraft(id){
+  if(!id)return;
+  const formKey=getFormKey(id);
+  if(!APP.formData[formKey])APP.formData[formKey]={};
+  // 收集頁面上所有有 data-fid/data-key 的元素
+  document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
+    var fid=el.getAttribute('data-fid');
+    var key=el.getAttribute('data-key')||'';
+    if(key.endsWith('_start')||key.endsWith('_end'))return;
+    if(fid===id||fid===formKey){
+      var v=el.type==='checkbox'?el.checked:el.value;
+      if(v!==''&&v!==false&&v!==null) APP.formData[formKey][key]=v;
+    }
+  });
+  // 收集日期區間欄位
+  document.querySelectorAll('input[id^="drs_"]').forEach(function(el){
+    if(el.disabled)return;
+    var suffix=el.id.slice(-1);
+    if(suffix!=='s')return;
+    var eId=el.id.slice(0,-1)+'e';
+    var eEl=document.getElementById(eId);
+    if(!eEl)return;
+    var s=el.value,e=eEl.value;
+    if(!s&&!e)return;
+    var r=(s?s.replace(/-/g,'/'):'')+(s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');
+    var fid=el.getAttribute('data-fid');
+    var dataKey=el.getAttribute('data-key');
+    if(!fid||!dataKey)return;
+    var baseKey=dataKey.replace('_start','');
+    if(fid===id||fid===formKey) APP.formData[formKey][baseKey]=r;
+  });
+  // 存到 localStorage
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    drafts[formKey]=Object.assign(drafts[formKey]||{},APP.formData[formKey]);
+    drafts[id]=Object.assign(drafts[id]||{},APP.formData[formKey]);
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
+}
+
+/* loadDraft：從 localStorage 讀取草稿 */
+function loadDraft(formKey){
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(drafts[formKey]){
+      if(!APP.formData[formKey])APP.formData[formKey]={};
+      Object.assign(APP.formData[formKey],drafts[formKey]);
+    }
+  }catch(e){}
+}
+
+
 function buildFormBody(f,d,canT,formKey,canS){
   formKey=formKey||f.id;
   if(canS===undefined) canS=true;
