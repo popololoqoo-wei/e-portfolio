@@ -1296,6 +1296,22 @@ function unlockTeacherFieldsInDOM(){
   var mc=document.getElementById('main-content');
   if(!mc)return;
 
+  // 【直接解鎖】已知老師欄位（最可靠的方式）
+  var directKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
+    't_title','t_note','director_fb','peer_good','peer_suggest','host_sign',
+    'host_sign_date','host_date','result','score','epa_level'];
+  directKeys.forEach(function(k){
+    mc.querySelectorAll('[data-key="'+k+'"]').forEach(function(el){
+      if(el.hasAttribute('readonly'))return;
+      el.disabled=false;
+      el.style.background='#fff';
+      el.style.color='var(--ink)';
+      el.style.cursor='';
+      el.style.opacity='';
+      el.style.pointerEvents='';
+    });
+  });
+
   // 解鎖所有帶 data-teacher="1" 的 input/checkbox/textarea
   mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"],select[data-teacher="1"]').forEach(function(el){
     el.disabled=false;
@@ -3916,6 +3932,22 @@ function lockTeacherFields(){
     'team_sign','team_title','peer_good','peer_suggest','peer_sign',
     'host_sign','host_sign_date','host_date','t_assess','t_q','t_rate',
     'satisfaction','f01_p1_','f01_p2_'];
+
+  // 【直接鎖定】已知老師欄位（不依賴複雜邏輯）
+  var directLockKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
+    't_title','t_note','director_fb','peer_good','peer_suggest','host_sign',
+    'host_sign_date','host_date','result','score','epa_level'];
+  directLockKeys.forEach(function(k){
+    mc.querySelectorAll('[data-key="'+k+'"]').forEach(function(el){
+      if(el.hasAttribute('readonly'))return;
+      el.disabled=true;
+      el.style.background='var(--cream)';
+      el.style.color='var(--ink3)';
+      el.style.cursor='not-allowed';
+      el.style.opacity='';
+      el.style.pointerEvents='';
+    });
+  });
 
   // 鎖定所有老師 input/textarea/select
   mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
