@@ -1286,6 +1286,75 @@ function inlineUnlock(){
   }
 }
 
+/* ── 鎖定老師欄位（儲存後呼叫）── */
+function lockTeacherFields(){
+  var mc=document.getElementById('main-content');
+  if(!mc)return;
+
+  // 【直接鎖定】已知老師欄位 key
+  var directLockKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
+    't_title','t_note','director_fb','peer_good','peer_suggest','host_sign',
+    'host_sign_date','host_date','result','score','epa_level','follow_date'];
+  directLockKeys.forEach(function(k){
+    mc.querySelectorAll('[data-key="'+k+'"]').forEach(function(el){
+      if(el.hasAttribute('readonly'))return;
+      el.disabled=true;
+      el.style.background='var(--cream)';
+      el.style.color='var(--ink3)';
+      el.style.cursor='not-allowed';
+    });
+  });
+
+  // 鎖定 data-teacher="1" 的所有欄位（含 EPA checkbox、臨床情境等）
+  mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"],select[data-teacher="1"]').forEach(function(el){
+    el.disabled=true;
+    el.style.opacity='0.6';
+    el.style.cursor='not-allowed';
+    el.style.background='var(--cream)';
+    var parent=el.closest('label');
+    if(parent) parent.style.opacity='0.6';
+  });
+
+  // 鎖定所有老師評分按鈕（r-btn、d-btn）
+  mc.querySelectorAll('button.r-btn[data-teacher="1"],button.d-btn').forEach(function(btn){
+    btn.disabled=true;
+    btn.style.opacity='0.35';
+    btn.style.cursor='not-allowed';
+    btn.style.pointerEvents='none';
+  });
+
+  // 鎖定 EPA 信賴等級
+  mc.querySelectorAll('.epa-level').forEach(function(el){
+    el.style.pointerEvents='none';
+    el.style.opacity='0.7';
+    el.style.cursor='not-allowed';
+    el.setAttribute('data-locked','1');
+  });
+
+  // 鎖定 DOPS radio（合格/不合格）
+  mc.querySelectorAll('input[type="radio"][name$="_result"]').forEach(function(el){
+    el.disabled=true;
+  });
+
+  // 顯示 lock-bar
+  var lb=mc.querySelector('.lock-bar');
+  if(lb){
+    lb.style.display='flex';
+    var pin=lb.querySelector('#inline-pin');
+    if(pin)pin.value='';
+    var msg2=lb.querySelector('#inline-msg');
+    if(msg2)msg2.textContent='';
+  } else {
+    var hdr=mc.querySelector('.form-detail-header');
+    if(hdr){
+      var newLb=document.createElement('div');
+      newLb.className='lock-bar';
+      newLb.innerHTML='🔒 老師評分欄位已鎖定。老師請輸入 PIN 碼解鎖：<input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8"><button class="unlock-btn" onclick="inlineUnlock()">解鎖</button><span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>';
+      hdr.parentNode.insertBefore(newLb,hdr.nextSibling);
+    }
+  }
+}
+
 function unlockTeacherFieldsInDOM(){
   var mc=document.getElementById('main-content');
   if(!mc)return;
