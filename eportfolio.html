@@ -759,11 +759,15 @@ function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
   const formKey=getFormKey(id);
-  const d=Object.assign({},APP.formData[id]||{},APP.formData[formKey]||{});
+  // 只讀 formKey（帶學號），避免裸 id 的舊資料污染判斷
+  // 但同時也合併 id（無學號）作為備援
+  const dByKey=APP.formData[formKey]||{};
+  const dById=APP.formData[id]||{};
+  const d=Object.assign({},dById,dByKey); // formKey 優先
   const logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
   const hasRecord=logs.length>0;
 
-  // 輔助：值是否有實質內容
+  // 輔助：值是否有實質內容（trim後非空）
   function hasRealVal(v){
     if(v===undefined||v===null||v===false) return false;
     return String(v).trim()!=='';
@@ -777,66 +781,60 @@ function getStatus(id){
       var sv=String(v).trim();
       if(sv.indexOf(' - ')>=0){
         var pts=sv.split(' - ');
-        return pts.length===2&&pts[0].trim()&&pts[1].trim();
+        return pts.length===2&&pts[0].trim().length>=8&&pts[1].trim().length>=8;
       }
       return sv.length>=8;
     }
     if(k==='t_sign'||k==='s_sign'){
       var sv2=String(v).trim();
-      return sv2!==''&&sv2!=='請選擇學生'&&sv2!=='請選擇老師'&&
-             sv2!=='請選擇臨床老師'&&sv2!=='請選擇實習總指導教師'&&
-             sv2!=='請選擇指導老師';
+      return sv2!==''
+        &&sv2!=='請選擇學生'&&sv2!=='請選擇老師'
+        &&sv2!=='請選擇臨床老師'&&sv2!=='請選擇實習總指導教師'
+        &&sv2!=='請選擇指導老師'&&sv2!=='請選擇主持人';
     }
-    // t_sign_date 可能含時間戳，只要有日期部分即可
     if(k==='t_sign_date'||k==='s_sign_date'){
       return String(v).trim().length>=8;
     }
     return true;
   }
 
-  // ── 層級1：未填 ──
+  // ── 層級1：未填 ── 完全沒有實質資料
   const SKIP_KEYS=['intern_cat'];
-  const allVals=Object.keys(d).filter(function(k){return SKIP_KEYS.indexOf(k)<0;})
-    .map(function(k){return d[k];});
-  const hasAnyData=allVals.some(function(v){return hasRealVal(v);});
+  const hasAnyData=Object.keys(d).some(function(k){
+    return SKIP_KEYS.indexOf(k)<0 && hasRealVal(d[k]);
+  });
   if(!hasAnyData) return 'new';
 
-  // ── 層級2：有資料但未儲存 → 未填 ──
+  // ── 層級2：有資料但無儲存紀錄 → 仍視為未填
   if(!hasRecord) return 'new';
 
-  // ── F04 床邊教學特殊邏輯 ──
+  // ── F04 床邊教學：特殊必填清單 ──
   if(id==='F04M'||id==='F04S'){
     var f04Req=['s_name','school','s_date','bed','pt_name',
-      'diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'];
+      'diagnosis','medical_focus','rt_plan','t_fb','t_sign','s_sign'];
     if(f04Req.every(function(k){return checkField(k);})) return 'done';
     return 'partial';
   }
 
-  // ── 一般表單：用 REQUIRED_STUDENT_FIELDS 判斷 ──
-  const req=REQUIRED_STUDENT_FIELDS[id]||[];
-
-  // F10A/F10B 輔導記錄：只看學生欄位
+  // ── F10A/F10B 輔導記錄：只看學生欄位 ──
   if(id==='F10A'||id==='F10B'){
-    if(req.every(function(k){return checkField(k);})) return 'done';
+    var f10Req=['s_name','school'];
+    if(f10Req.every(function(k){return checkField(k);})) return 'done';
     return 'partial';
   }
 
-  // 需要老師的表單：額外必填老師簽名
-  const f=findForm(id);
-  const needsTeacher=f&&f.roles==='both';
+  // ── 一般表單：REQUIRED_STUDENT_FIELDS ──
+  const req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
 
-  // 合併必填清單（不重複）
-  var allReq=req.slice();
-  if(needsTeacher){
-    // 只加 req 裡沒有的
-    ['t_sign'].forEach(function(k){
-      if(allReq.indexOf(k)<0) allReq.push(k);
-    });
+  // roles='both' 的表單：額外要求老師簽名（若 req 裡沒有）
+  const f=findForm(id);
+  if(f&&f.roles==='both'&&req.indexOf('t_sign')<0){
+    req.push('t_sign');
   }
 
-  const allFilled=allReq.length===0
+  const allFilled=req.length===0
     ? hasAnyData
-    : allReq.every(function(k){return checkField(k);});
+    : req.every(function(k){return checkField(k);});
 
   if(allFilled) return 'done';
   return 'partial';
