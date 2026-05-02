@@ -762,8 +762,37 @@ const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','ep
 function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
+  const formKey=getFormKey(id);
 
-  // 輔助：值是否有實質內容（trim後非空）
+  // 讀取資料：合併所有可能的 key
+  const dByKey=APP.formData[formKey]||{};
+  const dById=APP.formData[id]||{};
+  var dFromDraft={};
+  try{
+    var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    Object.keys(allDrafts).forEach(function(k){
+      if(k===id||k===formKey||k.startsWith(id+'_')) Object.assign(dFromDraft,allDrafts[k]);
+    });
+  }catch(e){}
+  const d=Object.assign({},dFromDraft,dById,dByKey);
+
+  // historyLog：找所有可能的 key
+  var allLogs=[];
+  var logSeen={};
+  [formKey,id].forEach(function(k){
+    (APP.historyLog[k]||[]).forEach(function(l){
+      if(!logSeen[l.ts]){logSeen[l.ts]=true;allLogs.push(l);}
+    });
+  });
+  try{
+    var savedLogs=JSON.parse(localStorage.getItem('history_logs')||'{}');
+    [formKey,id].forEach(function(k){
+      (savedLogs[k]||[]).forEach(function(l){
+        if(!logSeen[l.ts]){logSeen[l.ts]=true;allLogs.push(l);}
+      });
+    });
+  }catch(e){}
+  const hasRecord=allLogs.length>0;
   function hasRealVal(v){
     if(v===undefined||v===null||v===false) return false;
     return String(v).trim()!=='';
