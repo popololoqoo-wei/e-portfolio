@@ -3394,6 +3394,7 @@ function buildDOPS(f,d,canT,fkey,canS){
     // 評分等級下拉
   var gradeOpts2=['優：90-100分','良：80-89分','佳：70-79分','尚可：60-69分','差：≦59分'];
   var gradeHtml2=gradeOpts2.map(function(g){return '<option value="'+g+'" '+(d['score_grade']===g?'selected':'')+'>'+g+'</option>';}).join('');
+  var scOC="saveDraftField('"+fid+"','score_grade',this.value)";
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評分等級<span class="t-badge">老師</span></div></div><div class="card-body">';
   h+='<div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:700;color:#8B6914;margin-bottom:10px;">★ UGY 分數需 ≥ 良：80-89分</div>';
   h+='<div class="field"><select data-fid="'+fid+'" data-key="score_grade" data-teacher="1" '+(canT?'':'disabled')+' onchange="'+scOC+'" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+(canT?'#fff':'var(--cream)')+';">';
