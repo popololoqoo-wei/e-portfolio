@@ -1339,7 +1339,11 @@ function unlockTeacherFieldsInDOM(){
     var key=el.getAttribute('data-key')||'';
     if(el.hasAttribute('readonly')) return; // 不解鎖學生姓名（唯讀）
     // 判斷是否為老師欄位
-    var isT=tKeyPrefixes.some(function(p){return key===p||key.startsWith(p);})
+    var tKeyPfx=['t_fb','t_sign','t_sign_date','t_comment','t_good','t_improve',
+      't_note','t_title','t_date','epa_level','result','score','director_fb',
+      'team_sign','team_title','peer_good','peer_suggest','peer_sign',
+      'host_sign','host_sign_date','host_date','f01_p1_','f01_p2_'];
+    var isT=tKeyPfx.some(function(p){return key===p||key.startsWith(p);})
       || /^f(06|07|13|14|15)_/.test(key)
       || /^f0[67][MS]_/.test(key)
       || /^e0[123]_sc/.test(key);
