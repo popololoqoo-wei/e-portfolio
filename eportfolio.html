@@ -1295,13 +1295,26 @@ function inlineUnlock(){
 function unlockTeacherFieldsInDOM(){
   var mc=document.getElementById('main-content');
   if(!mc)return;
-  // 解鎖所有老師 input/textarea/select
+
+  // 解鎖所有帶 data-teacher="1" 的 input/checkbox/textarea
+  mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"],select[data-teacher="1"]').forEach(function(el){
+    el.disabled=false;
+    el.style.opacity='';
+    el.style.cursor='';
+    el.style.background='';
+    var parent=el.closest('label');
+    if(parent) parent.style.opacity='';
+  });
+
+  // 解鎖老師 input/textarea/select（data-key 比對）
   mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
     var key=el.getAttribute('data-key')||'';
-    var isT=['t_fb','t_sign','t_comment','t_good','t_improve','t_note','t_title',
+    var isT=['t_fb','t_sign','t_sign_date','t_comment','t_good','t_improve','t_note','t_title',
       'epa_level','result','score','director_fb','peer_good','peer_suggest',
       'host_sign','host_sign_date','host_date'].some(function(p){return key===p||key.startsWith(p);})
-      ||/^f(05|06|07|15)_/.test(key);
+      ||/^f(06|07|15)_/.test(key)
+      ||/^f0[67][MS]_/.test(key)
+      ||/^e0[123]_sc/.test(key);
     if(isT){
       el.disabled=false;
       el.style.background='';
@@ -1312,6 +1325,7 @@ function unlockTeacherFieldsInDOM(){
   });
   // 解鎖所有老師評分按鈕和輸入欄位
   mc.querySelectorAll('button[disabled],button.r-btn,button.d-btn').forEach(function(btn){
+    var isStudentBtn=btn.getAttribute('data-teacher')==='0';
     var isStudentBtn=btn.getAttribute('data-teacher')==='0';
     if(!isStudentBtn){
       btn.disabled=false;
@@ -3141,15 +3155,15 @@ function buildEPA(f,d,canT,fkey,canS){
         h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
         var othDis=(!canT)?' disabled':'';
         var othOpacity=(!canT)?'opacity:0.6;':'';
-        h+='<label class="check-item" style="'+othOpacity+'"><input type="checkbox" '+othChk+othDis+' data-fid="'+fid+'" data-key="'+task.skey+'_check" onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
-        h+='<input type="text" value="'+othersVal+'" placeholder="請說明（不限字數）" onchange="'+othOC+'"'+((!canT)?' disabled':'')+' data-fid="'+fid+'" data-key="'+task.skey+'_others" style="flex:1;min-width:150px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;background:'+((!canT)?'var(--cream)':'#fff')+';">';
+        h+='<label class="check-item" style="'+othOpacity+'"><input type="checkbox" '+othChk+othDis+' data-fid="'+fid+'" data-key="'+task.skey+'_check" data-teacher="1" onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
+        h+='<input type="text" value="'+othersVal+'" placeholder="請說明（不限字數）" onchange="'+othOC+'"'+((!canT)?' disabled':'')+' data-fid="'+fid+'" data-key="'+task.skey+'_others" data-teacher="1" style="flex:1;min-width:150px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;background:'+((!canT)?'var(--cream)':'#fff')+';">';
         h+='</div>';
         return;
       }
       var chk=saved.indexOf(sc)>=0?'checked':'';
       var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['"+task.skey+"']||'[]');}catch(e){}if(this.checked){if(a.indexOf('"+sc+"')<0)a.push('"+sc+"');}else{a=a.filter(function(x){return x!=='"+sc+"';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"']=JSON.stringify(a);";
             var scDis=!canT?' disabled':'';
-      h+='<label class="check-item" style="'+((!canT)?'opacity:0.6;':'')+'"><input type="checkbox" '+chk+scDis+' onchange="'+oc+'" style="accent-color:var(--blue);"> '+sc+'</label>';
+      h+='<label class="check-item" style="'+((!canT)?'opacity:0.6;':'')+'"><input type="checkbox" '+chk+scDis+' data-teacher="1" onchange="'+oc+'" style="accent-color:var(--blue);"> '+sc+'</label>';
     });
     h+='</div></div></div>';
 
@@ -3921,6 +3935,15 @@ function lockTeacherFields(){
       el.style.color='var(--ink3)';
       el.style.cursor='not-allowed';
     }
+  });
+
+  // 鎖定所有帶 data-teacher="1" 的 input（含 EPA 臨床情境 checkbox）
+  mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"]').forEach(function(el){
+    el.disabled=true;
+    el.style.opacity='0.6';
+    el.style.cursor='not-allowed';
+    var parent=el.closest('label');
+    if(parent) parent.style.opacity='0.6';
   });
 
   // 鎖定所有老師評分按鈕
