@@ -1320,16 +1320,22 @@ function unlockTeacherFieldsInDOM(){
       btn.style.pointerEvents='';
     }
   });
-  // 解鎖所有 disabled 的 input/textarea/select（老師欄位）
+  // 解鎖所有 disabled 的 input/textarea/select/checkbox（老師欄位）
   mc.querySelectorAll('input[disabled],textarea[disabled],select[disabled]').forEach(function(el){
     var key=el.getAttribute('data-key')||'';
-    // 不解鎖學生姓名（唯讀）
-    if(el.hasAttribute('readonly')) return;
-    el.disabled=false;
-    el.style.background='#fff';
-    el.style.color='var(--ink)';
-    el.style.cursor='';
-    el.style.opacity='';
+    if(el.hasAttribute('readonly')) return; // 不解鎖學生姓名（唯讀）
+    // 判斷是否為老師欄位
+    var isT=tKeyPrefixes.some(function(p){return key===p||key.startsWith(p);})
+      || /^f(06|07|13|14|15)_/.test(key)
+      || /^f0[67][MS]_/.test(key)
+      || /^e0[123]_sc/.test(key);
+    if(isT||key===''){
+      el.disabled=false;
+      el.style.background='#fff';
+      el.style.color='var(--ink)';
+      el.style.cursor='';
+      el.style.opacity='';
+    }
   });
   // 解鎖 EPA 等級卡片
   mc.querySelectorAll('.epa-level').forEach(function(el){
@@ -3128,7 +3134,9 @@ function buildEPA(f,d,canT,fkey,canS){
         var othChkOC="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['"+task.skey+"']||'[]');}catch(e){}if(this.checked){if(a.indexOf('其他')<0)a.push('其他');}else{a=a.filter(function(x){return x!=='其他';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"']=JSON.stringify(a);";
         var othChk=saved.indexOf('其他')>=0?'checked':'';
         h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
-        h+='<label class="check-item"><input type="checkbox" '+othChk+' onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
+        var othDis=(!canT)?' disabled':'';
+        var othOpacity=(!canT)?'opacity:0.6;':'';
+        h+='<label class="check-item" style="'+othOpacity+'"><input type="checkbox" '+othChk+othDis+' data-fid="'+fid+'" data-key="'+task.skey+'_check" onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
         h+='<input type="text" value="'+othersVal+'" placeholder="請說明（不限字數）" onchange="'+othOC+'"'+((!canT)?' disabled':'')+' data-fid="'+fid+'" data-key="'+task.skey+'_others" style="flex:1;min-width:150px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;background:'+((!canT)?'var(--cream)':'#fff')+';">';
         h+='</div>';
         return;
@@ -3892,7 +3900,8 @@ function lockTeacherFields(){
     if(el.hasAttribute('readonly')) return; // 不動 readonly 學生姓名
     var isT=tKeyPrefixes.some(function(p){return key===p||key.startsWith(p);})
       || /^f(06|07|13|14|15)_/.test(key)
-      || /^f0[67][MS]_/.test(key);
+      || /^f0[67][MS]_/.test(key)
+      || /^e0[123]_sc/.test(key);  // EPA 臨床情境（老師欄位）
     if(isT){
       el.disabled=true;
       el.style.background='var(--cream)';
