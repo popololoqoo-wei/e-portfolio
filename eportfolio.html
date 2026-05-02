@@ -741,82 +741,81 @@ function getStatus(id){
   const formKey=getFormKey(id);
   const d=Object.assign({},APP.formData[id]||{},APP.formData[formKey]||{});
   const logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
-  const f=findForm(id);
-  const needsTeacher=f&&f.roles==='both';
+  const hasRecord=logs.length>0;
 
-  // ── 未填：沒有任何資料 + 沒有任何儲存記錄 ──
-  const hasAnyData=Object.keys(d).some(function(k){
-    var v=d[k];
-    return v!==undefined&&v!==''&&v!==false&&v!==null;
-  });
-  if(!hasAnyData && logs.length===0) return 'new';
-
-  // ── 學生必填欄位是否全滿 ──
-  const req=REQUIRED_STUDENT_FIELDS[id]||[];
-  const studentAllFilled=req.length===0
-    ? hasAnyData
-    : req.every(function(k){
-        var v=d[k];
-        if(!hasValue(v)) return false;
-        // 特殊處理：s_date 區間格式需兩端都有日期
-        if(k==='s_date'){
-          var sv=String(v).trim();
-          if(!sv) return false;
-          // 區間格式 "yyyy/mm/dd - yyyy/mm/dd"
-          if(sv.indexOf(' - ')>=0){
-            var parts=sv.split(' - ');
-            return parts.length===2&&parts[0].trim()&&parts[1].trim();
-          }
-          // 單一日期格式（EPA/DOPS）
-          return sv.length>=8;
-        }
-        // s_sign 不能是預設值「請選擇學生」
-        if(k==='s_sign') return String(v).trim()!==''&&v!=='請選擇學生';
-        return true;
-      });
-
-  // ── 學生帳號是否儲存過 ──
-  const hasStudentSaved=logs.some(function(l){return l.role==='student';});
-
-  // ── 不需要老師的表單 ──
-  if(!needsTeacher){
-    // 已完成：學生必填全滿 + 學生儲存過
-    if(studentAllFilled && hasStudentSaved) return 'done';
-    // 進行中：其他有資料或記錄的情況
-    return 'partial';
+  // 輔助：trimmed value 非空
+  function hasRealVal(v){
+    if(v===undefined||v===null||v===false) return false;
+    return String(v).trim()!=='';
   }
 
-  // ── 需要老師的表單 ──
-  // 老師必填欄位（有任何老師資料就算有填）
-  const tKeys=['t_fb','t_sign','t_comment','t_good','t_improve','epa_level',
-    'result','score','director_fb','peer_good','peer_suggest','t_title',
-    'host_sign','t_sign_date'];
-  const hasTeacherData=tKeys.some(function(k){return hasValue(d[k]);}) ||
-    Object.keys(d).some(function(k){
-      return (/^f0[67][MS]_\d+$/.test(k)||/^f(06|07|15)_\d+$/.test(k)) && hasValue(d[k]);
-    }) ||
-    // DOPS 評分
-    Object.keys(d).some(function(k){
-      return /^D0[1-4]_i\d+$/.test(k) && hasValue(d[k]);
-    });
+  // 所有資料值（排除 intern_cat 等系統欄位）
+  const SKIP_KEYS=['intern_cat'];
+  const allVals=Object.keys(d).filter(function(k){return SKIP_KEYS.indexOf(k)<0;})
+    .map(function(k){return d[k];});
 
-  // ── 已完成：學生必填全滿 + 老師必填全滿 + 學生帳號儲存過 ──
-  // （老師欄位「全滿」定義：至少有老師簽名 或 老師回饋 或 評分資料）
-  const teacherAllFilled=hasTeacherData && hasValue(d['t_sign']||d['t_fb']||d['epa_level']||d['result']);
-  if(studentAllFilled && teacherAllFilled && hasStudentSaved) return 'done';
+  // ── 層級1：未填 ── 沒有任何實質資料（trim 後非空）
+  const hasAnyData=allVals.some(function(v){return hasRealVal(v);});
+  if(!hasAnyData) return 'new';
 
-  // ── 待老師評分：學生欄位全滿且已儲存，但老師欄位未全數填完 ──
-  if(studentAllFilled && hasStudentSaved) return 'wait';
+  // ── 層級2：有資料但無儲存紀錄 → 仍視為未填（防點選切換亂跳）
+  if(hasAnyData && !hasRecord) return 'new';
 
-  // ── 進行中：有任何資料或記錄，不符合以上條件 ──
-  return 'partial';
+  // ── 必填欄位驗證函數 ──
+  function checkField(k){
+    var v=d[k];
+    if(!hasRealVal(v)) return false;
+    if(k==='s_date'){
+      var sv=String(v).trim();
+      if(sv.indexOf(' - ')>=0){
+        var pts=sv.split(' - ');
+        return pts.length===2&&pts[0].trim()&&pts[1].trim();
+      }
+      return sv.length>=8;
+    }
+    if(k==='s_sign'||k==='t_sign') return String(v).trim()!==''&&v!=='請選擇學生'&&v!=='請選擇老師'&&v!=='請選擇臨床老師';
+    return true;
+  }
+
+  // F04 床邊教學特殊必填
+  var F04_REQUIRED=['s_name','school','s_date','bed','pt_name','gender','birth_date',
+    'diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign','s_sign_date'];
+  var F04_OPTIONAL_BLOCKS=['rt_ind_','vent_','fio2','peep','vt_','rr_','peak','plateau',
+    'pip','ie_','flow','spo2','mv','ps','pc','mode'];
+
+  if(id==='F04M'||id==='F04S'){
+    var f04Done=F04_REQUIRED.every(function(k){return checkField(k);});
+    if(f04Done && hasRecord) return 'done';
+    if(hasAnyData && hasRecord) return 'partial';
+    return 'new';
+  }
+
+  // ── 一般表單必填清單 ──
+  const f=findForm(id);
+  const req=REQUIRED_STUDENT_FIELDS[id]||[];
+
+  // 需要老師欄位的表單：額外檢查老師必填
+  const needsTeacher=f&&f.roles==='both';
+  const tReq=needsTeacher?['t_sign','t_sign_date','t_fb']:[];
+  const allReq=req.concat(tReq);
+
+  const allFilled=allReq.length===0
+    ? hasAnyData
+    : allReq.every(function(k){return checkField(k);});
+
+  // ── 層級3：已完成 ── 所有必填全滿 + 有儲存紀錄
+  if(allFilled && hasRecord) return 'done';
+
+  // ── 層級4：進行中 ── 有實質資料 + 有儲存紀錄
+  if(hasAnyData && hasRecord) return 'partial';
+
+  return 'new';
 }
 
 function getStatusSummary(){
   const statuses=FORMS.map(f=>getStatus(f.id));
   return{
     done:statuses.filter(s=>s==='done').length,
-    wait:statuses.filter(s=>s==='wait').length,
     partial:statuses.filter(s=>s==='partial').length,
     newF:statuses.filter(s=>s==='new').length,
     total:FORMS.length
@@ -878,8 +877,7 @@ function renderSidebar(){
   // 未填寫表單快捷區
   const unfilledCount = getUnfilledForms().length;
   if(APP.currentRole==='student'){
-    html+=`<div class="sidebar-section">快捷</div>`;
-    html+=``;
+
   }
   groups.forEach(g=>{
     html+=`<div class="sidebar-section">${g.label}</div>`;
@@ -1236,7 +1234,7 @@ async function openForm(id){
   <button class="btn-back" onclick="renderFormList();window.scrollTo(0,0);">← 返回總覽</button>
   <div class="form-footer-right">
     <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
-    <button class="btn-pdf" id="btn-pdf" ${canDownloadPDF(id)?'style="display:inline-block;"':''} onclick="checkAndDownloadPDF('${id}')">⬇ 下載 PDF</button>
+
     <button class="btn-save" onclick="saveForm('${id}')">儲存表單</button>
   </div>
   </div>`;
@@ -3286,46 +3284,105 @@ function setEPA(fid,lv,fid2){
 }
 
 /* ─── F15 課程評值 ─── */
+function calcF15Score(fid){
+  var d=APP.formData[fid]||{};
+  var attSum=0,sklSum=0,comSum=0,bonus=0;
+  for(var i=0;i<6;i++){var v=parseInt(d['f15_att_'+i]||0);attSum+=isNaN(v)?0:v;}
+  for(var i=0;i<10;i++){var v=parseInt(d['f15_skl_'+i]||0);sklSum+=isNaN(v)?0:v;}
+  for(var i=0;i<4;i++){var v=parseInt(d['f15_com_'+i]||0);comSum+=isNaN(v)?0:v;}
+  if((d['bonus']||'').indexOf('+5')>=0) bonus=5;
+  // 換算：各區滿分 × 比例
+  var attScore=Math.round(attSum/30*30);
+  var sklScore=Math.round(sklSum/50*50);
+  var comScore=Math.round(comSum/20*20);
+  var total=attScore+sklScore+comScore+bonus;
+  // 更新分數顯示
+  var el=document.getElementById('f15_score_'+fid);
+  if(el){
+    el.textContent=total;
+    el.style.color=total>=70?'var(--green)':'var(--red)';
+  }
+  var attEl=document.getElementById('f15_att_score_'+fid);
+  if(attEl) attEl.textContent=attScore+'/30';
+  var sklEl=document.getElementById('f15_skl_score_'+fid);
+  if(sklEl) sklEl.textContent=sklScore+'/50';
+  var comEl=document.getElementById('f15_com_score_'+fid);
+  if(comEl) comEl.textContent=comScore+'/20';
+  var bonEl=document.getElementById('f15_bonus_score_'+fid);
+  if(bonEl) bonEl.textContent=(bonus>0?'+'+bonus:'0');
+}
+
 function buildF15(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   const atts=['能確立個人學習目標','能主動參與所有教學活動、尋求學習機會','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
   const skills=['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃選擇適當治療項目並評值','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力，能統整專業知識'];
   const comms=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
-  const mkSection=(title,items,prefix)=>{
-    let s=`<div class="card"><div class="card-head"><div class="card-head-title">${title}<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
-      <tr><th style="text-align:left;">評值項目（每項5分）</th><th>優(5)</th><th>良(4)</th><th>普(3)</th><th>差(2)</th><th>劣(1)</th></tr>`;
+
+  const mkSection=(title,items,prefix,subId,maxScore)=>{
+    let s=`<div class="card"><div class="card-head"><div class="card-head-title">${title}<span class="t-badge">老師評分</span><span id="${subId}" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--blue);">0/${maxScore}</span></div></div><div class="card-body" style="overflow-x:auto;"><table class="rating-table">
+      <tr><th style="text-align:left;">評值項目（每項最高5分，最低1分）</th><th>優(5)</th><th>良(4)</th><th>普(3)</th><th>差(2)</th><th>劣(1)</th></tr>`;
     items.forEach((item,i)=>{
       const key=`${prefix}_${i}`;
+      const extraOC=`calcF15Score('${fid}')`;
       s+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
-      [5,4,3,2,1].forEach(v=>s+=`<td style="text-align:center;">${rBtnTable(fid,key,v,'t',!canT)}</td>`);
+      [5,4,3,2,1].forEach(v=>{
+        var cur=(d[key]===v||d[key]==v);
+        var btnStyle=cur?'background:var(--blue);color:#fff;':'background:#fff;color:var(--ink3);';
+        s+=`<td style="text-align:center;"><button class="r-btn" data-teacher="1" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${v},'t',this);${extraOC}" ${!canT?'disabled':''} style="${btnStyle}border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;cursor:${!canT?'not-allowed':'pointer'};">${v}</button></td>`;
+      });
       s+=`</tr>`;
     });
     s+=`</table></div></div>`;
     return s;
   };
+
   let h=basicInfoCard(fid,d,'');
-  h+=mkSection('一、學習態度（30%）',atts,'f15_att');
-  h+=mkSection('二、專業知識及技能（50%）',skills,'f15_skl');
-  h+=mkSection('三、溝通、協調與專業態度（20%）',comms,'f15_com');
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">加分項目<span class="t-badge">老師</span></div></div><div class="card-body">
-    <div class="field"><label>臨床專業能力可獨立負責一般治療師1/2以上工作量（加分項目）</label>
-      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['bonus']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+
+  // 分數總覽卡片
+  h+=`<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">
+    <div class="card-body" style="text-align:center;padding:16px;">
+      <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">實習總分數</div>
+      <div style="font-size:48px;font-weight:700;" id="f15_score_${fid}">0</div>
+      <div style="font-size:12px;color:var(--ink3);">/ 105分（含加分）</div>
+      <div style="margin-top:8px;background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:700;color:#8B6914;display:inline-block;">
+        ★ 實習總分數須 ≧ 70 分才算及格
+      </div>
+      <div style="display:flex;justify-content:center;gap:20px;margin-top:12px;font-size:12px;color:var(--ink3);">
+        <span>學習態度：<b id="f15_att_score_${fid}">0/30</b></span>
+        <span>專業知識技能：<b id="f15_skl_score_${fid}">0/50</b></span>
+        <span>溝通協調：<b id="f15_com_score_${fid}">0/20</b></span>
+        <span>加分：<b id="f15_bonus_score_${fid}">0</b></span>
+      </div>
+    </div>
+  </div>`;
+
+  h+=mkSection('一、學習態度（30%，共6題，每題5分，滿分30分）',atts,'f15_att','f15_att_score_'+fid,30);
+  h+=mkSection('二、專業知識及技能（50%，共10題，每題5分，滿分50分）',skills,'f15_skl','f15_skl_score_'+fid,50);
+  h+=mkSection('三、溝通、協調與專業態度（20%，共4題，每題5分，滿分20分）',comms,'f15_com','f15_com_score_'+fid,20);
+
+  // 加分項目
+  var bonusOC=`APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['bonus']=this.value;calcF15Score('${fid}')`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">加分項目<span class="t-badge">老師</span><span id="f15_bonus_score_${fid}_lbl" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--green);"></span></div></div><div class="card-body">
+    <div class="field"><label>臨床專業能力可獨立負責一般治療師1/2以上工作量</label>
+      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus_${fid}" data-teacher="1" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="${bonusOC}" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>
   </div></div>`;
+
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">請假紀錄與回饋</div></div><div class="card-body">
     <div class="g3">
-      <div class="field"><label>公假（天）</label>${fi(f.id,'leave_pub','number',false)}</div>
-      <div class="field"><label>病假（天）</label>${fi(f.id,'leave_sick','number',false)}</div>
-      <div class="field"><label>事假（天）</label>${fi(f.id,'leave_priv','number',false)}</div>
+      <div class="field"><label>公假（天）</label>${fi(fid,'leave_pub','number',false)}</div>
+      <div class="field"><label>病假（天）</label>${fi(fid,'leave_sick','number',false)}</div>
+      <div class="field"><label>事假（天）</label>${fi(fid,'leave_priv','number',false)}</div>
     </div>
-    <div class="g2">
-      <div class="field"><label>遲到（次）</label>${fi(f.id,'late_cnt','number',false)}</div>
-    </div>
-    <div class="field"><label>學生自我評語和建議</label>${ta(f.id,'s_comment',3,false)}</div>
-    <div class="field"><label>師生檢討與回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',4,!canT)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
+    <div class="g2"><div class="field"><label>遲到（次）</label>${fi(fid,'late_cnt','number',false)}</div></div>
+    <div class="field"><label>學生自我評語和建議</label>${ta(fid,'s_comment',3,false)}</div>
+    <div class="field"><label>師生檢討與回饋<span class="t-badge">老師</span></label>${ta(fid,'t_fb',4,!canT)}</div>
+    ${signRow(fid,'s_sign','t_sign',canT)}
   </div></div>`;
+
+  // 渲染後初始化分數
+  setTimeout(function(){calcF15Score(fid);},50);
   return h;
 }
 
