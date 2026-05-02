@@ -1251,6 +1251,25 @@ async function openForm(id){
   setTimeout(function(){calc360Score(APP.currentFormId);},100);
   }
 
+  // 回填日期區間欄位（drs_*_s / drs_*_e）
+  setTimeout(function(){
+    var data=APP.formData[formKey]||{};
+    Object.keys(data).forEach(function(key){
+      var val=data[key];
+      if(!val||typeof val!=='string')return;
+      if(val.indexOf(' - ')<0)return;
+      var parts=val.split(' - ');
+      var sv=parts[0]?parts[0].replace(/\//g,'-'):'';
+      var ev=parts[1]?parts[1].replace(/\//g,'-'):'';
+      var sEl=document.getElementById('drs_'+formKey+'_'+key+'_s')
+           ||document.getElementById('drs_'+id+'_'+key+'_s');
+      var eEl=document.getElementById('drs_'+formKey+'_'+key+'_e')
+           ||document.getElementById('drs_'+id+'_'+key+'_e');
+      if(sEl&&sv&&!sEl.value) sEl.value=sv;
+      if(eEl&&ev&&!eEl.value) eEl.value=ev;
+    });
+  },50);
+
   // 老師登入：鎖定學生欄位（防止竄改）
   if(APP.currentRole==='teacher'){
   mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
@@ -2100,16 +2119,20 @@ function dateRangeField(fid,key,disabled){
   var val=(APP.formData[fid]||{})[key]||'';
   var dis=disabled?' disabled':'';
   var bg=disabled?'var(--cream)':'#fff';
-  var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
-  // Split stored value "2026/01/01 - 2026/02/01" into start/end
   var parts=val.split(' - ');
   var startVal=parts[0]?parts[0].replace(/\//g,'-'):'';
   var endVal=parts[1]?parts[1].replace(/\//g,'-'):'';
-  var updateFn="(function(){var s=document.getElementById('drs_"+fid+"_"+key+"_s').value;var e=document.getElementById('drs_"+fid+"_"+key+"_e').value;var r='';if(s||e)r=(s?s.replace(/-/g,'/'):'')+' - '+(e?e.replace(/-/g,'/'):e);if(s&&e)r=s.replace(/-/g,'/')+' - '+e.replace(/-/g,'/');saveDraftField('"+fid+"','"+key+"',r);})()";
+  // updateFn: 每次改變立即存草稿
+  var updateFn="(function(){"+
+    "var s=document.getElementById('drs_"+fid+"_"+key+"_s').value;"+
+    "var e=document.getElementById('drs_"+fid+"_"+key+"_e').value;"+
+    "var r=(s?s.replace(/-/g,'/'):'')+(s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');"+
+    "saveDraftField('"+fid+"','"+key+"',r);"+
+    "})()";
   return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'+
-    '<input type="date" id="drs_'+fid+'_'+key+'_s" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
+    '<input type="date" id="drs_'+fid+'_'+key+'_s" data-fid="'+fid+'" data-key="'+key+'_start" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
     '<span style="color:var(--ink3);font-size:12px;">～</span>'+
-    '<input type="date" id="drs_'+fid+'_'+key+'_e" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
+    '<input type="date" id="drs_'+fid+'_'+key+'_e" data-fid="'+fid+'" data-key="'+key+'_end" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
     '</div>';
 }
 
@@ -3430,6 +3453,8 @@ document.addEventListener('change', function(e){
   var fid=el.getAttribute&&el.getAttribute('data-fid');
   var key=el.getAttribute&&el.getAttribute('data-key');
   if(!fid||!key)return;
+  // 日期區間的 _start/_end 由 updateFn 統一處理，這裡跳過
+  if(key.endsWith('_start')||key.endsWith('_end')) return;
   var v=el.type==='checkbox'?el.checked:el.value;
   saveDraftField(fid, key, v);
 });
@@ -3825,10 +3850,40 @@ function autoSaveDraft(id){
   document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
     if(!el.disabled){
       var fid=el.getAttribute('data-fid');
+      var key=el.getAttribute('data-key')||'';
       if(fid===id||fid===formKey){
+        // 跳過日期區間的 _start/_end（已由 updateFn 統一儲存）
+        if(key.endsWith('_start')||key.endsWith('_end')) return;
         var v=el.type==='checkbox'?el.checked:el.value;
         if(v!==''&&v!==false&&v!==null) APP.formData[formKey][el.dataset.key]=v;
       }
+    }
+  });
+  // 額外：收集日期區間欄位（drs_*_s 和 drs_*_e）
+  document.querySelectorAll('input[id^="drs_"]').forEach(function(el){
+    if(el.disabled)return;
+    var idParts=el.id.split('_');
+    // id 格式: drs_{fid}_{key}_{s/e}
+    // 找對應的 fid（可能含 _ 所以不能簡單 split）
+    var suffix=idParts[idParts.length-1]; // 's' or 'e'
+    if(suffix!=='s')return; // 只處理開始日期（兩個一起處理）
+    // 重新觸發 updateFn：找對應的 _e input
+    var sId=el.id;
+    var eId=sId.slice(0,-1)+'e';
+    var sEl=el;
+    var eEl=document.getElementById(eId);
+    if(!eEl)return;
+    var s=sEl.value;
+    var e=eEl.value;
+    if(!s&&!e)return;
+    var r=(s?s.replace(/-/g,'/'):'')+(s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');
+    // 找 fid 和 key：從 data-fid 屬性取
+    var fid=sEl.getAttribute('data-fid');
+    var dataKey=sEl.getAttribute('data-key'); // s_date_start
+    if(!fid||!dataKey)return;
+    var baseKey=dataKey.replace('_start','');
+    if(fid===id||fid===formKey){
+      APP.formData[formKey][baseKey]=r;
     }
   });
   // 存到 localStorage（包含 f01Click 已存入的評分資料）
