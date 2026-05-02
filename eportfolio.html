@@ -1329,7 +1329,10 @@ function unlockTeacherFieldsInDOM(){
       || /^f(06|07|13|14|15)_/.test(key)
       || /^f0[67][MS]_/.test(key)
       || /^e0[123]_sc/.test(key);
-    if(isT||key===''){
+    var sKeyPrefixes2=['s_name','s_sign','s_date','s_fb','s_note','s_feeling','s_comment',
+      'school','intern_cat','diagnosis','case_dx','complexity','bed','pt_name'];
+    var isSField2=sKeyPrefixes2.some(function(p){return key===p||key.startsWith(p);});
+    if((isT&&!isSField2)||key===''){
       el.disabled=false;
       el.style.background='#fff';
       el.style.color='var(--ink)';
@@ -2686,9 +2689,11 @@ function build360(f,d,canT,fkey,canS){
   h+='<div class="field"><label>優點</label>'+ta(fid,'peer_good',2,!canT)+'</div>';
   h+='<div class="field"><label>建議</label>'+ta(fid,'peer_suggest',2,!canT)+'</div>';
   h+='</div>';
-  h+=fi(fid,'t_sign','text',!canT,'臨床老師簽名');
+  h+=makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇臨床老師');
   h+=fi(fid,'t_title','text',!canT,'職稱');
   h+='<div style="font-size:10px;color:var(--ink3);margin-top:4px;">※ 以上為臨床老師填寫欄位，需 PIN 碼解鎖</div>';
+  // 老師簽名日期（含時間戳，lockTeacherFields 可識別）
+  h+='<div class="field" style="margin-top:8px;"><label>臨床老師簽名日期<span class="t-badge">老師</span></label>'+signDateWithTimestamp(fid,'t_sign_date',!canT)+'</div>';
   h+='</div>';
   // 其他團隊人員 - 開放給所有人填寫（不鎖定）
   h+='<div style="background:#F5F8FF;border:1px solid #D0D8F0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
@@ -3901,8 +3906,16 @@ function lockTeacherFields(){
     var isT=tKeyPrefixes.some(function(p){return key===p||key.startsWith(p);})
       || /^f(06|07|13|14|15)_/.test(key)
       || /^f0[67][MS]_/.test(key)
-      || /^e0[123]_sc/.test(key);  // EPA 臨床情境（老師欄位）
-    if(isT){
+      || /^e0[123]_sc/.test(key);
+    // 額外檢查：非學生欄位的 key（排除已知學生欄位）
+    var sKeyPrefixes=['s_name','s_sign','s_date','s_fb','s_note','s_feeling','s_comment',
+      's_improve','s_self','school','intern_cat','diagnosis','case_dx','complexity',
+      'bed','pt_name','gender','birth_date','rt_ind','vent_','fio2','peep','vt_',
+      'rr_','peak','plateau','pip','ie_','flow','spo2','mv','ps','pc','ph','pao',
+      'paco','hco','be','vent_mode','medical_focus','rt_plan','team_','discuss_',
+      'c1','c2','c3','goal','motivation','strategy','env_review','note','content'];
+    var isSField=sKeyPrefixes.some(function(p){return key===p||key.startsWith(p);});
+    if(isT&&!isSField){
       el.disabled=true;
       el.style.background='var(--cream)';
       el.style.color='var(--ink3)';
