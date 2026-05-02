@@ -758,14 +758,6 @@ const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','ep
 function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
-  const formKey=getFormKey(id);
-  // 只讀 formKey（帶學號），避免裸 id 的舊資料污染判斷
-  // 但同時也合併 id（無學號）作為備援
-  const dByKey=APP.formData[formKey]||{};
-  const dById=APP.formData[id]||{};
-  const d=Object.assign({},dById,dByKey); // formKey 優先
-  const logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
-  const hasRecord=logs.length>0;
 
   // 輔助：值是否有實質內容（trim後非空）
   function hasRealVal(v){
@@ -1488,9 +1480,28 @@ function saveForm(id){
     if(!el.disabled){
       var elFid=el.getAttribute('data-fid');
       if(elFid===id||elFid===formKey){
+        var key=el.dataset.key||'';
+        if(key.endsWith('_start')||key.endsWith('_end')) return; // 由下面統一處理
         var v=el.type==='checkbox'?el.checked:el.value;
-        if(v!==''&&v!==null) APP.formData[formKey][el.dataset.key]=v;
+        if(v!==''&&v!==null) APP.formData[formKey][key]=v;
       }
+    }
+  });
+  // 明確收集日期區間欄位（drs_*_s / drs_*_e）
+  document.querySelectorAll('input[id^="drs_"]').forEach(function(el){
+    var elId=el.id; // e.g. drs_F04M_P145023_s_date_s
+    var suffix=elId.slice(-1); // 's' or 'e'
+    if(suffix!=='s') return;
+    var eEl=document.getElementById(elId.slice(0,-1)+'e');
+    var s=el.value, e=eEl?eEl.value:'';
+    if(!s&&!e) return;
+    var r=(s?s.replace(/-/g,'/'):'')+(s&&e?' - ':s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');
+    var elFid=el.getAttribute('data-fid');
+    var dataKey=el.getAttribute('data-key'); // e.g. s_date_start
+    if(!elFid||!dataKey) return;
+    var baseKey=dataKey.replace('_start','');
+    if(elFid===id||elFid===formKey){
+      APP.formData[formKey][baseKey]=r;
     }
   });
   // 同時儲存到 localStorage 草稿
@@ -1529,6 +1540,14 @@ function saveForm(id){
 
   // Save to shared storage (GAS)
   saveFormToSheets(formKey);
+
+  // 同時把 historyLog 存到 localStorage（確保 getStatus 能讀到）
+  try{
+    var savedLogs=JSON.parse(localStorage.getItem('history_logs')||'{}');
+    savedLogs[formKey]=APP.historyLog[formKey]||[];
+    savedLogs[id]=APP.historyLog[formKey]||[];
+    localStorage.setItem('history_logs',JSON.stringify(savedLogs));
+  }catch(e){}
 
   // Show saved
   const msg=document.getElementById('saved-msg');
@@ -2291,18 +2310,23 @@ function dateRangeField(fid,key,disabled){
   var parts=val.split(' - ');
   var startVal=parts[0]?parts[0].replace(/\//g,'-'):'';
   var endVal=parts[1]?parts[1].replace(/\//g,'-'):'';
-  // updateFn: 每次改變立即存草稿
-  var updateFn="(function(){"+
-    "var s=document.getElementById('drs_"+fid+"_"+key+"_s').value;"+
-    "var e=document.getElementById('drs_"+fid+"_"+key+"_e').value;"+
-    "var r=(s?s.replace(/-/g,'/'):'')+(s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');"+
-    "saveDraftField('"+fid+"','"+key+"',r);"+
-    "})()";
-  return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'+
-    '<input type="date" id="drs_'+fid+'_'+key+'_s" data-fid="'+fid+'" data-key="'+key+'_start" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
-    '<span style="color:var(--ink3);font-size:12px;">～</span>'+
-    '<input type="date" id="drs_'+fid+'_'+key+'_e" data-fid="'+fid+'" data-key="'+key+'_end" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
-    '</div>';
+  var sid='drs_'+fid+'_'+key+'_s';
+  var eid='drs_'+fid+'_'+key+'_e';
+  // updateFn：每次改變立即存草稿，使用 this 避免 getElementById 失效
+  var updateFn="(function(changed){"
+    +"var sEl=document.getElementById('"+sid+"');"
+    +"var eEl=document.getElementById('"+eid+"');"
+    +"var s=sEl?sEl.value:'';"
+    +"var e=eEl?eEl.value:'';"
+    +"if(!s&&!e)return;"
+    +"var r=(s?s.replace(/-/g,'/'):'')+(s&&e?' - ':s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');"
+    +"saveDraftField('"+fid+"','"+key+"',r);"
+    +"})(this)";
+  return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+    +'<input type="date" id="'+sid+'" data-fid="'+fid+'" data-key="'+key+'_start" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'
+    +'<span style="color:var(--ink3);font-size:12px;">～</span>'
+    +'<input type="date" id="'+eid+'" data-fid="'+fid+'" data-key="'+key+'_end" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'
+    +'</div>';
 }
 
 
@@ -4002,8 +4026,19 @@ window.debugStatus=function(id){
   var formKey=getFormKey(id);
   var dById=APP.formData[id]||{};
   var dByKey=APP.formData[formKey]||{};
-  var d=Object.assign({},dById,dByKey);
-  var logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
+  var dFromDraft={};
+  try{
+    var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    Object.keys(allDrafts).forEach(function(k){
+      if(k===id||k===formKey||k.startsWith(id+'_')) Object.assign(dFromDraft,allDrafts[k]);
+    });
+  }catch(e){}
+  var d=Object.assign({},dFromDraft,dById,dByKey);
+
+  var allLogs=[];var logSeen={};
+  [formKey,id].forEach(function(k){(APP.historyLog[k]||[]).forEach(function(l){if(!logSeen[l.ts]){logSeen[l.ts]=true;allLogs.push(l);}});});
+  try{var sl=JSON.parse(localStorage.getItem('history_logs')||'{}');[formKey,id].forEach(function(k){(sl[k]||[]).forEach(function(l){if(!logSeen[l.ts]){logSeen[l.ts]=true;allLogs.push(l);}});});}catch(e){}
+
   var req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
   var f=findForm(id);
   if(f&&f.roles==='both'&&req.indexOf('t_sign')<0) req.push('t_sign');
@@ -4018,15 +4053,22 @@ window.debugStatus=function(id){
     if(k==='t_sign_date'||k==='s_sign_date')return String(v).trim().length>=8;
     return true;
   }
+
   console.group('🔍 診斷：'+id+' | formKey='+formKey);
-  console.log('📁 formData[id]:', JSON.stringify(dById));
-  console.log('📁 formData[formKey]:', JSON.stringify(dByKey));
-  console.log('📝 historyLog:', logs.length,'筆', logs.length>0?logs[0].role+' '+logs[0].ts:'');
-  console.log('必填欄位:');
+  console.log('📁 APP.formData[id]:', JSON.stringify(dById));
+  console.log('📁 APP.formData[formKey]:', JSON.stringify(dByKey));
+  console.log('📁 localStorage draft:', JSON.stringify(dFromDraft));
+  console.log('📝 historyLog 合計:', allLogs.length,'筆');
+  if(allLogs.length>0) console.log('   最新:', allLogs[0].role, allLogs[0].ts);
+  console.log('');
+  console.log('必填欄位 ('+req.length+'個):');
   req.forEach(function(k){
     var ok=checkField(k);
     console.log(' '+(ok?'✅':'❌')+' ['+k+'] =',JSON.stringify(d[k]));
   });
+  var allOk=req.every(function(k){return checkField(k);});
+  console.log('');
+  console.log('→ 必填全滿:',allOk,'| 有記錄:',allLogs.length>0);
   console.log('→ getStatus:',getStatus(id));
   console.groupEnd();
 };
