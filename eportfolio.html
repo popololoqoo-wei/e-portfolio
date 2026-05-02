@@ -3968,11 +3968,12 @@ function lockTeacherFields(){
     }
   });
 
-  // 鎖定所有帶 data-teacher="1" 的 input（含 EPA 臨床情境 checkbox）
-  mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"]').forEach(function(el){
+  // 鎖定所有帶 data-teacher="1" 的 input/select/textarea（含 EPA checkbox 和老師簽名下拉）
+  mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"],select[data-teacher="1"]').forEach(function(el){
     el.disabled=true;
     el.style.opacity='0.6';
     el.style.cursor='not-allowed';
+    el.style.background='var(--cream)';
     var parent=el.closest('label');
     if(parent) parent.style.opacity='0.6';
   });
