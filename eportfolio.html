@@ -763,25 +763,13 @@ function getStatus(id){
   const logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
   const hasRecord=logs.length>0;
 
-  // 輔助：trimmed value 非空
+  // 輔助：值是否有實質內容
   function hasRealVal(v){
     if(v===undefined||v===null||v===false) return false;
     return String(v).trim()!=='';
   }
 
-  // 所有資料值（排除 intern_cat 等系統欄位）
-  const SKIP_KEYS=['intern_cat'];
-  const allVals=Object.keys(d).filter(function(k){return SKIP_KEYS.indexOf(k)<0;})
-    .map(function(k){return d[k];});
-
-  // ── 層級1：未填 ── 沒有任何實質資料（trim 後非空）
-  const hasAnyData=allVals.some(function(v){return hasRealVal(v);});
-  if(!hasAnyData) return 'new';
-
-  // ── 層級2：有資料但無儲存紀錄 → 仍視為未填（防點選切換亂跳）
-  if(hasAnyData && !hasRecord) return 'new';
-
-  // ── 必填欄位驗證函數 ──
+  // 輔助：checkField 驗證單一必填欄位
   function checkField(k){
     var v=d[k];
     if(!hasRealVal(v)) return false;
@@ -793,43 +781,65 @@ function getStatus(id){
       }
       return sv.length>=8;
     }
-    if(k==='s_sign'||k==='t_sign') return String(v).trim()!==''&&v!=='請選擇學生'&&v!=='請選擇老師'&&v!=='請選擇臨床老師';
+    if(k==='t_sign'||k==='s_sign'){
+      var sv2=String(v).trim();
+      return sv2!==''&&sv2!=='請選擇學生'&&sv2!=='請選擇老師'&&
+             sv2!=='請選擇臨床老師'&&sv2!=='請選擇實習總指導教師'&&
+             sv2!=='請選擇指導老師';
+    }
+    // t_sign_date 可能含時間戳，只要有日期部分即可
+    if(k==='t_sign_date'||k==='s_sign_date'){
+      return String(v).trim().length>=8;
+    }
     return true;
   }
 
-  // F04 床邊教學特殊必填
-  var F04_REQUIRED=['s_name','school','s_date','bed','pt_name','gender','birth_date',
-    'diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign','s_sign_date'];
-  var F04_OPTIONAL_BLOCKS=['rt_ind_','vent_','fio2','peep','vt_','rr_','peak','plateau',
-    'pip','ie_','flow','spo2','mv','ps','pc','mode'];
+  // ── 層級1：未填 ──
+  const SKIP_KEYS=['intern_cat'];
+  const allVals=Object.keys(d).filter(function(k){return SKIP_KEYS.indexOf(k)<0;})
+    .map(function(k){return d[k];});
+  const hasAnyData=allVals.some(function(v){return hasRealVal(v);});
+  if(!hasAnyData) return 'new';
 
+  // ── 層級2：有資料但未儲存 → 未填 ──
+  if(!hasRecord) return 'new';
+
+  // ── F04 床邊教學特殊邏輯 ──
   if(id==='F04M'||id==='F04S'){
-    var f04Done=F04_REQUIRED.every(function(k){return checkField(k);});
-    if(f04Done && hasRecord) return 'done';
-    if(hasAnyData && hasRecord) return 'partial';
-    return 'new';
+    var f04Req=['s_name','school','s_date','bed','pt_name',
+      'diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'];
+    if(f04Req.every(function(k){return checkField(k);})) return 'done';
+    return 'partial';
   }
 
-  // ── 一般表單必填清單 ──
-  const f=findForm(id);
+  // ── 一般表單：用 REQUIRED_STUDENT_FIELDS 判斷 ──
   const req=REQUIRED_STUDENT_FIELDS[id]||[];
 
-  // 需要老師欄位的表單：額外檢查老師必填
+  // F10A/F10B 輔導記錄：只看學生欄位
+  if(id==='F10A'||id==='F10B'){
+    if(req.every(function(k){return checkField(k);})) return 'done';
+    return 'partial';
+  }
+
+  // 需要老師的表單：額外必填老師簽名
+  const f=findForm(id);
   const needsTeacher=f&&f.roles==='both';
-  const tReq=needsTeacher?['t_sign','t_sign_date','t_fb']:[];
-  const allReq=req.concat(tReq);
+
+  // 合併必填清單（不重複）
+  var allReq=req.slice();
+  if(needsTeacher){
+    // 只加 req 裡沒有的
+    ['t_sign'].forEach(function(k){
+      if(allReq.indexOf(k)<0) allReq.push(k);
+    });
+  }
 
   const allFilled=allReq.length===0
     ? hasAnyData
     : allReq.every(function(k){return checkField(k);});
 
-  // ── 層級3：已完成 ── 所有必填全滿 + 有儲存紀錄
-  if(allFilled && hasRecord) return 'done';
-
-  // ── 層級4：進行中 ── 有實質資料 + 有儲存紀錄
-  if(hasAnyData && hasRecord) return 'partial';
-
-  return 'new';
+  if(allFilled) return 'done';
+  return 'partial';
 }
 
 function getStatusSummary(){
