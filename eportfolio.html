@@ -1331,19 +1331,20 @@ function unlockTeacherFieldsInDOM(){
     el.style.cursor='';
     el.style.opacity='';
   });
-  // 解鎖 EPA 等級卡片 - 重設 onclick
-  mc.querySelectorAll('.epa-level[data-teacher="1"]').forEach(function(el){
+  // 解鎖 EPA 等級卡片
+  mc.querySelectorAll('.epa-level').forEach(function(el){
     el.style.opacity='1';
     el.style.cursor='pointer';
-    el.style.pointerEvents='';
+    el.style.pointerEvents='auto';
+    el.style.border='';
     // 重新綁定正確的 onclick
-    var id2=el.id; // e.g. E01_lv2
+    var id2=el.id||'';
     var parts=id2.split('_lv');
     if(parts.length===2){
-      var formId=parts[0];
-      var lv=parts[1];
-      var fid=getFormKey(APP.currentFormId||formId);
-      el.setAttribute('onclick',"setEPA('"+formId+"','"+lv+"','"+fid+"')");
+      var formId2=parts[0];
+      var lv2=parts[1];
+      var fid2=getFormKey(APP.currentFormId||formId2);
+      el.onclick=function(){setEPA(formId2,lv2,fid2);};
     }
   });
   // 隱藏 lock-bar
@@ -2056,7 +2057,7 @@ function dateRangeField(fid,key,disabled){
   var parts=val.split(' - ');
   var startVal=parts[0]?parts[0].replace(/\//g,'-'):'';
   var endVal=parts[1]?parts[1].replace(/\//g,'-'):'';
-  var updateFn="(function(){var s=document.getElementById('drs_"+fid+"_"+key+"_s').value;var e=document.getElementById('drs_"+fid+"_"+key+"_e').value;var r='';if(s&&e)r=s.replace(/-/g,'/')+' - '+e.replace(/-/g,'/');APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=r;})()";
+  var updateFn="(function(){var s=document.getElementById('drs_"+fid+"_"+key+"_s').value;var e=document.getElementById('drs_"+fid+"_"+key+"_e').value;var r='';if(s||e)r=(s?s.replace(/-/g,'/'):'')+' - '+(e?e.replace(/-/g,'/'):e);if(s&&e)r=s.replace(/-/g,'/')+' - '+e.replace(/-/g,'/');saveDraftField('"+fid+"','"+key+"',r);})()";
   return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'+
     '<input type="date" id="drs_'+fid+'_'+key+'_s" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'+
     '<span style="color:var(--ink3);font-size:12px;">～</span>'+
@@ -2074,6 +2075,32 @@ function signDateWithTimestamp(fid,key,disabled){
   var dateVal=val?val.split(' ')[0].replace(/\//g,'-'):'';
   var tsDisplay=val&&val.indexOf(' ')>0?'<div style="font-size:10px;color:var(--green);margin-top:2px;">⏱ 時間戳：'+val.split(' ').slice(1).join(' ')+'</div>':'';
   return '<input type="date" value="'+dateVal+'"'+dis+' onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
+}
+
+
+function saveDraftField(fid, key, val){
+  // 立即存到 APP.formData（所有可能的 key）
+  if(!APP.formData[fid])APP.formData[fid]={};
+  APP.formData[fid][key]=val;
+  // 同步到 formKey 版本
+  if(APP.currentFormId){
+    var fk=getFormKey(APP.currentFormId);
+    if(!APP.formData[fk])APP.formData[fk]={};
+    APP.formData[fk][key]=val;
+  }
+  // 立即存 localStorage
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!drafts[fid])drafts[fid]={};
+    drafts[fid][key]=val;
+    // 也存到 formKey
+    if(APP.currentFormId){
+      var fk2=getFormKey(APP.currentFormId);
+      if(!drafts[fk2])drafts[fk2]={};
+      drafts[fk2][key]=val;
+    }
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
 }
 
 function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
@@ -2095,7 +2122,7 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
   // 實習學校：下拉選單
   var sc=d['school']||'';
   var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
-  var schoolOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['school']=this.value";
+  var schoolOC="saveDraftField('"+fid+"','school',this.value)";
   var schoolOpts=schools.map(function(s){return '<option value="'+s+'" '+(sc===s?'selected':'')+'>'+s+'</option>';}).join('');
   var schoolField='<select data-fid="'+fid+'" data-key="school" onchange="'+schoolOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇學校</option>'+schoolOpts+'</select>';
 
@@ -2112,13 +2139,10 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
 
   // 實習類別
   var cats=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
-  var catHtml='<div style="display:flex;gap:12px;flex-wrap:wrap;">';
-  cats.forEach(function(c){
-    var chk=(d['intern_cat']||'')=== c?'checked':'';
-    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['intern_cat']='"+c+"'";
-    catHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="radio" name="'+fid+'_icat" '+chk+' onchange="'+oc+'" style="accent-color:var(--blue);"> '+c+'</label>';
-  });
-  catHtml+='</div>';
+  var catVal=d['intern_cat']||'';
+  var catOpts=cats.map(function(c){return '<option value="'+c+'" '+(catVal===c?'selected':'')+'>'+c+'</option>';}).join('');
+  var catOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['intern_cat']=this.value;saveDraftField('"+fid+"','intern_cat',this.value)";
+  var catHtml='<select data-fid="'+fid+'" data-key="intern_cat" onchange="'+catOC+'" style="width:100%;max-width:300px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習類別</option>'+catOpts+'</select>';
 
   return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body">'+
     '<div class="g3">'+
@@ -2394,7 +2418,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   var sc=d['school']||'';
   var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
   var schoolOpts=schools.map(function(s){return '<option value="'+s+'" '+(sc===s?'selected':'')+'>'+s+'</option>';}).join('');
-  var schoolOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['school']=this.value";
+  var schoolOC="saveDraftField('"+fid+"','school',this.value)";
   h+='<div class="field"><label>實習學校</label><select data-fid="'+fid+'" data-key="school" onchange="'+schoolOC+'" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇</option>'+schoolOpts+'</select></div>';
   h+='</div></div></div>';
 
@@ -3010,7 +3034,7 @@ function buildDOPS(f,d,canT,fkey,canS){
     h+='<table class="dops-tbl"><thead><tr><th style="text-align:left;min-width:160px;">評核內容</th><th colspan="3" style="background:#C8D8F0;color:#1A3A5C;font-size:9px;">有待加強</th><th colspan="3" style="background:#D8ECD8;color:#2D5A27;font-size:9px;">符合標準</th><th colspan="3" style="background:#F0E8C8;color:#8B6914;font-size:9px;">優良</th><th style="background:#EEE;font-size:9px;">未評</th></tr><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>NA</th></tr></thead><tbody>';
     g.items.forEach(item=>{
       var key=f.id+'_i'+(++itemIdx);
-      h+='<tr><td class="item-cell">'+itemIdx+'. '+item+'</td>';
+      h+='<tr><td class="item-cell">'+item+'</td>';
       [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
         var sel=(d[key]==v||d[key]===String(v))?'sel':'';
         var dis=!canT?'disabled':'';
@@ -3126,7 +3150,9 @@ function buildEPA(f,d,canT,fkey,canS){
     var sel=(d['epa_level']===lv||d['epa_level']==lv);
     var ocEPA="setEPA('"+f.id+"','"+lv+"','"+fid+"')";
     var selStyle=sel?'border-color:var(--blue);background:#EBF5FB;':'';
-    h+='<div class="epa-level" style="'+selStyle+'cursor:pointer;" data-teacher="1" id="'+f.id+'_lv'+lv+'" onclick="'+(canT?ocEPA:'alert(\'請先輸入PIN碼解鎖\')')+'">';
+    var epaDivStyle=selStyle+(canT?'cursor:pointer;':'cursor:not-allowed;opacity:0.6;');
+    var epaClick=canT?ocEPA:"alert('請先輸入PIN碼解鎖')";
+    h+='<div class="epa-level" style="'+epaDivStyle+'" data-teacher="1" id="'+f.id+'_lv'+lv+'" onclick="'+epaClick+'">';
     h+='<div style="width:24px;height:24px;border-radius:50%;border:2px solid '+(sel?'var(--blue)':'var(--border)')+';background:'+(sel?'var(--blue)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
     h+=sel?'<span style="color:#fff;font-size:12px;font-weight:700;">✓</span>':'';
     h+='</div>';
@@ -3339,25 +3365,8 @@ document.addEventListener('change', function(e){
   var fid=el.getAttribute&&el.getAttribute('data-fid');
   var key=el.getAttribute&&el.getAttribute('data-key');
   if(!fid||!key)return;
-  // 統一使用 formKey 存資料
-  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
-  if(!APP.formData[realFid])APP.formData[realFid]={};
   var v=el.type==='checkbox'?el.checked:el.value;
-  APP.formData[realFid][key]=v;
-  // 立即存到 localStorage
-  try{
-    var gd=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(!gd[realFid])gd[realFid]={};
-    gd[realFid][key]=v;
-    localStorage.setItem('form_drafts',JSON.stringify(gd));
-  }catch(e2){}
-  // 存草稿
-  try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(!drafts[fid])drafts[fid]={};
-    drafts[fid][key]=v;
-    localStorage.setItem('form_drafts',JSON.stringify(drafts));
-  }catch(e2){}
+  saveDraftField(fid, key, v);
 });
 
 document.addEventListener('input', function(e){
@@ -3365,19 +3374,9 @@ document.addEventListener('input', function(e){
   var fid=el.getAttribute&&el.getAttribute('data-fid');
   var key=el.getAttribute&&el.getAttribute('data-key');
   if(!fid||!key)return;
-  if(el.tagName!=='TEXTAREA'&&el.type!=='text')return; // 只處理文字輸入
-  if(!APP.formData[fid])APP.formData[fid]={};
-  APP.formData[fid][key]=el.value;
-  // 延遲存草稿（避免過於頻繁）
-  clearTimeout(el._draftTimer);
-  el._draftTimer=setTimeout(function(){
-    try{
-      var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-      if(!drafts[fid])drafts[fid]={};
-      drafts[fid][key]=el.value;
-      localStorage.setItem('form_drafts',JSON.stringify(drafts));
-    }catch(e2){}
-  },500);
+  if(el.tagName!=='TEXTAREA'&&el.type!=='text'&&el.type!=='number')return;
+  // 立即存到記憶體，延遲存 localStorage
+  saveDraftField(fid, key, el.value);
 });
 
 // Auto-init Google Auth when page loads (if Client ID is set)
@@ -3882,10 +3881,11 @@ function lockTeacherFields(){
   if(!mc)return;
 
   // 老師欄位 key 清單
-  var tKeyPrefixes=['t_fb','t_sign','t_comment','t_good','t_improve','t_note','t_title',
-    'epa_level','result','score','director_fb','team_sign','team_title',
-    'peer_good','peer_suggest','host_sign','host_sign_date','host_date',
-    't_assess','t_q','t_rate','complexity','satisfaction'];
+  var tKeyPrefixes=['t_fb','t_sign','t_sign_date','t_comment','t_good','t_improve',
+    't_note','t_title','t_date','epa_level','result','score','director_fb',
+    'team_sign','team_title','peer_good','peer_suggest','peer_sign',
+    'host_sign','host_sign_date','host_date','t_assess','t_q','t_rate',
+    'satisfaction','f01_p1_','f01_p2_'];
 
   // 鎖定所有老師 input/textarea/select
   mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
@@ -3917,11 +3917,12 @@ function lockTeacherFields(){
     }
   });
 
-  // 鎖定 EPA 信賴等級（data-teacher="1" 的 div）
-  mc.querySelectorAll('.epa-level[data-teacher="1"]').forEach(function(el){
+  // 鎖定 EPA 信賴等級
+  mc.querySelectorAll('.epa-level').forEach(function(el){
     el.style.pointerEvents='none';
     el.style.opacity='0.7';
-    el.setAttribute('onclick','alert(\'請先輸入PIN碼解鎖\')');
+    el.style.cursor='not-allowed';
+    el.onclick=function(){alert('請先輸入PIN碼解鎖');};
   });
 
   // 鎖定 DOPS 評量結果 radio（合格/不合格）
