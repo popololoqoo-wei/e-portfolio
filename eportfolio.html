@@ -1496,11 +1496,22 @@ function saveForm(id){
 
 /* ── 將表單資料存到 GAS（共享給所有人） ── */
 async function saveFormToSheets(id){
+  // id 可能是裸 formId 或 formKey，統一處理
+  // saveForm 呼叫時傳的是 formKey（含學號）
+  const formKey=id; // saveForm已傳formKey
+  const bareId=id.split('_')[0]; // 取裸 formId
+  // 合併兩個來源的資料
+  const mergedData=Object.assign({},APP.formData[bareId]||{},APP.formData[formKey]||{});
+  const mergedLog=(APP.historyLog[formKey]||[]).concat(APP.historyLog[bareId]||[]);
+  // 去重複 log
+  const logMap={};mergedLog.forEach(function(l){if(!logMap[l.ts])logMap[l.ts]=l;});
+  const deduped=Object.values(logMap).sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
+
   const payload = {
     action: 'saveForm',
-    formId: id,
-    data: JSON.stringify(APP.formData[id]||{}),
-    history: JSON.stringify(APP.historyLog[id]||[]),
+    formId: formKey,
+    data: JSON.stringify(mergedData),
+    history: JSON.stringify(deduped),
     studentId: APP.currentRole==='student' ? APP.currentUser.sid : (APP.currentRole==='teacher'?APP.currentUser.card:'admin')
   };
   const configStr = JSON.stringify(payload);
@@ -1527,32 +1538,39 @@ async function saveFormToSheets(id){
 
 /* ── 從 GAS 讀取表單資料（載入時呼叫） ── */
 async function loadFormFromSheets(id){
+  // 使用 formKey（含學號）確保資料存到正確的 key
+  const formKey=getFormKey(id);
   try{
-    // 3秒超時，避免網路慢時卡住
     const controller=new AbortController();
-    const tid=setTimeout(function(){controller.abort();},3000);
-    const url=GAS_URL+'?action=loadForm&formId='+encodeURIComponent(id)+'&t='+Date.now();
+    const tid=setTimeout(function(){controller.abort();},8000); // 增加到8秒
+    const url=GAS_URL+'?action=loadForm&formId='+encodeURIComponent(formKey)+'&t='+Date.now();
     const resp=await fetch(url,{cache:'no-cache',signal:controller.signal});
     clearTimeout(tid);
     if(!resp.ok)return;
     const data=await resp.json();
     if(data.formData){
-      if(!APP.formData[id])APP.formData[id]={};
       try{
         const loaded=JSON.parse(data.formData);
+        // 存到 formKey（含學號）
+        if(!APP.formData[formKey])APP.formData[formKey]={};
+        APP.formData[formKey]=Object.assign({},loaded,APP.formData[formKey]);
+        // 同步到 id（無學號）作為備份
+        if(!APP.formData[id])APP.formData[id]={};
         APP.formData[id]=Object.assign({},loaded,APP.formData[id]);
       }catch(e2){console.warn('formData parse:',e2);}
     }
     if(data.history){
       try{
         const remoteLog=JSON.parse(data.history);
-        const localLog=APP.historyLog[id]||[];
-        APP.historyLog[id]=localLog.length>=remoteLog.length?localLog:remoteLog;
+        // 同時存到 formKey 和 id
+        const localLog=APP.historyLog[formKey]||[];
+        APP.historyLog[formKey]=localLog.length>=remoteLog.length?localLog:remoteLog;
+        const localLogId=APP.historyLog[id]||[];
+        APP.historyLog[id]=localLogId.length>=remoteLog.length?localLogId:remoteLog;
       }catch(e2){}
     }
   }catch(e){
-    // 超時或網路錯誤 - 繼續用本地草稿，不阻塞頁面
-    console.warn('loadFormFromSheets skipped:',id,e.name);
+    console.warn('loadFormFromSheets skipped:',formKey,e.name);
   }
 }
 
@@ -3803,337 +3821,49 @@ function renderStatusSection(filterStatus){
   html+='</div>';
   mc.innerHTML=html;
 }
+/* ══ DEBUG 診斷工具 ══ */
+window.debugStatus=function(id){
+  var formKey=getFormKey(id);
+  var dById=APP.formData[id]||{};
+  var dByKey=APP.formData[formKey]||{};
+  var d=Object.assign({},dById,dByKey);
+  var logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
+  var req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
+  var f=findForm(id);
+  if(f&&f.roles==='both'&&req.indexOf('t_sign')<0) req.push('t_sign');
+  if(id==='F04M'||id==='F04S') req=['s_name','school','s_date','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','s_sign'];
+  if(id==='F10A'||id==='F10B') req=['s_name','school'];
+
+  function hasRealVal(v){if(v===undefined||v===null||v===false)return false;return String(v).trim()!=='';}
+  function checkField(k){
+    var v=d[k];if(!hasRealVal(v))return false;
+    if(k==='s_date'){var sv=String(v).trim();if(sv.indexOf(' - ')>=0){var pts=sv.split(' - ');return pts.length===2&&pts[0].trim().length>=8&&pts[1].trim().length>=8;}return sv.length>=8;}
+    if(k==='t_sign'||k==='s_sign'){var sv2=String(v).trim();return sv2!==''&&sv2!=='請選擇學生'&&sv2!=='請選擇老師'&&sv2!=='請選擇臨床老師'&&sv2!=='請選擇實習總指導教師'&&sv2!=='請選擇指導老師';}
+    if(k==='t_sign_date'||k==='s_sign_date')return String(v).trim().length>=8;
+    return true;
+  }
+  console.group('🔍 診斷：'+id+' | formKey='+formKey);
+  console.log('📁 formData[id]:', JSON.stringify(dById));
+  console.log('📁 formData[formKey]:', JSON.stringify(dByKey));
+  console.log('📝 historyLog:', logs.length,'筆', logs.length>0?logs[0].role+' '+logs[0].ts:'');
+  console.log('必填欄位:');
+  req.forEach(function(k){
+    var ok=checkField(k);
+    console.log(' '+(ok?'✅':'❌')+' ['+k+'] =',JSON.stringify(d[k]));
+  });
+  console.log('→ getStatus:',getStatus(id));
+  console.groupEnd();
+};
+window.debugAll=function(){
+  ['F04M','F04S','F06M','F06S','F07M','F07S','F10A','F10B'].forEach(window.debugStatus);
+};
+window.showFormData=function(){
+  console.log('formData keys:',Object.keys(APP.formData));
+  console.log('historyLog keys:',Object.keys(APP.historyLog));
+};
+setTimeout(function(){console.log('%c✅ debug 已載入: debugAll() | debugStatus("F04M") | showFormData()','color:green;font-weight:bold');},500);
+/* ══ END DEBUG ══ */
+
 </script>
 </body>
 </html>
-<script>
-/* ── 自動暫存草稿 ── */
-function autoSaveDraft(id){
-  const formKey=getFormKey(id);
-  if(!APP.formData[formKey])APP.formData[formKey]={};
-  // 收集頁面上所有 input/textarea/select（匹配 id 或 formKey）
-  document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
-    if(!el.disabled){
-      var fid=el.getAttribute('data-fid');
-      var key=el.getAttribute('data-key')||'';
-      if(fid===id||fid===formKey){
-        // 跳過日期區間的 _start/_end（已由 updateFn 統一儲存）
-        if(key.endsWith('_start')||key.endsWith('_end')) return;
-        var v=el.type==='checkbox'?el.checked:el.value;
-        if(v!==''&&v!==false&&v!==null) APP.formData[formKey][el.dataset.key]=v;
-      }
-    }
-  });
-  // 額外：收集日期區間欄位（drs_*_s 和 drs_*_e）
-  document.querySelectorAll('input[id^="drs_"]').forEach(function(el){
-    if(el.disabled)return;
-    var idParts=el.id.split('_');
-    // id 格式: drs_{fid}_{key}_{s/e}
-    // 找對應的 fid（可能含 _ 所以不能簡單 split）
-    var suffix=idParts[idParts.length-1]; // 's' or 'e'
-    if(suffix!=='s')return; // 只處理開始日期（兩個一起處理）
-    // 重新觸發 updateFn：找對應的 _e input
-    var sId=el.id;
-    var eId=sId.slice(0,-1)+'e';
-    var sEl=el;
-    var eEl=document.getElementById(eId);
-    if(!eEl)return;
-    var s=sEl.value;
-    var e=eEl.value;
-    if(!s&&!e)return;
-    var r=(s?s.replace(/-/g,'/'):'')+(s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');
-    // 找 fid 和 key：從 data-fid 屬性取
-    var fid=sEl.getAttribute('data-fid');
-    var dataKey=sEl.getAttribute('data-key'); // s_date_start
-    if(!fid||!dataKey)return;
-    var baseKey=dataKey.replace('_start','');
-    if(fid===id||fid===formKey){
-      APP.formData[formKey][baseKey]=r;
-    }
-  });
-  // 存到 localStorage（包含 f01Click 已存入的評分資料）
-  try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    var data=APP.formData[formKey];
-    if(data&&Object.keys(data).some(function(k){
-      var v=data[k]; return v!==''&&v!==false&&v!==null&&v!==undefined;
-    })){
-      drafts[formKey]=JSON.parse(JSON.stringify(data));
-      localStorage.setItem('form_drafts',JSON.stringify(drafts));
-    }
-  }catch(e){console.warn('autoSaveDraft:',e);}
-}
-
-function loadDraft(formKey){
-  try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(drafts[formKey]&&Object.keys(drafts[formKey]).length>0){
-      if(!APP.formData[formKey])APP.formData[formKey]={};
-      var draft=drafts[formKey];
-      Object.keys(draft).forEach(function(k){
-        if(draft[k]!==''&&draft[k]!==null&&draft[k]!==undefined){
-          APP.formData[formKey][k]=draft[k];
-        }
-      });
-      // 同時同步到可能的 formKey 版本
-      if(APP.currentUser&&APP.currentUser.sid){
-        var altKey=formKey+'_'+APP.currentUser.sid;
-        if(altKey!==formKey){
-          if(!APP.formData[altKey])APP.formData[altKey]={};
-          Object.assign(APP.formData[altKey],APP.formData[formKey]);
-        }
-      }
-      return true;
-    }
-  }catch(e){console.warn('loadDraft error:',e);}
-  return false;
-}
-
-function clearDraft(formKey){
-  try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    delete drafts[formKey];
-    localStorage.setItem('form_drafts',JSON.stringify(drafts));
-  }catch(e){}
-}
-
-
-
-/* ── 360度評估表自動計算 ── */
-function calc360Score(formId){
-  var fid=getFormKey(formId)||formId;
-  var d=Object.assign({},APP.formData[formId]||{},APP.formData[fid]||{});
-  
-  // 態度：題目 0-7（基本分80）
-  // 臨床智能：題目 8-13（基本分75）
-  var attBase=80, clinBase=75;
-  var attDelta=0, clinDelta=0;
-  
-  var attWeights=['+2','+1','0','-1','-2',
-                  '+2','+1','0','-1','-2',
-                  '+3','+2','0','-2','-3',
-                  '+2','+1','0','-1','-2',
-                  '+2','+1','0','-1','-2',
-                  '+3','+2','0','-2','-3',
-                  '+3','+2','0','-2','-3',
-                  '+3','+2','0','-2','-3'];
-  
-  // 計算每題得分
-  for(var i=0;i<8;i++){
-    var v=d['f07_'+i];
-    if(v!==undefined&&v!==''&&v!==null){
-      attDelta+=parseFloat(String(v).replace('+',''))||0;
-    }
-  }
-  for(var j=8;j<14;j++){
-    var v2=d['f07_'+j];
-    if(v2!==undefined&&v2!==''&&v2!==null){
-      clinDelta+=parseFloat(String(v2).replace('+',''))||0;
-    }
-  }
-  
-  var attScore=attBase+attDelta;
-  var clinScore=clinBase+clinDelta;
-  var total=attScore+clinScore;
-  
-  // 更新顯示
-  var elAtt=document.getElementById('score-att-'+fid)||document.getElementById('score-att-'+formId);
-  var elClin=document.getElementById('score-clin-'+fid)||document.getElementById('score-clin-'+formId);
-  var elTotal=document.getElementById('score-total-'+fid)||document.getElementById('score-total-'+formId);
-  
-  if(elAtt) elAtt.textContent='80 + ('+attDelta+') = '+attScore+' 分';
-  if(elClin) elClin.textContent='75 + ('+clinDelta+') = '+clinScore+' 分';
-  if(elTotal){
-    var grade=total>=90?'優（90+）':total>=80?'良（80-89）':total>=70?'佳（70-79）':total>=60?'尚可（60-69）':'差（<60）';
-    elTotal.textContent=total+' / 155 分（'+grade+'）';
-    elTotal.style.color=total>=80?'var(--green)':total>=60?'var(--gold)':'var(--red)';
-  }
-}
-
-/* ── 360評分點擊後即時更新分數 ── */
-function setRating360(fid,key,val,role,btn){
-  setRating(fid,key,val,role,btn);
-  // 延遲計算（等 setRating 存完資料）
-  setTimeout(function(){
-    var formId=APP.currentFormId;
-    if(formId==='F07M'||formId==='F07S') calc360Score(formId);
-  },50);
-}
-
-/* ── 鎖定老師欄位（學生帳號儲存後呼叫） ── */
-function lockTeacherFields(){
-  var mc=document.getElementById('main-content');
-  if(!mc)return;
-
-  // 老師欄位 key 清單
-  var tKeyPrefixes=['t_fb','t_sign','t_sign_date','t_comment','t_good','t_improve',
-    't_note','t_title','t_date','epa_level','result','score','director_fb',
-    'team_sign','team_title','peer_good','peer_suggest','peer_sign',
-    'host_sign','host_sign_date','host_date','t_assess','t_q','t_rate',
-    'satisfaction','f01_p1_'];
-
-  // 【直接鎖定】已知老師欄位（不依賴複雜邏輯）
-  var directLockKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
-    't_title','t_note','director_fb','peer_good','peer_suggest','host_sign',
-    'host_sign_date','host_date','result','score','epa_level'];
-  directLockKeys.forEach(function(k){
-    mc.querySelectorAll('[data-key="'+k+'"]').forEach(function(el){
-      if(el.hasAttribute('readonly'))return;
-      el.disabled=true;
-      el.style.background='var(--cream)';
-      el.style.color='var(--ink3)';
-      el.style.cursor='not-allowed';
-      el.style.opacity='';
-      el.style.pointerEvents='';
-    });
-  });
-
-  // 鎖定所有老師 input/textarea/select
-  mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
-    var key=el.getAttribute('data-key')||'';
-    if(el.hasAttribute('readonly')) return; // 不動 readonly 學生姓名
-    var isT=tKeyPrefixes.some(function(p){return key===p||key.startsWith(p);})
-      || /^f(06|07|13|14|15)_/.test(key)
-      || /^f0[67][MS]_/.test(key)
-      || /^e0[123]_sc/.test(key);
-    // 額外檢查：非學生欄位的 key（排除已知學生欄位）
-    var sKeyPrefixes=['s_name','s_sign','s_date','s_fb','s_note','s_feeling','s_comment',
-      's_improve','s_self','school','intern_cat','diagnosis','case_dx','complexity',
-      'bed','pt_name','gender','birth_date','rt_ind','vent_','fio2','peep','vt_',
-      'rr_','peak','plateau','pip','ie_','flow','spo2','mv','ps','pc','ph','pao',
-      'paco','hco','be','vent_mode','medical_focus','rt_plan','team_','discuss_',
-      'c1','c2','c3','goal','motivation','strategy','env_review','note','content'];
-    var isSField=sKeyPrefixes.some(function(p){return key===p||key.startsWith(p);});
-    if(isT&&!isSField){
-      el.disabled=true;
-      el.style.background='var(--cream)';
-      el.style.color='var(--ink3)';
-      el.style.cursor='not-allowed';
-    }
-  });
-
-  // 鎖定所有帶 data-teacher="1" 的 input/select/textarea（含 EPA checkbox 和老師簽名下拉）
-  mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"],select[data-teacher="1"]').forEach(function(el){
-    el.disabled=true;
-    el.style.opacity='0.6';
-    el.style.cursor='not-allowed';
-    el.style.background='var(--cream)';
-    var parent=el.closest('label');
-    if(parent) parent.style.opacity='0.6';
-  });
-
-  // 鎖定所有老師評分按鈕
-  mc.querySelectorAll('button[data-teacher="1"],button.r-btn,button.d-btn').forEach(function(btn){
-    var rkey=btn.getAttribute('data-rkey')||'';
-    var isTeacher=btn.getAttribute('data-teacher')==='1'
-      || /^f(06|07|15)_/.test(rkey)
-      || /^f0[67][MS]_/.test(rkey)
-      || btn.classList.contains('d-btn');
-    if(isTeacher){
-      btn.disabled=true;
-      btn.style.opacity='0.35';
-      btn.style.cursor='not-allowed';
-      btn.style.pointerEvents='none';
-    }
-  });
-
-  // 鎖定 EPA 信賴等級
-  mc.querySelectorAll('.epa-level').forEach(function(el){
-    el.style.pointerEvents='none';
-    el.style.opacity='0.7';
-    el.style.cursor='not-allowed';
-    el.setAttribute('data-locked','1');
-  });
-
-  // 鎖定 DOPS 評量結果 radio（合格/不合格）
-  mc.querySelectorAll('input[type="radio"][name$="_result"]').forEach(function(el){
-    el.disabled=true;
-  });
-
-  // 顯示/還原 lock-bar
-  var existingLock=mc.querySelector('.lock-bar');
-  if(existingLock){
-    existingLock.style.display='flex';
-    // 重設 PIN 輸入框
-    var pinInput=existingLock.querySelector('#inline-pin');
-    if(pinInput) pinInput.value='';
-    var pinMsg=existingLock.querySelector('#inline-msg');
-    if(pinMsg) pinMsg.textContent='';
-  } else {
-    var hdr=mc.querySelector('.form-detail-header');
-    if(hdr){
-      var lb=document.createElement('div');
-      lb.className='lock-bar';
-      lb.innerHTML='🔒 老師評分欄位已鎖定。老師請輸入 PIN 碼解鎖：<input id="inline-pin" type="password" placeholder="PIN碼" maxlength="8"><button class="unlock-btn" onclick="inlineUnlock()">解鎖</button><span id="inline-msg" style="font-size:11px;margin-left:4px;"></span>';
-      hdr.parentNode.insertBefore(lb,hdr.nextSibling);
-    }
-  }
-}
-
-/* CbD 防呆評分按鈕 */
-function rBtnTableCbD(fid,key,v,role,disabled){
-  // 同時查 fid 和 getFormKey 版本（解決 key 不一致問題）
-  var d=(APP.formData[fid]||{});
-  var fkey=APP.currentFormId?getFormKey(APP.currentFormId):fid;
-  if(fkey!==fid) d=Object.assign({},d,APP.formData[fkey]||{});
-  var cur=d[key];
-  var isSel=cur==v||cur===String(v);
-  var selC=isSel?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
-  var dis=disabled?'disabled':'';
-  var warnAttr=(typeof v==='number'&&v<=4)?' data-cbd-warn="'+fid+'"':'';
-  return '<button class="r-btn '+selC+'" '+dis+warnAttr+' data-rkey="'+key+'" data-rval="'+v+'" data-fid="'+fid+'" data-teacher="1" onclick="cbdClick(this)">'+v+'</button>';
-}
-function cbdClick(btn){
-  if(btn.disabled)return;
-  var fid=btn.getAttribute('data-fid');
-  var key=btn.getAttribute('data-rkey');
-  var v=btn.getAttribute('data-rval');
-  var score=parseInt(v);
-  // 警示：1-4分顯示提醒但允許選取
-  var warn=document.getElementById('cbd-warn-'+fid)||document.getElementById('cbd-warn-'+getFormKey(APP.currentFormId||''));
-  if(!isNaN(score)&&score<=4){
-    if(warn){warn.style.display='block';setTimeout(function(){if(warn)warn.style.display='none';},5000);}
-  } else {
-    if(warn) warn.style.display='none';
-  }
-  // 使用 setRating（內部已統一用 formKey）
-  setRating(fid,key,isNaN(v)?v:parseInt(v),'t',btn);
-}
-
-/* F01 專用點擊處理 */
-function f01Click(btn){
-  if(btn.disabled)return;
-  var fid=btn.getAttribute('data-fid');
-  var key=btn.getAttribute('data-rkey');
-  var v=btn.getAttribute('data-rval');
-  if(!fid||!key||!v)return;
-  if(!APP.formData[fid])APP.formData[fid]={};
-  // 統一使用 formKey（帶學號）存資料
-  var realKey=APP.currentFormId?getFormKey(APP.currentFormId):fid;
-  if(!APP.formData[realKey])APP.formData[realKey]={};
-  APP.formData[realKey][key]=v;
-  // 立即存到 localStorage
-  try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(!drafts[realKey])drafts[realKey]={};
-    drafts[realKey][key]=v;
-    localStorage.setItem('form_drafts',JSON.stringify(drafts));
-  }catch(e){}
-  // 單選互斥：找同一個 fid+key 的所有按鈕（document 全域）
-  document.querySelectorAll('button[data-fid="'+fid+'"][data-rkey="'+key+'"]').forEach(function(b){
-    var isSel=b.getAttribute('data-rval')===v;
-    var isTeacher=b.getAttribute('data-teacher')==='1';
-    b.style.background=isSel?(isTeacher?'#C0392B':'#2471A3'):'#ffffff';
-    b.style.color=isSel?'#ffffff':'#7A706A';
-    b.style.fontWeight=isSel?'700':'400';
-    b.style.border=isSel?('2px solid '+(isTeacher?'#C0392B':'#2471A3')):'1px solid #D4C9BB';
-  });
-}
-</script><div id="quick-nav" style="display:none;background:#F0F4F8;border-bottom:1px solid #D5E8F5;padding:6px 1rem;flex-wrap:wrap;gap:6px;align-items:center;">
-    <button onclick="renderFormList()" style="padding:4px 14px;border:1px solid #B8D4E8;border-radius:999px;background:#fff;font-size:12px;cursor:pointer;font-weight:600;color:#1A3A5C;">📋 總覽</button>
-    <button onclick="renderStatusSection('new')" style="padding:4px 14px;border:1px solid #D5D5D5;border-radius:999px;background:#fff;font-size:12px;cursor:pointer;color:#7A706A;">⭕ 未填 <b id="qnav-new-cnt">-</b>份</button>
-    <button onclick="renderStatusSection('partial')" style="padding:4px 14px;border:1px solid #B8D4E8;border-radius:999px;background:#fff;font-size:12px;cursor:pointer;color:#2471A3;">📝 進行中 <b id="qnav-partial-cnt">-</b>份</button>
-
-    <button onclick="renderStatusSection('done')" style="padding:4px 14px;border:1px solid #27AE60;border-radius:999px;background:#fff;font-size:12px;cursor:pointer;color:#27AE60;font-weight:600;">✅ 已完成 <b id="qnav-done-cnt">-</b>份</button>
-  </div>
-  
