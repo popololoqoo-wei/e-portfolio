@@ -2070,13 +2070,12 @@ function signDateWithTimestamp(fid,key,disabled){
   var val=(APP.formData[fid]||{})[key]||'';
   var dis=disabled?' disabled':'';
   var bg=disabled?'var(--cream)':'#fff';
-  var oc="var now=new Date();var ts=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value+' '+ts;";
-  // Display: show date part for input, full value as text
+  var oc="saveDraftField('"+fid+"','"+key+"',this.value+' '+new Date().toLocaleString('zh-TW',{hour12:false}));";
   var dateVal=val?val.split(' ')[0].replace(/\//g,'-'):'';
   var tsDisplay=val&&val.indexOf(' ')>0?'<div style="font-size:10px;color:var(--green);margin-top:2px;">⏱ 時間戳：'+val.split(' ').slice(1).join(' ')+'</div>':'';
-  return '<input type="date" value="'+dateVal+'"'+dis+' onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
+  // data-fid 和 data-key 讓 lockTeacherFields 能識別並鎖定
+  return '<input type="date" value="'+dateVal+'"'+dis+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
 }
-
 
 function saveDraftField(fid, key, val){
   // 立即存到 APP.formData（所有可能的 key）
