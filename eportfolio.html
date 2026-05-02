@@ -707,7 +707,7 @@ function getFormKey(id){
 
 /* 各表單學生必填欄位定義 */
 const REQUIRED_STUDENT_FIELDS = {
-  F01A: Array.from({length:28},function(_,i){return 'f01_pre_'+i;}),
+  F01A: ['school','s_date','s_sign'].concat(Array.from({length:28},function(_,i){return 'f01_pre_'+i;})),
   F01B: ['s_name','school','s_date'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
   F02: ['s_name','school','s_date','s_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
   F04M: ['s_name','school','s_date','diagnosis'],
@@ -754,7 +754,25 @@ function getStatus(id){
   const req=REQUIRED_STUDENT_FIELDS[id]||[];
   const studentAllFilled=req.length===0
     ? hasAnyData
-    : req.every(function(k){return hasValue(d[k]);});
+    : req.every(function(k){
+        var v=d[k];
+        if(!hasValue(v)) return false;
+        // 特殊處理：s_date 區間格式需兩端都有日期
+        if(k==='s_date'){
+          var sv=String(v).trim();
+          if(!sv) return false;
+          // 區間格式 "yyyy/mm/dd - yyyy/mm/dd"
+          if(sv.indexOf(' - ')>=0){
+            var parts=sv.split(' - ');
+            return parts.length===2&&parts[0].trim()&&parts[1].trim();
+          }
+          // 單一日期格式（EPA/DOPS）
+          return sv.length>=8;
+        }
+        // s_sign 不能是預設值「請選擇學生」
+        if(k==='s_sign') return String(v).trim()!==''&&v!=='請選擇學生';
+        return true;
+      });
 
   // ── 學生帳號是否儲存過 ──
   const hasStudentSaved=logs.some(function(l){return l.role==='student';});
@@ -2061,7 +2079,14 @@ function signDateWithTimestamp(fid,key,disabled){
 function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
   // 學生姓名：學生登入時自動填入（唯讀），老師/管理員可手動輸入
   var sn=d['s_name']||'';
-  if(APP.currentRole==='student'&&APP.currentUser) sn=APP.currentUser.name;
+  if(APP.currentRole==='student'&&APP.currentUser){
+    sn=APP.currentUser.name;
+    // 自動填入 s_sign（學生簽名與姓名相同）
+    if(!d['s_sign']){
+      if(!APP.formData[fid])APP.formData[fid]={};
+      APP.formData[fid]['s_sign']=sn;
+    }
+  }
   var snOpts=getStudentList();
   var snField=APP.currentRole==='student'&&APP.currentUser
     ?'<input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">'
@@ -2356,7 +2381,14 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   h+='<div class="g2">';
   // 學生姓名
   var sn=d['s_name']||'';
-  if(APP.currentRole==='student'&&APP.currentUser) sn=APP.currentUser.name;
+  if(APP.currentRole==='student'&&APP.currentUser){
+    sn=APP.currentUser.name;
+    // 自動填入 s_sign（學生簽名與姓名相同）
+    if(!d['s_sign']){
+      if(!APP.formData[fid])APP.formData[fid]={};
+      APP.formData[fid]['s_sign']=sn;
+    }
+  }
   h+='<div class="field"><label>學生姓名</label><input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name"'+(APP.currentRole==='student'&&APP.currentUser?' readonly':'')+' style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(APP.currentRole==='student'?'var(--cream)':'#fff')+';font-size:13px;"></div>';
   // 實習學校下拉
   var sc=d['school']||'';
