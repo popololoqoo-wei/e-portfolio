@@ -1374,21 +1374,12 @@ function unlockTeacherFieldsInDOM(){
       el.style.opacity='';
     }
   });
-  // 解鎖 EPA 等級卡片
+  // 解鎖 EPA 等級卡片 - 移除 pointer-events 即可（onclick 已正確設定）
   mc.querySelectorAll('.epa-level').forEach(function(el){
+    el.style.pointerEvents='';
     el.style.opacity='1';
     el.style.cursor='pointer';
-    el.style.pointerEvents='auto';
-    el.style.border='';
-    // 重新綁定正確的 onclick
-    var id2=el.id||'';
-    var parts=id2.split('_lv');
-    if(parts.length===2){
-      var formId2=parts[0];
-      var lv2=parts[1];
-      var fid2=getFormKey(APP.currentFormId||formId2);
-      el.onclick=function(){setEPA(formId2,lv2,fid2);};
-    }
+    el.removeAttribute('data-locked');
   });
   // 隱藏 lock-bar
   var lb=mc.querySelector('.lock-bar');
@@ -3196,11 +3187,13 @@ function buildEPA(f,d,canT,fkey,canS){
   lvls.forEach(function(pair){
     var lv=pair[0],desc=pair[1];
     var sel=(d['epa_level']===lv||d['epa_level']==lv);
-    var ocEPA="setEPA('"+f.id+"','"+lv+"','"+fid+"')";
     var selStyle=sel?'border-color:var(--blue);background:#EBF5FB;':'';
-    var epaDivStyle=selStyle+(canT?'cursor:pointer;':'cursor:not-allowed;opacity:0.6;');
-    var epaClick=canT?ocEPA:"alert('請先輸入PIN碼解鎖')";
-    h+='<div class="epa-level" style="'+epaDivStyle+'" data-teacher="1" id="'+f.id+'_lv'+lv+'" onclick="'+epaClick+'">';
+    // 鎖定時用 data-locked 控制，解鎖時移除，不寫死 onclick 內容
+    var lockedAttr=canT?'':' data-locked="1"';
+    var epaDivStyle=selStyle+(canT?'cursor:pointer;':'cursor:not-allowed;opacity:0.6;pointer-events:none;');
+    // 始終綁定 setEPA，鎖定時靠 pointer-events:none 阻止
+    var ocEPA="setEPA('"+f.id+"','"+lv+"','"+fid+"')";
+    h+='<div class="epa-level" style="'+epaDivStyle+'" data-teacher="1"'+lockedAttr+' id="'+f.id+'_lv'+lv+'" onclick="'+ocEPA+'">';
     h+='<div style="width:24px;height:24px;border-radius:50%;border:2px solid '+(sel?'var(--blue)':'var(--border)')+';background:'+(sel?'var(--blue)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
     h+=sel?'<span style="color:#fff;font-size:12px;font-weight:700;">✓</span>':'';
     h+='</div>';
@@ -4004,7 +3997,7 @@ function lockTeacherFields(){
     el.style.pointerEvents='none';
     el.style.opacity='0.7';
     el.style.cursor='not-allowed';
-    el.onclick=function(){alert('請先輸入PIN碼解鎖');};
+    el.setAttribute('data-locked','1');
   });
 
   // 鎖定 DOPS 評量結果 radio（合格/不合格）
