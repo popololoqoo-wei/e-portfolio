@@ -739,45 +739,53 @@ const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','ep
 function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
-  // 取得正確的 formKey（學生登入時用學號，老師登入時用所選學生）
   const formKey=getFormKey(id);
-  const d=APP.formData[formKey]||{};
+  // 合併兩個可能的 key 資料
+  const d=Object.assign({},APP.formData[id]||{},APP.formData[formKey]||{});
   const logs=APP.historyLog[formKey]||[];
-
-  const hasStudentSaved=logs.some(function(l){return l.role==='student';});
-  const hasTeacherSaved=logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
-
-  // 完全沒資料 = 未填寫
-  const hasAnyData=Object.keys(d).some(function(k){return hasValue(d[k]);});
-  if(!hasAnyData && logs.length===0) return 'new';
-
   const f=findForm(id);
   const needsTeacher=f&&f.roles==='both';
 
-  // 判斷老師欄位是否有資料（更寬鬆的判斷）
-  const hasTeacherData = logs.some(function(l){return l.role==='teacher'||l.role==='admin';}) ||
-    TEACHER_FIELDS_KEY.some(function(k){return hasValue(d[k]);}) ||
-    Object.keys(d).some(function(k){
-      return (/^f(05|06|07|15)_/.test(k)||/^f0[67][MS]_/.test(k)) && hasValue(d[k]);
-    });
+  // ── Priority 1: 未填 ── 所有欄位皆為空
+  const hasAnyData=Object.keys(d).some(function(k){
+    var v=d[k];
+    return v!==undefined&&v!==''&&v!==false&&v!==null&&k!=='intern_cat';
+  });
+  if(!hasAnyData && logs.length===0) return 'new';
 
-  // 判斷學生必填欄位（如果沒有定義就用「有任何資料」當標準）
+  // ── 判斷學生必填欄位是否全滿 ──
   const req=REQUIRED_STUDENT_FIELDS[id]||[];
-  const studentFieldsFilled = req.length===0
+  const studentAllFilled = req.length===0
     ? hasAnyData
     : req.every(function(k){return hasValue(d[k]);});
 
-  // ── 已完成：雙方都儲存過且都有資料 ──
-  if(needsTeacher && hasStudentSaved && hasTeacherSaved) return 'done';
+  // ── 判斷老師欄位是否有資料 ──
+  const tKeys=['t_fb','t_sign','t_comment','t_good','t_improve','epa_level',
+    'result','score','director_fb','peer_good','peer_suggest','t_title',
+    'host_sign','t_sign_date'];
+  const hasTeacherData=tKeys.some(function(k){return hasValue(d[k]);}) ||
+    Object.keys(d).some(function(k){
+      return (/^f(06|07|15)_/.test(k)||/^f0[67][MS]_/.test(k)||/^dops_/.test(k)) && hasValue(d[k]);
+    }) || logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
 
-  // ── 待老師評分：學生已儲存，老師未儲存 ──
-  if(needsTeacher && hasStudentSaved && !hasTeacherSaved) return 'wait';
+  // ── 判斷老師必填欄位是否全滿（簡化：有老師資料即視為有在填）──
+  // 不需要老師的表單
+  if(!needsTeacher){
+    if(studentAllFilled && logs.length>0) return 'done';
+    return hasAnyData ? 'partial' : 'new';
+  }
 
-  // ── 不需要老師：學生儲存就算完成 ──
-  if(!needsTeacher && hasStudentSaved) return 'done';
+  // ── Priority 2: 已完成 ── 學生+老師欄位皆填滿且雙方都曾儲存
+  const hasStudentSaved=logs.some(function(l){return l.role==='student';});
+  const hasTeacherSaved=logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
+  if(studentAllFilled && hasTeacherData && hasStudentSaved && hasTeacherSaved) return 'done';
 
-  // ── 進行中：有任何儲存紀錄或資料 ──
-  if(logs.length>0 || hasAnyData) return 'partial';
+  // ── Priority 3: 待老師評分 ── 學生欄位全填完，老師尚未全部填完
+  if(studentAllFilled && hasStudentSaved && !hasTeacherData) return 'wait';
+  if(studentAllFilled && hasStudentSaved && hasTeacherData && !hasTeacherSaved) return 'wait';
+
+  // ── Priority 4: 進行中 ── 有任何資料但不符合以上條件
+  if(hasAnyData || logs.length>0) return 'partial';
 
   return 'new';
 }
