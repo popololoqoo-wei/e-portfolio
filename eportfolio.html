@@ -712,30 +712,45 @@ function getFormKey(id){
 
 /* 各表單學生必填欄位定義 */
 const REQUIRED_STUDENT_FIELDS = {
+  // F01A 學前評值：學生欄位
   F01A: ['school','s_date','s_sign'].concat(Array.from({length:28},function(_,i){return 'f01_pre_'+i;})),
-  F01B: ['s_name','school','s_date'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
-  F02: ['s_name','school','s_date','s_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
-  F04M: ['s_name','school','s_date','diagnosis'],
-  F04S: ['s_name','school','s_date','diagnosis'],
-  F06M: ['s_name','school','s_date','case_dx','s_feeling'],
-  F06S: ['s_name','school','s_date','case_dx','s_feeling'],
-  F07M: ['s_name','school','s_date','s_fb'],
-  F07S: ['s_name','school','s_date','s_fb'],
-  F08: ['s_name','school','s_date','discuss_生','discuss_心'],
-  F09: ['s_name','school','s_date','c1','s_feeling'],
+  // F01B 學後評值：學生+老師
+  F01B: ['s_name','school','s_date','t_sign'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
+  // F02 臨床表現
+  F02: ['s_name','school','s_date','s_sign','t_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
+  // F04 床邊教學（特殊邏輯在 getStatus）
+  F04M: ['s_name','school','s_date','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
+  F04S: ['s_name','school','s_date','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
+  // F06 CbD
+  F06M: ['s_name','school','s_date','case_dx','s_feeling','t_sign'],
+  F06S: ['s_name','school','s_date','case_dx','s_feeling','t_sign'],
+  // F07 360度
+  F07M: ['s_name','school','s_date','s_fb','t_sign'],
+  F07S: ['s_name','school','s_date','s_fb','t_sign'],
+  // F08 全人照護
+  F08: ['s_name','school','s_date','discuss_生','discuss_心','t_sign'],
+  // F09 跨領域
+  F09: ['s_name','school','s_date','c1','s_feeling','t_sign'],
+  // F10A/F10B 輔導記錄
   F10A: ['s_name','school','s_date'],
   F10B: ['s_name','school','s_date'],
+  // F11 ILP
   F11: ['s_name','school','s_date','goal','motivation','strategy'],
+  // F12 學習心得
   F12: ['s_name','school','s_date','env_review'],
+  // F13/F14 個案報告
   F13: ['s_name','school','s_date'],
   F14: ['s_name','school','s_date'],
+  // DOPS
   D01: ['s_name','school','s_date','complexity'],
   D02: ['s_name','school','s_date','complexity'],
   D03: ['s_name','school','s_date','complexity'],
   D04: ['s_name','school','s_date','complexity'],
+  // EPA
   E01: ['s_name','school','s_date'],
   E02: ['s_name','school','s_date'],
   E03: ['s_name','school','s_date'],
+  // F15 實習課程評值
   F15: ['s_name','s_comment'],
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
@@ -2180,7 +2195,7 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
 function buildF01A(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   const fid=fkey||f.id;
-  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
+  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','抽痰(Open、In-line)','tracheostomy care','Extubation technique','Cuff pressure maintenance (MLT、MOV)','Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','NPB-840呼吸器','Servo系列呼吸器','Hamilton-G5呼吸器','NKV-550呼吸器','Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
 
   function mkBtn(key2,v,isTeacher){
     var cur=d[key2]||'';
@@ -2221,7 +2236,7 @@ function buildF01A(f,d,canT,fkey,canS){
 function buildF01B(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   const fid=fkey||f.id;
-  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','12.1 抽痰(Open、In-line)','12.2 tracheostomy care','12.3 Extubation technique','12.4 Cuff pressure maintenance (MLT、MOV)','12.5 Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','18.1 NPB-840呼吸器','18.2 Servo系列呼吸器','18.3 Hamilton-G5呼吸器','18.4 NKV-550呼吸器','18.5 Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
+  const skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','抽痰(Open、In-line)','tracheostomy care','Extubation technique','Cuff pressure maintenance (MLT、MOV)','Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','NPB-840呼吸器','Servo系列呼吸器','Hamilton-G5呼吸器','NKV-550呼吸器','Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
 
   function mkBtn(key2,v,isTeacher){
     var cur=d[key2]||'';
@@ -2748,10 +2763,10 @@ function buildF08(f,d,canT,fkey,canS){
   let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
     <div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>
     <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">全人討論（包含2個以上面向）</div></div><div class="card-body">
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">全人討論（包含2個以上面向）<span style="font-size:10px;font-weight:400;color:var(--ink3);margin-left:4px;">若無建議，請填寫「無」</span></div></div><div class="card-body">
     ${[['生理(Body)','疾病之檢查、檢驗、診斷與治療'],['心理(Mind)','對疾病的認知、自我照護的技能與態度'],['靈性(Spirit)','信仰、心靈關懷，精神上的支持與安慰'],['社會(Social)','家人協助、轉介服務、出院準備']].map(([t,hint])=>`<div class="field"><label>${t}<span style="font-size:10px;color:var(--ink3);margin-left:4px;">${hint}</span></label>${ta(f.id,'discuss_'+t[0],2,false)}</div>`).join('')}
   </div></div>`;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">跨團隊照護</div></div><div class="card-body">
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">跨團隊照護<span style="font-size:10px;font-weight:400;color:var(--ink3);margin-left:4px;">若無建議，請填寫「無」</span></div></div><div class="card-body">
     ${[1,2,3].map(i=>`<div class="g2"><div class="field"><label>團隊職類 ${i}</label>${fi(f.id,'team_type_'+i,'text',false)}</div><div class="field"><label>照護重點 ${i}</label>${fi(f.id,'team_care_'+i,'text',false)}</div></div>`).join('')}
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">學員心得與老師回饋</div></div><div class="card-body">
@@ -2855,7 +2870,7 @@ function buildF12(f,d,canT,fkey,canS){
     <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
     ${signRow(f.id,'s_sign','t_sign',canT)}
     <div class="g2">
-      <div class="field"><label>計畫主持人簽名<span class="t-badge">老師</span></label>${fi(f.id,'host_sign','text',!canT)}</div>
+      <div class="field"><label>計畫主持人簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'host_sign',getTeacherList(),!canT,'請選擇計畫主持人',true)}</div>
       <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
@@ -2889,171 +2904,71 @@ function buildF13(f,d,canT,fkey,canS){
 function buildF14(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
-  const sections=[
-    {title:'報告技巧',items:[['報告技巧1：口語表達清晰流暢',5],['報告技巧2：台風穩健',5],['報告技巧3：熟悉報告主題及內容',10],['報告技巧4：時間掌握良好',5]]},
-    {title:'內容',items:[['前言與入院經過',10],['身體評估',10],['疾病流程圖與呼吸照護主要問題',10],['呼吸照護計畫',10],['討論與文獻回顧',15],['回答問題',10]]},
-    {title:'其他',items:[['期刊選擇-內容完整度',5],['與老師討論-準時認真',5]]},
+  let h=basicInfoCard(fid,d,'');
+
+  // PPT 評分項目（12項，各項有最高分限制）
+  const items=[
+    {label:'報告架構與邏輯性',max:10},
+    {label:'簡報設計與視覺效果',max:10},
+    {label:'主題掌握與深度',max:10},
+    {label:'臨床資料蒐集與整理',max:10},
+    {label:'診斷推理與鑑別診斷',max:10},
+    {label:'治療計畫之適切性',max:10},
+    {label:'文獻查閱與引用',max:10},
+    {label:'口語表達清晰度',max:10},
+    {label:'時間掌控',max:5},
+    {label:'回答問題能力',max:5},
+    {label:'團隊合作與互動',max:5},
+    {label:'整體臨床思維',max:5},
   ];
-  let h=basicInfoCard(fid,d,`<div class="field"><label>個案報告題目</label>${fi(f.id,'case_title','text',false)}</div>`);
-  let ki=0;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">PPT 評分（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
-  sections.forEach(sec=>{
-    h+=`<div style="font-size:12px;font-weight:700;color:var(--blue);margin:10px 0 6px;">${sec.title}</div>`;
-    sec.items.forEach(([label,max])=>{
-      const key=`f14_${ki++}`;
-      h+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);">
-        <span style="flex:1;font-size:12px;">${label}（${max}分）</span>
-        <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
-      </div>`;
-    });
+  const totalMax=items.reduce(function(a,b){return a+b.max;},0);
+
+  // 分數卡片
+  h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">';
+  h+='<div class="card-body" style="text-align:center;padding:16px;">';
+  h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">PPT 報告總分</div>';
+  h+='<div style="font-size:48px;font-weight:700;" id="f14_total_'+fid+'">0</div>';
+  h+='<div style="font-size:12px;color:var(--ink3);">/ '+totalMax+' 分</div>';
+  h+='</div></div>';
+
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分'+totalMax+'分）<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<table class="rating-table"><tr><th style="text-align:left;">評核項目</th><th>滿分</th><th>得分（數字輸入）</th></tr>';
+
+  items.forEach(function(item,i){
+    var key='f14_sc_'+i;
+    var cur=parseInt(d[key]||0)||0;
+    var oc="(function(){var v=parseInt(this.value)||0;if(v>"+item.max+")v="+item.max+";if(v<0)v=0;this.value=v;saveDraftField('"+fid+"','"+key+"',v);calcF14Score('"+fid+"');})(this)";
+    h+='<tr>';
+    h+='<td class="row-label">'+item.label+'</td>';
+    h+='<td style="text-align:center;color:var(--ink3);font-size:11px;">'+item.max+'</td>';
+    h+='<td style="text-align:center;"><input type="number" min="0" max="'+item.max+'" value="'+cur+'" '+(canT?'':'disabled')+' data-fid="'+fid+'" data-key="'+key+'" data-teacher="1" onchange="'+oc+'" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;text-align:center;background:'+(canT?'#fff':'var(--cream)')+';">分</td>';
+    h+='</tr>';
   });
-  h+=`</div></div>`;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">回饋</div></div><div class="card-body">
-    <div class="field"><label>老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-    <div class="field"><label>學生回饋</label>${ta(f.id,'s_fb',3,false)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
-  </div></div>`;
+  h+='</table></div></div>';
+
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">評語與回饋<span class="t-badge">老師</span></div></div><div class="card-body">';
+  h+='<div class="field"><label>老師評語</label>'+ta(fid,'t_fb',3,!canT)+'</div>';
+  h+=signRow(fid,'s_sign','t_sign',canT);
+  h+='</div></div>';
+
+  setTimeout(function(){calcF14Score(fid);},50);
   return h;
 }
 
-/* ─── DOPS ─── */
-const DOPS_DATA={
-  D01:{
-    topic:'抽痰技術(Suction)',
-    groups:[
-      {hd:'執行技術前',items:[
-        '1. 確認醫囑',
-        '2. 確認病人(兩種方式)並解釋',
-        '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 備物：無菌抽痰包、聽診器',
-        '5. 選擇合適抽痰管(Endo size乘3，再除2)',
-        '6. 調整合適抽吸器壓力(成人:-100 ~ -120 mmHg)',
-        '7. 協助病人床頭抬高(30-45度)',
-        '8. 抽痰前給予100%氧氣，1分鐘',
-      ]},
-      {hd:'執行技術中',items:[
-        '9. 技術執行步驟 9.1 打開抽痰包封口(注意勿汙染手套)',
-        '9.2 單手戴無菌手套，取出無菌抽痰管，另一手拿取連接抽痰機的長管與之連接',
-        '9.3 以無菌方式放入抽痰管，插入時勿按住抽痰管之抽吸控制口，且放入深度適宜(Endo長度到底，回抽1~2公分)；間歇、旋轉、抽吸。※勿超過15秒',
-        '9.4 抽痰順序：氣管內管(或氣切)->鼻腔->口腔',
-        '9.5 過程評估：咳嗽能力、痰液性質',
-        '9.6 過程注意生命徵象、口腔鼻黏膜是否出血',
-        '9.7 抽痰完畢並接回呼吸器，將抽痰管放入清水中沖洗後取下，反脫包住抽痰管',
-        '9.8 關掉抽吸器',
-        '9.9 抽痰後給予病人100%氧氣，1分鐘',
-      ]},
-      {hd:'執行技術後',items:[
-        '10. 恢復病人床邊安全及整理病人環境',
-        '11. 聽診呼吸音',
-        '12. 技術執行後洗手',
-        '13. 正確紀錄',
-      ]},
-    ]
-  },
-  D02:{
-    topic:'定量噴霧器(MDI)配合呼吸器使用技術操作',
-    groups:[
-      {hd:'MDI使用前',items:[
-        '1. 確認醫囑與適應症',
-        '2. 確認病人(兩種方式)並解釋治療',
-        '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 核對藥物的三讀五對 4.1 三讀：取藥、給藥、歸藥時 4.2 五對：醫囑、藥名、人名、給藥時間、給藥途徑',
-        '5. 備物：MDI藥物、Aero-chamber(吸入輔助器)',
-        '6. 維持呼吸道通暢，必要時予以抽痰',
-        '7. 將儲藥罐取出，儲藥罐用手握住，以提高儲藥罐的溫度，並上下搖晃噴霧器(至少5~10秒)；若初次使用或多日未用，要先對大氣中噴1~4次',
-        '8. 執行吸藥前，維持呼吸道通暢，必要時予以抽痰',
-      ]},
-      {hd:'MDI使用中',items:[
-        '9. Aero-chamber接在呼吸器之Y型接頭吸氣端的管路上',
-        '10. MDI儲藥罐卡榫接於Aero-chamber上，並保持垂直位置',
-        '11. 在呼吸器吸氣前或吐(或配合病患呼吸狀態)，按下MDI，將藥物注入Aero-chamber儲藥腔',
-        '12. 兩次使用之間，至少間隔30~60秒',
-        '13. 給藥後，至少等待6次完整吸、吐氣後，移去MDI的儲藥罐及Aero-chamber',
-        '14. 觀察是否有藥物的副作用發生(如：心博過速、肌肉震顫等)',
-      ]},
-      {hd:'MDI使用後',items:[
-        '15. 觀察病人生命徵象、藥效(如呼吸音、肺功能改善)等',
-        '16. 恢復病人床邊安全及整理病人環境',
-        '17. Aero-chamber清潔時機與方法',
-        '18. 技術執行後洗手',
-      ]},
-    ]
-  },
-  D03:{
-    topic:'呼吸器技術操作(Adult)',
-    extra:'呼吸器機型：□PB840  □Servo系列(I/C/U/AIR)  □Drager系列(V/VN)  □Hamilton-G5  □其他',
-    groups:[
-      {hd:'呼吸器使用前',items:[
-        '1. 確認醫囑與適應症',
-        '2. 確認病人(兩種方式)',
-        '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 備物：呼吸器、呼吸器管路及附屬配件、自動加水器/MR850、無菌蒸餾水、吐氣端短軟管、細菌過濾器、吐氣端蓄水瓶、氧氣分析儀、測試肺、酒精棉片',
-        '5. 正確操作組裝管路',
-        '6. 呼吸器功能測試',
-        '7. 呼吸器初步設定',
-      ]},
-      {hd:'呼吸器使用中',items:[
-        '8. 監測：聽診呼吸音、病人呼吸型態是否和呼吸器同步、生命徵象及ABG',
-        '9. 呼吸器障礙排除 9.1 先檢查病人',
-        '9.2 依照呼吸器警報發生原因(管路積水、分泌物增加、漏氣)，調整呼吸器設定、改善病人呼吸的狀況、恢復警報或更換異常呼吸器',
-        '10. 病人使用之呼吸器面板，每日需使用漂白水布',
-        '11. 技術執行後應洗手',
-        '12. 正確記錄',
-      ]},
-      {hd:'呼吸器使用後',items:[
-        '13. 管路及附屬配件依分類處理',
-        '14. 呼吸器面板及呼吸器表面以漂白水布擦拭',
-        '15. 泡消 15.1 Exp. cassette 75% 酒精浸泡30分鐘，烘乾即可。(servo系列)',
-        '15.2 細菌過濾器高溫殺菌消毒',
-        '15.3 管路以巴斯德消毒',
-      ]},
-    ]
-  },
-  D04:{
-    topic:'呼吸器脫離指標測量 ( Weaning Index )',
-    groups:[
-      {hd:'執行技術前',items:[
-        '1. 確認醫囑',
-        '2. 評估病人是否符合呼吸器脫離',
-        '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 備物：Halo-scale、Boehringer Inspiratory Force Meter、單向閥、22mm、短蛇行管、空針、HMEF、酒精棉片、Cuff pressure manometer',
-        '5. 執行技術前，維持呼吸道通暢，必要時予以抽痰',
-      ]},
-      {hd:'執行技術中',items:[
-        '6. 確認病人(兩種方式)並解釋',
-        '7. 技術執行步驟 7.1 協助病人採半坐臥式(45-90度)',
-        '7.2 測量RR及VE 以肺計量器(Halo-scale)測量RR、VE將肺計量器接上氣管內管，將on打開，計算1分鐘病人呼吸次數及VE，1分鐘後關到off處，觀察肺計量器的值即為每分鐘換氣量(VE)。',
-        '7.3 計算Vt及RSBI 平均呼吸潮氣容積=每分鐘換氣量÷呼吸次數；RSBI ( RSBI=RR bpm/Vt)',
-        '7.4 測量最大吸氣力量 (Maximum Inspiratory Pressure; MIP) 7.4.1 向病人解釋說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
-        '7.4.2 將指標放在負壓端並歸零',
-        '7.4.3 接上壓力計，請病人吐氣吐乾淨後，用最大的力量吸氣，病人吸氣的同時將通氣孔塞住，測量最大的吸氣壓力',
-        '7.4.4 至少測量3次，每次測量間必須有適當的休息，取最好的一次',
-        '7.4.5 無法配合的病人，則持續阻塞通氣孔15-20秒，來測得病人最大的吸氣力量',
-        '7.5 測最大吐氣力量 (Maximum Expiratory Pressure; MEP) 7.5.1 向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
-        '7.5.2 將指標放在正壓端並歸零',
-        '7.5.3 接上壓力計，請病人吸飽氣後，用最大的力量吐氣，病人吸氣的同時將通氣孔塞住，測量最大的吐氣壓力',
-        '7.5.4 至少測量3次，每次測量間必須有適當的休息，取最好的一次',
-        '7.5.5 無法配合的病人，則持續阻塞通氣孔15-20秒，來測得病人最大的吸氣力量',
-        '7.6 測量氣囊漏氣量（CLT） 7.6.1 向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
-        '7.6.2 調整呼吸器設定VCV（8ml/kg-PBW）',
-        '7.6.3 紀錄平靜時吐氣潮氣容積 Vt baseline',
-        '7.6.4 待病人呼吸平靜後，鬆開cuff',
-        '7.6.5 觀察病人平靜呼吸6次後，紀錄吐氣潮氣容積Vt deflated',
-        '7.6.6 將cuff打飽，並測量cuff pressure * 正常值：25-35 cmH₂O之間',
-        '7.6.7 調回病人之前使用的呼吸器設定',
-        '測量其間須觀察生命徵象、當生命徵象不穩定時，立即停止測量。',
-      ]},
-      {hd:'執行技術後',items:[
-        '9. 評估測量結果 9.1 RSBI<105 9.2 CLT>140mL',
-        '10. 向病人/照護者，及醫療團隊解釋測量結果',
-        '11. 回復病人姿勢與整理床邊環境',
-        '12. 用酒精棉片清潔用物與歸位',
-        '13. 執行後應洗手與脫除防護裝備',
-        '14. 紀錄與交班',
-      ]},
-    ]
-  },
-};
+function calcF14Score(fid){
+  var d=APP.formData[fid]||{};
+  var total=0;
+  var items=[10,10,10,10,10,10,10,10,5,5,5,5];
+  items.forEach(function(max,i){
+    var v=parseInt(d['f14_sc_'+i]||0)||0;
+    if(v>max)v=max;
+    if(v<0)v=0;
+    total+=v;
+  });
+  var el=document.getElementById('f14_total_'+fid);
+  if(el) el.textContent=total;
+}
+
 
 function buildDOPS(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
@@ -3084,7 +2999,6 @@ function buildDOPS(f,d,canT,fkey,canS){
   var gradeHtml2=gradeOpts2.map(function(g){return '<option value="'+g+'" '+(d['score_grade']===g?'selected':'')+'>'+g+'</option>';}).join('');
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評分等級<span class="t-badge">老師</span></div></div><div class="card-body">';
   h+='<div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:700;color:#8B6914;margin-bottom:10px;">★ UGY 分數需 ≥ 良：80-89分</div>';
-  var scOC="saveDraftField('"+fid+"','score_grade',this.value)";
   h+='<div class="field"><select data-fid="'+fid+'" data-key="score_grade" data-teacher="1" '+(canT?'':'disabled')+' onchange="'+scOC+'" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+(canT?'#fff':'var(--cream)')+';">';
   h+='<option value="">請選擇評分等級</option>'+gradeHtml2+'</select></div>';
   h+='</div></div>';
@@ -3301,8 +3215,8 @@ function buildF15(f,d,canT,fkey,canS){
       s+=`<tr><td class="row-label">${i+1}. ${item}</td>`;
       [5,4,3,2,1].forEach(v=>{
         var cur=(d[key]===v||d[key]==v);
-        var btnStyle=cur?'background:var(--blue);color:#fff;':'background:#fff;color:var(--ink3);';
-        s+=`<td style="text-align:center;"><button class="r-btn" data-teacher="1" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${v},'t',this);${extraOC}" ${!canT?'disabled':''} style="${btnStyle}border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;cursor:${!canT?'not-allowed':'pointer'};">${v}</button></td>`;
+        var selCls=cur?'sel-t':'';
+        s+=`<td style="text-align:center;"><button class="r-btn ${selCls}" data-teacher="1" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${v},'t',this);${extraOC}" ${!canT?'disabled':''} style="border-radius:4px;padding:4px 8px;font-size:12px;cursor:${!canT?'not-allowed':'pointer'};">${v}</button></td>`;
       });
       s+=`</tr>`;
     });
