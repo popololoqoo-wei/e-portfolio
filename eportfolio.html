@@ -2270,6 +2270,82 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // F08 全人照護紀錄表
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F08'){
+    var f08profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
+
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
+    html+=pdfR('會議類別',val('cat')||'—',false);
+    html+=pdfR('主診斷',val('diagnosis')||'—',false);
+    html+='</table>';
+
+    // ── 參加職類（checkbox） ──
+    html+='<div class="section-head">參加職類</div>';
+    html+='<table><tr>';
+    f08profs.forEach(function(prof,i){
+      var checked=d['prof_'+prof]===true||d['prof_'+prof]==='true'||d['prof_'+prof]===1;
+      html+='<td style="border:1px solid #DDD;padding:4px 7px;font-size:9pt;white-space:nowrap;">';
+      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+prof+'</td>';
+      if(i===7||i===f08profs.length-1) html+='</tr><tr>';
+    });
+    html+='</tr></table>';
+
+    // ── 全人討論 ──
+    html+='<div class="section-head">全人討論（包含2個以上面向）</div>';
+    html+='<table>';
+    html+=pdfR('生理(Body)　疾病之檢查、檢驗、診斷與治療', val('discuss_生')||'（未填）', false);
+    html+=pdfR('心理(Mind)　對疾病的認知、自我照護的技能與態度', val('discuss_心')||'（未填）', false);
+    html+=pdfR('靈性(Spirit)　信仰、心靈關懷，精神上的支持與安慰', val('discuss_靈')||'（未填）', false);
+    html+=pdfR('社會(Social)　家人協助、轉介服務、出院準備', val('discuss_社')||'（未填）', false);
+    html+='</table>';
+
+    // ── 跨團隊照護 ──
+    var hasTeam=[1,2,3].some(function(i){return val('team_type_'+i)||val('team_care_'+i);});
+    html+='<div class="section-head">跨團隊照護</div>';
+    html+='<table>';
+    html+='<tr>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;width:8%;text-align:center;">編號</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;width:46%;text-align:left;">團隊職類</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;width:46%;text-align:left;">照護重點</th>';
+    html+='</tr>';
+    [1,2,3].forEach(function(i){
+      var ttype=val('team_type_'+i)||'—';
+      var tcare=val('team_care_'+i)||'—';
+      html+='<tr>';
+      html+='<td style="border:1px solid #DDD;padding:5px 8px;text-align:center;font-weight:600;">'+i+'</td>';
+      html+='<td style="border:1px solid #DDD;padding:5px 8px;">'+ttype+'</td>';
+      html+='<td style="border:1px solid #DDD;padding:5px 8px;">'+tcare+'</td>';
+      html+='</tr>';
+    });
+    html+='</table>';
+
+    // ── 學員心得與老師回饋 ──
+    html+='<div class="section-head">學員心得與老師回饋</div>';
+    html+='<table>';
+    html+=pdfR('學員學習心得',val('s_feeling')||'（未填）',false);
+    html+=pdfR('臨床老師回饋',val('t_fb')||'（未填）',true);
+    html+='</table>';
+
+    // ── 簽名 ──
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',studentName||val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
+    html+=pdfR('老師簽名',val('t_sign')||'—',true);
+    html+=pdfR('老師簽名日期',val('t_sign_date')||'—',true);
+    html+='</table>';
+
+    return html;
+  }
+
   // F02 臨床表現自我學後評值表
   if(id==='F02'){
     var items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
