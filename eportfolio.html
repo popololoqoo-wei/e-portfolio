@@ -716,28 +716,40 @@ function getFormKey(id){
 
 /* 各表單學生必填欄位定義 */
 const REQUIRED_STUDENT_FIELDS = {
-  // F01A 學前評值：學生欄位
+  // F01A 學前評值（學生單填）
   F01A: ['school','s_date','s_sign'].concat(Array.from({length:28},function(_,i){return 'f01_pre_'+i;})),
-  // F01B 學後評值：學生+老師
+  // F01B 學後評值
   F01B: ['s_name','school','s_date','t_sign'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
   // F02 臨床表現
   F02: ['s_name','school','s_date','s_sign','t_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
-  // F04 床邊教學（特殊邏輯在 getStatus）
-  F04M: ['s_name','school','s_date','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
-  F04S: ['s_name','school','s_date','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
-  // F06 CbD
-  F06M: ['s_name','school','s_date','case_dx','s_feeling','t_sign'],
-  F06S: ['s_name','school','s_date','case_dx','s_feeling','t_sign'],
-  // F07 360度
-  F07M: ['s_name','school','s_date','s_fb','t_sign'],
-  F07S: ['s_name','school','s_date','s_fb','t_sign'],
+  // F04 床邊教學（必填：學生姓名,實習學校,病床號,病人名,診斷,醫療重點,治療計畫,老師回饋,老師簽名,老師簽名日期,學生簽名,學生簽名日期）
+  F04M: ['s_name','school','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
+  F04S: ['s_name','school','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
+  // F06 CbD（必填：基本資料+複雜度+主診斷+7項評量+雙向回饋）
+  F06M: ['s_name','school','s_date','complexity','case_dx',
+    'f06_0','f06_1','f06_2','f06_3','f06_4','f06_5','f06_6',
+    's_feeling','t_good','s_improve','t_improve','s_sign','t_sign'],
+  F06S: ['s_name','school','s_date','complexity','case_dx',
+    'f06_0','f06_1','f06_2','f06_3','f06_4','f06_5','f06_6',
+    's_feeling','t_good','s_improve','t_improve','s_sign','t_sign'],
+  // F07 360度（必填：基本資料+14題評核+各方回饋簽名）
+  F07M: ['s_name','school','s_date',
+    'f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
+    'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
+    'peer_good','peer_suggest','t_sign','t_sign_date',
+    's_fb','s_sign','host_sign'],
+  F07S: ['s_name','school','s_date',
+    'f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
+    'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
+    'peer_good','peer_suggest','t_sign','t_sign_date',
+    's_fb','s_sign','host_sign'],
   // F08 全人照護
   F08: ['s_name','school','s_date','discuss_生','discuss_心','t_sign'],
   // F09 跨領域
   F09: ['s_name','school','s_date','c1','s_feeling','t_sign'],
-  // F10A/F10B 輔導記錄
-  F10A: ['s_name','school','s_date'],
-  F10B: ['s_name','school','s_date'],
+  // F10A/F10B 輔導記錄（注意：日期用'date'不是's_date'）
+  F10A: ['s_name','intern_cat','date','school','t_sign'],
+  F10B: ['s_name','intern_cat','date','school','t_sign'],
   // F11 ILP
   F11: ['s_name','school','s_date','goal','motivation','strategy'],
   // F12 學習心得
@@ -835,16 +847,21 @@ function getStatus(id){
 
   // ── F04 床邊教學：特殊必填清單 ──
   if(id==='F04M'||id==='F04S'){
-    var f04Req=['s_name','school','s_date','bed','pt_name',
-      'diagnosis','medical_focus','rt_plan','t_fb','t_sign','s_sign'];
+    var f04Req=['s_name','school','bed','pt_name',
+      'diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'];
     if(f04Req.every(function(k){return checkField(k);})) return 'done';
     return 'partial';
   }
 
   // ── F10A/F10B 輔導記錄：只看學生欄位 ──
   if(id==='F10A'||id==='F10B'){
-    var f10Req=['s_name','school'];
-    if(f10Req.every(function(k){return checkField(k);})) return 'done';
+    // F10 的日期欄位 key 是 'date'，不是 's_date'
+    var f10Req=['s_name','intern_cat','date','school','t_sign'];
+    var f10Ok=f10Req.every(function(k){
+      if(k==='date'){return String(d[k]||'').trim().length>=8;}
+      return checkField(k);
+    });
+    if(f10Ok) return 'done';
     return 'partial';
   }
 
