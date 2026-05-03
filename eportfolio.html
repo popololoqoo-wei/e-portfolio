@@ -1264,7 +1264,12 @@ async function openForm(id){
 
   // 360度評估表：初始化自動計算
   if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
-  setTimeout(function(){calc360Score(APP.currentFormId);},100);
+  setTimeout(function(){
+    var fid2=APP.currentFormId;
+    calc360Score(fid2);
+    setTimeout(function(){calc360Score(fid2);},600);
+    setTimeout(function(){calc360Score(fid2);},1500);
+  },150);
   }
 
   // 回填日期區間欄位（drs_*_s / drs_*_e）
@@ -1709,6 +1714,14 @@ async function loadFormFromSheets(id){
     }
   }catch(e){
     console.warn('loadFormFromSheets skipped:',formKey,e.name);
+  }
+  // 載入完成後重新計算分數（確保資料已就緒）
+  var cid=APP.currentFormId;
+  if(cid){
+    setTimeout(function(){
+      if(cid==='F07M'||cid==='F07S') calc360Score(getFormKey(cid));
+      if(cid==='F15') calcF15Score(getFormKey(cid));
+    },200);
   }
 }
 
@@ -2261,7 +2274,10 @@ function f01Click(btn){
 /* setRating360：360度評估表評分 */
 function setRating360(fid,key,val,role,btn){
   setRating(fid,key,val,role,btn);
-  setTimeout(function(){calc360Score(fid);},50);
+  // 多次嘗試確保 DOM 和資料都已就緒
+  setTimeout(function(){calc360Score(fid);},100);
+  setTimeout(function(){calc360Score(fid);},500);
+  setTimeout(function(){calc360Score(fid);},1500);
 }
 
 /* calc360Score：360度評估表分數計算 */
@@ -3731,7 +3747,9 @@ function buildF15(f,d,canT,fkey,canS){
   </div></div>`;
 
   // 渲染後初始化分數
-  setTimeout(function(){calcF15Score(fid);},50);
+  setTimeout(function(){calcF15Score(fid);},100);
+  setTimeout(function(){calcF15Score(fid);},600);
+  setTimeout(function(){calcF15Score(fid);},1500);
   return h;
 }
 
