@@ -152,7 +152,7 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .field textarea{resize:vertical;min-height:68px;}
 .t-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:999px;background:#F5EBE8;color:var(--red);border:1px solid #E8C8C0;margin-left:4px;font-weight:600;}
 .s-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:999px;background:#E8F0EE;color:var(--blue);border:1px solid #C0D4D0;margin-left:4px;font-weight:600;}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.g2>*{min-width:0;overflow:hidden;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 @media(max-width:560px){.g2,.g3{grid-template-columns:1fr;}}
 
@@ -245,120 +245,78 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 input,select,textarea,button{-webkit-text-size-adjust:100%;}
 input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{font-size:16px !important;}
 
-/* ═══════════ 手機版響應式 CSS ═══════════ */
+/* ══════════════════════════════════════════════════
+   手機版響應式修正（僅在 < 768px 生效，不影響桌機）
+   ══════════════════════════════════════════════════ */
+@media (max-width: 767px) {
 
-/* 1. 全域容器寬度限制 */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-#main-content, .form-detail-body, .card, .card-body {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-/* 2. 所有 input/select/textarea 自動伸縮 */
-input, select, textarea {
-  max-width: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 16px !important; /* 防止 iOS 自動縮放 */
-}
-
-/* 3. 日期欄位特別處理 */
-input[type="date"] {
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* 4. 表格響應式 */
-.rating-table, .dops-tbl, table {
-  width: 100%;
-  table-layout: auto;
-}
-
-.card-body[style*="overflow-x:auto"],
-.card-body {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* 5. g2/g3 Grid 在小螢幕自動換行 */
-.g2 > *, .g3 > * {
-  min-width: 0;
-  overflow: hidden;
-}
-
-@media (max-width: 640px) {
-  /* Grid 在手機版改為單欄 */
-  .g2, .g3 {
-    grid-template-columns: 1fr !important;
+  /* 防止整體容器產生水平捲軸 */
+  body, #main-content, .form-detail-body {
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
-  /* 簽名區欄位強制全寬 */
-  .g2 input[type="date"],
-  .g2 select,
-  .g2 input[type="text"],
-  .g3 input[type="date"],
-  .g3 select,
-  .g3 input[type="text"] {
-    width: 100% !important;
-    min-width: 0 !important;
+  /* 簽名欄位日期 input：自適應寬度，不超出螢幕 */
+  input[type="date"] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 16px; /* 防 iOS 自動縮放 */
   }
 
-  /* 卡片 padding 縮小 */
+  /* input / select / textarea 統一防溢出（僅手機版） */
+  input[type="text"], input[type="number"], input[type="password"],
+  select, textarea {
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 16px; /* 防 iOS 自動縮放 */
+  }
+
+  /* 簽名區 g2 Grid：手機版改為單欄堆疊 */
+  .g2 {
+    grid-template-columns: 1fr;
+  }
+  .g2 > * {
+    min-width: 0;
+  }
+
+  /* g3 Grid：手機版改為單欄 */
+  .g3 {
+    grid-template-columns: 1fr;
+  }
+
+  /* 表格：允許橫向捲動，不截斷 */
+  .card-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 卡片 padding 在手機版縮小 */
   .card-body {
     padding: 10px 8px;
   }
 
   /* 表格文字縮小 */
-  .rating-table th,
-  .rating-table td,
-  .dops-tbl th,
-  .dops-tbl td {
+  .rating-table th, .rating-table td,
+  .dops-tbl th, .dops-tbl td {
     font-size: 11px;
     padding: 4px 3px;
   }
 
-  /* 日期區間欄位強制換行 */
-  div[style*="display:flex"][style*="align-items:center"] {
-    flex-wrap: wrap !important;
-  }
-
-  /* 快捷列換行 */
+  /* 快捷列允許換行 */
   .quick-nav {
-    flex-wrap: wrap !important;
-  }
-
-  /* form-detail-header 文字不截斷 */
-  .form-detail-header h2 {
-    font-size: 15px;
-    word-break: break-word;
-  }
-
-  /* signRow g2 強制單欄 */
-  .card .g2 {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-@media (max-width: 480px) {
-  /* 極小螢幕追加處理 */
-  .topbar {
-    padding: 8px 10px;
     flex-wrap: wrap;
-    gap: 4px;
   }
 
+  /* r-btn 評分按鈕在手機版調整 */
   .r-btn {
-    min-width: 28px;
-    padding: 4px 2px;
-    font-size: 11px;
+    min-width: 26px;
+    padding: 3px 2px;
+    font-size: 10px;
   }
 }
-/* ═══════════ END 手機版響應式 CSS ═══════════ */
+/* ══════════════════════════════════════════════════ */
 </style>
 </head>
 <body>
