@@ -2616,6 +2616,138 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
 
+  // F13 書面個案報告評分表
+  if(id==='F13'){
+    var f13items=[
+      ['s1','一、整體架構',5],
+      ['s2a','（一）前言',5],
+      ['s2b','（二）評估（含個案簡介）',20],
+      ['s2c','（三）問題確立',10],
+      ['s2d','（四）治療計畫與措施',20],
+      ['s2e','（五）結果評值',5],
+      ['s2f','（六）文獻查證',15],
+      ['s2g','（七）結論與討論',15],
+      ['s2h','（八）參考資料',5]
+    ];
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName,false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    // ── 評分項目（滿分 100 分）──
+    html+='<div class="section-head">評分項目（滿分 100 分）</div>';
+    html+='<table>';
+    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:60%;">評核項目</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">滿分</th>';
+    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">得分</th></tr>';
+    var f13total=0;
+    f13items.forEach(function(it){
+      var sc=parseInt(d[it[0]]||0)||0;
+      if(sc>it[2])sc=it[2]; if(sc<0)sc=0;
+      f13total+=sc;
+      html+='<tr>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+it[1]+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FAFAF8;font-size:10pt;color:var(--ink3);">'+it[2]+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FFF5F5;font-size:12pt;font-weight:700;color:#C0392B;">'+sc+'</td>';
+      html+='</tr>';
+    });
+    html+='</table>';
+    // ── 總分 ──
+    var f13pass=f13total>=60;
+    html+='<div class="section-head">書面報告總分</div>';
+    html+='<table>';
+    html+='<tr><td style="border:1px solid #DDD;padding:8px 12px;background:linear-gradient(135deg,#EBF5FB,#E8F8F5);text-align:center;">';
+    html+='<span style="font-size:24pt;font-weight:700;color:'+(f13pass?'#27AE60':'#C0392B')+';">'+f13total+'</span>';
+    html+='<span style="font-size:12pt;color:#888;"> / 100</span>';
+    html+=' &nbsp;<span style="font-size:11pt;font-weight:600;color:'+(f13pass?'#27AE60':'#C0392B')+';">'+(f13pass?'✓ 合格':'✗ 未達 60 分')+'</span>';
+    html+='</td></tr>';
+    html+='</table>';
+    // ── 綜合意見與簽名 ──
+    html+='<div class="section-head">綜合意見</div>';
+    html+='<table>';
+    html+=pdfR('綜合意見',val('t_comment'),true);
+    html+='</table>';
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
+    return html;
+  }
+
+  // F14 個案報告 PPT 評分表
+  if(id==='F14'){
+    var f14items=[
+      ['報告架構與邏輯性',10],
+      ['簡報設計與視覺效果',10],
+      ['主題掌握與深度',10],
+      ['臨床資料蒐集與整理',10],
+      ['診斷推理與鑑別診斷',10],
+      ['治療計畫之適切性',10],
+      ['文獻查閱與引用',10],
+      ['口語表達清晰度',10],
+      ['時間掌控',5],
+      ['回答問題能力',5],
+      ['團隊合作與互動',5],
+      ['整體臨床思維',5]
+    ];
+    var f14max=f14items.reduce(function(a,b){return a+b[1];},0);
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName,false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    // ── 評分項目 ──
+    html+='<div class="section-head">評分項目（滿分 '+f14max+' 分）</div>';
+    html+='<table>';
+    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:60%;">評核項目</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">滿分</th>';
+    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">得分</th></tr>';
+    var f14total=0;
+    f14items.forEach(function(it,i){
+      var sc=parseInt(d['f14_sc_'+i]||0)||0;
+      if(sc>it[1])sc=it[1]; if(sc<0)sc=0;
+      f14total+=sc;
+      html+='<tr>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+it[0]+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FAFAF8;font-size:10pt;color:var(--ink3);">'+it[1]+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FFF5F5;font-size:12pt;font-weight:700;color:#C0392B;">'+sc+'</td>';
+      html+='</tr>';
+    });
+    html+='</table>';
+    // ── 總分 ──
+    var f14pass=f14total>=60;
+    html+='<div class="section-head">PPT 報告總分</div>';
+    html+='<table>';
+    html+='<tr><td style="border:1px solid #DDD;padding:8px 12px;background:linear-gradient(135deg,#EBF5FB,#E8F8F5);text-align:center;">';
+    html+='<span style="font-size:24pt;font-weight:700;color:'+(f14pass?'#27AE60':'#C0392B')+';">'+f14total+'</span>';
+    html+='<span style="font-size:12pt;color:#888;"> / '+f14max+'</span>';
+    html+=' &nbsp;<span style="font-size:11pt;font-weight:600;color:'+(f14pass?'#27AE60':'#C0392B')+';">'+(f14pass?'✓ 合格':'✗ 未達 60 分')+'</span>';
+    html+='</td></tr>';
+    html+='</table>';
+    // ── 評語與回饋 ──
+    html+='<div class="section-head">評語與回饋</div>';
+    html+='<table>';
+    html+=pdfR('老師評語',val('t_fb'),true);
+    html+='</table>';
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
+    return html;
+  }
+
   // 通用表單（F03-F15, DOPS, EPA）
   html+='<table>';
   // 基本資料
