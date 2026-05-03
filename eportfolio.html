@@ -2078,14 +2078,16 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   function pdfSec(title){
     return '<tr><td colspan="2" style="background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>';
   }
-  // 日期範圍清理：把 "2026/06/29 - " 尾端多餘的 " - " 去掉
+  // 日期範圍清理：只填開始日期則只顯示開始日期；只填結束日期則只顯示結束日期
   function cleanDate(v){
     if(!v) return '—';
     var s=String(v).trim();
-    // 如果是 "日期 - " 格式（結束日期未填），只取開始日期並補「～（未填）」
-    if(s.match(/\d{4}\/\d{2}\/\d{2}\s*-\s*$/)){
-      return s.replace(/\s*-\s*$/,'') + ' ～ （結束日期未填）';
-    }
+    // 只填開始日期，例如 "2026/06/29 - "
+    var mStart=s.match(/^(\d{4}\/\d{2}\/\d{2})\s*-\s*$/);
+    if(mStart) return mStart[1];
+    // 只填結束日期，例如 " - 2026/06/29"
+    var mEnd=s.match(/^\s*-\s*(\d{4}\/\d{2}\/\d{2})$/);
+    if(mEnd) return mEnd[1];
     return s||'—';
   }
 
@@ -2119,7 +2121,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
-    html+=pdfR('學生簽名',studentName||val('s_sign'),false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
     html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
     html+='</table>';
     return html;
@@ -2156,7 +2158,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
-    html+=pdfR('學生簽名',studentName||val('s_sign'),false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
     html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
     html+=pdfR('老師簽名',val('t_sign')||'—',true);
     html+=pdfR('老師簽名日期',val('t_sign_date')||'—',true);
@@ -2345,7 +2347,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     // ── 簽名 ──
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
-    html+=pdfR('學生簽名',studentName||val('s_sign'),false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
     html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
     html+=pdfR('老師簽名',val('t_sign')||'—',true);
     html+=pdfR('老師簽名日期',val('t_sign_date')||'—',true);
@@ -2526,7 +2528,82 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     return html;
   }
-  
+
+  // F10A / F10B 輔導記錄表
+  if(id==='F10A'||id==='F10B'){
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName||'—',false);
+    html+=pdfR('實習類別',val('intern_cat')||val('cat')||'—',false);
+    html+=pdfR('輔導日期',val('date')||'—',false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+='</table>';
+    // ── 實習總指導教師查核 ──
+    var tqs=[
+      ['q_basic','學生基本資料是否填寫？'],
+      ['q_self','學生自我評量是否填寫？'],
+      ['q_progress','表單填寫是否符合進度？'],
+      ['q_detail','表單內容是否詳細？'],
+      ['q_t_sign','老師是否評分並簽名？'],
+      ['q_feeling','學生有無填寫心得？'],
+      ['q_t_fb','老師有無回饋並簽名？'],
+      ['q_all_sign','老師是否都已簽名？']
+    ];
+    html+='<div class="section-head">實習總指導教師查核</div>';
+    html+='<table>';
+    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:75%;">查核項目</th>';
+    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">是</th>';
+    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">否</th></tr>';
+    tqs.forEach(function(q){
+      var ans=val(q[0]);
+      html+='<tr>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+q[1]+'</td>';
+      ['是','否'].forEach(function(opt){
+        var sel=ans===opt;
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#C0392B':'#FEF9F9')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓ '+opt:opt)+'</td>';
+      });
+      html+='</tr>';
+    });
+    html+='</table>';
+    // 老師備注 / 簽名
+    html+='<table>';
+    html+=pdfR('輔導備注',val('t_note'),true);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
+    // ── 實習學生填寫 ──
+    var sqs=[
+      ['s_q2','臨床實習老師床邊教學是否認真？',['是','否']],
+      ['s_q3','老師有無指導或修改呼吸監護記錄？',['有','無']],
+      ['s_q4','老師有無指導醫療照護工作？',['有','無']],
+      ['s_q5','核心課程學習有無需要再補強？',['有','無']],
+      ['s_q6','生活方面有無困難？',['有','無']]
+    ];
+    html+='<div class="section-head">實習學生填寫</div>';
+    html+='<table>';
+    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:75%;">問項</th>';
+    html+='<th style="background:#2471A3;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">選項1</th>';
+    html+='<th style="background:#2471A3;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">選項2</th></tr>';
+    sqs.forEach(function(q){
+      var ans=val(q[0]);
+      var opts=q[2];
+      html+='<tr>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;">'+q[1]+'</td>';
+      opts.forEach(function(opt){
+        var sel=ans===opt;
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#2471A3':'#FAFBFF')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓ '+opt:opt)+'</td>';
+      });
+      html+='</tr>';
+    });
+    html+='</table>';
+    // 學生其他建議
+    html+='<table>';
+    html+=pdfR('其他建議',val('s_suggest'),false);
+    html+='</table>';
+    return html;
+  }
+
   // 通用表單（F03-F15, DOPS, EPA）
   html+='<table>';
   // 基本資料
