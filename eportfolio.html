@@ -3653,11 +3653,12 @@ function calcF15Score(fid){
   var total=attSum+sklSum+comSum+bonus;
   var ok=total>=60;
 
-  var attEl=document.getElementById('f15_att_score_'+fid);
-  var sklEl=document.getElementById('f15_skl_score_'+fid);
-  var comEl=document.getElementById('f15_com_score_'+fid);
-  var bonEl=document.getElementById('f15_bonus_score_'+fid);
-  var totEl=document.getElementById('f15_score_'+fid);
+  // 用 f15_disp_* ID（避免與 mkSection header span 衝突）
+  var attEl=document.getElementById('f15_disp_att_'+fid);
+  var sklEl=document.getElementById('f15_disp_skl_'+fid);
+  var comEl=document.getElementById('f15_disp_com_'+fid);
+  var bonEl=document.getElementById('f15_disp_bon_'+fid);
+  var totEl=document.getElementById('f15_disp_tot_'+fid);
 
   if(attEl) attEl.innerHTML='<span style="font-weight:700;color:var(--blue)">'+attSum+'</span><span style="color:var(--ink3);font-size:11px;"> / 30</span>';
   if(sklEl) sklEl.innerHTML='<span style="font-weight:700;color:var(--blue)">'+sklSum+'</span><span style="color:var(--ink3);font-size:11px;"> / 50</span>';
@@ -3714,23 +3715,23 @@ function buildF15(f,d,canT,fkey,canS){
     <div style="display:flex;gap:20px;flex-wrap:wrap;">
       <div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">學習態度（滿分30）</div>
-        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_att_score_${fid}">計算中...</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_disp_att_${fid}">計算中...</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">專業知識技能（滿分50）</div>
-        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_skl_score_${fid}">計算中...</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_disp_skl_${fid}">計算中...</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">溝通協調（滿分20）</div>
-        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_com_score_${fid}">計算中...</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_disp_com_${fid}">計算中...</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">加分項目</div>
-        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_bonus_score_${fid}">計算中...</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_disp_bon_${fid}">計算中...</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">實習總分</div>
-        <div style="font-size:16px;font-weight:700;" id="f15_score_${fid}">計算中...</div>
+        <div style="font-size:16px;font-weight:700;" id="f15_disp_tot_${fid}">計算中...</div>
       </div>
     </div>
   </div>`;
