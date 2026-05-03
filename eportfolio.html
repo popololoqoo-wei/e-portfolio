@@ -2713,26 +2713,29 @@ function buildF01A(f,d,canT,fkey,canS){
   function mkBtn(key2,v,isTeacher){
     var cur=d[key2]||'';
     var isSel=cur===v;
-    var bg=isSel?(isTeacher?'#C0392B':'#2471A3'):'#fff';
+    var isNA=v==='NA';
+    var selBg=isNA?'#7F8C8D':(isTeacher?'#C0392B':'#2471A3');
+    var bg=isSel?selBg:'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
     var dis=(isTeacher&&!canT)||(!isTeacher&&!canS);
     var disAttr=dis?' disabled':'';
     var cursor=dis?'not-allowed':'pointer';
     var op=dis?'0.35':'1';
-    return '<button'+disAttr+' data-fid="'+fid+'" data-rkey="'+key2+'" data-rval="'+v+'" data-teacher="'+(isTeacher?1:0)+'" onclick="f01Click(this)" style="width:26px;height:26px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+col+';font-size:10px;cursor:'+cursor+';opacity:'+op+';font-weight:'+fw+';">'+v+'</button>';
+    var w=isNA?'30px':'26px';
+    return '<button'+disAttr+' data-fid="'+fid+'" data-rkey="'+key2+'" data-rval="'+v+'" data-teacher="'+(isTeacher?1:0)+'" onclick="f01Click(this)" style="width:'+w+';height:26px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+col+';font-size:9px;cursor:'+cursor+';opacity:'+op+';font-weight:'+fw+';">'+v+'</button>';
   }
 
   let h=basicInfoCard(fid,d,'');
   h+='<div class="card"><div class="card-head"><div class="card-head-title">學生學前自評<span class="s-badge">學生填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
   h+='<table class="rating-table f01b-table"><tr>';
   h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:80px;max-width:120px;">核心技能學習目標</th>';
-  h+='<th colspan="3" style="background:#EBF5FB;">學生學前自評</th></tr>';
-  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th></tr>';
+  h+='<th colspan="4" style="background:#EBF5FB;">學生學前自評</th></tr>';
+  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>NA</th></tr>';
   skills.forEach(function(skill,i){
     var kp='f01_pre_'+i;
     h+='<tr><td class="row-label f01b-label" style="position:sticky;left:0;background:#FAFAF8;z-index:1;word-break:break-all;font-size:10px;">'+(i+1)+'. '+skill+'</td>';
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kp,v,false)+'</td>';});
+    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kp,v,false)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
@@ -2756,31 +2759,34 @@ function buildF01B(f,d,canT,fkey,canS){
   function mkBtn(key2,v,isTeacher){
     var cur=d[key2]||'';
     var isSel=cur===v;
-    var bg=isSel?(isTeacher?'#C0392B':'#2471A3'):'#fff';
+    var isNA=v==='NA';
+    var selBg=isNA?'#7F8C8D':(isTeacher?'#C0392B':'#2471A3');
+    var bg=isSel?selBg:'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
     var dis=(isTeacher&&!canT)||(!isTeacher&&!canS);
     var disAttr=dis?' disabled':'';
     var cursor=dis?'not-allowed':'pointer';
     var op=dis?'0.35':'1';
-    return '<button'+disAttr+' data-fid="'+fid+'" data-rkey="'+key2+'" data-rval="'+v+'" data-teacher="'+(isTeacher?1:0)+'" onclick="f01Click(this)" style="width:26px;height:26px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+col+';font-size:10px;cursor:'+cursor+';opacity:'+op+';font-weight:'+fw+';">'+v+'</button>';
+    var w=isNA?'30px':'26px';
+    return '<button'+disAttr+' data-fid="'+fid+'" data-rkey="'+key2+'" data-rval="'+v+'" data-teacher="'+(isTeacher?1:0)+'" onclick="f01Click(this)" style="width:'+w+';height:26px;border:1px solid #D4C9BB;border-radius:4px;background:'+bg+';color:'+col+';font-size:9px;cursor:'+cursor+';opacity:'+op+';font-weight:'+fw+';">'+v+'</button>';
   }
 
   let h=basicInfoCard(fid,d,'');
   h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">';
   h+='<table class="rating-table f01b-table"><tr>';
   h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:90px;max-width:120px;">核心技能學習目標</th>';
-  h+='<th colspan="3" style="background:#EBF5FB;">學後自評</th>';
-  h+='<th colspan="3" style="background:#FDEDEC;">指導者評核<span class="t-badge">老師</span></th></tr>';
+  h+='<th colspan="4" style="background:#EBF5FB;">學後自評</th>';
+  h+='<th colspan="4" style="background:#FDEDEC;">指導者評核<span class="t-badge">老師</span></th></tr>';
   h+='<tr>';
   h+='<th style="position:sticky;left:0;z-index:2;background:var(--cream);"></th>';
-  h+='<th style="background:#EBF5FB;">佳</th><th style="background:#EBF5FB;">可</th><th style="background:#EBF5FB;">差</th>';
-  h+='<th style="background:#FDEDEC;">佳</th><th style="background:#FDEDEC;">可</th><th style="background:#FDEDEC;">差</th></tr>';
+  h+='<th style="background:#EBF5FB;">佳</th><th style="background:#EBF5FB;">可</th><th style="background:#EBF5FB;">差</th><th style="background:#EBF5FB;">NA</th>';
+  h+='<th style="background:#FDEDEC;">佳</th><th style="background:#FDEDEC;">可</th><th style="background:#FDEDEC;">差</th><th style="background:#FDEDEC;">NA</th></tr>';
   skills.forEach(function(skill,i){
     var k1='f01_p1_'+i,kpo='f01_post_'+i;
     h+='<tr><td class="row-label f01b-label" style="position:sticky;left:0;background:#FAFAF8;z-index:1;max-width:120px;word-break:break-all;font-size:10px;">'+(i+1)+'. '+skill+'</td>';
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;background:#F5F9FF;">'+mkBtn(kpo,v,false)+'</td>';});
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;background:#FFF5F5;">'+mkBtn(k1,v,true)+'</td>';});
+    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#F5F9FF;">'+mkBtn(kpo,v,false)+'</td>';});
+    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#FFF5F5;">'+mkBtn(k1,v,true)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
