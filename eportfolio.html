@@ -2748,6 +2748,98 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
 
+  // D01 / D02 / D03 / D04 DOPS 直接觀察評估
+  if(id==='D01'||id==='D02'||id==='D03'||id==='D04'){
+    // DOPS_DATA 是定義在外層的全域常數
+    var dopsData=(typeof DOPS_DATA!=='undefined'&&DOPS_DATA[id])?DOPS_DATA[id]:null;
+    // ── 標題與主題 ──
+    if(dopsData&&dopsData.topic){
+      html+='<div style="background:#EAF2FB;border-left:4px solid #1A5276;padding:6px 10px;margin:6px 0;font-size:11pt;font-weight:700;color:#1A5276;">技術主題：'+dopsData.topic+'</div>';
+    }
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName,false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    // ── D03 額外的呼吸器機型欄位 ──
+    if(dopsData&&dopsData.extra){
+      html+='<div style="background:#FFF8E7;border:1px solid #E0CFA0;border-radius:4px;padding:6px 10px;margin:6px 0;font-size:10pt;color:#8B6914;">'+dopsData.extra+'</div>';
+    }
+    // ── 評分說明 ──
+    html+='<div style="background:#EEF2F8;border-radius:4px;padding:5px 10px;margin:6px 0;font-size:10pt;color:#1A5276;"><strong>1-3 分 = 有待加強　　4-6 分 = 符合標準　　7-9 分 = 優良　　NA = 未評</strong>　 ⚠ 合格標準：任一項目 UGY ≥ 5 分</div>';
+    // ── 評核項目（按 group 分） ──
+    var dopsItemIdx=0;
+    if(dopsData&&dopsData.groups){
+      dopsData.groups.forEach(function(g){
+        html+='<div class="section-head" style="background:linear-gradient(90deg,#1A5276,#2471A3);">'+g.hd+'</div>';
+        html+='<table style="font-size:9pt;">';
+        // 表頭
+        html+='<tr>';
+        html+='<th style="background:#1A3A5C;color:#fff;padding:3px 6px;border:1px solid #DDD;text-align:left;">評核內容</th>';
+        html+='<th colspan="3" style="background:#C8D8F0;color:#1A3A5C;padding:3px;border:1px solid #DDD;text-align:center;font-size:8pt;">有待加強</th>';
+        html+='<th colspan="3" style="background:#D8ECD8;color:#2D5A27;padding:3px;border:1px solid #DDD;text-align:center;font-size:8pt;">符合標準</th>';
+        html+='<th colspan="3" style="background:#F0E8C8;color:#8B6914;padding:3px;border:1px solid #DDD;text-align:center;font-size:8pt;">優良</th>';
+        html+='<th style="background:#EEE;padding:3px;border:1px solid #DDD;font-size:8pt;text-align:center;">未評</th>';
+        html+='</tr>';
+        html+='<tr>';
+        html+='<th style="background:#1A3A5C;border:1px solid #DDD;"></th>';
+        [1,2,3,4,5,6,7,8,9].forEach(function(n){
+          html+='<th style="background:#FAFAF8;padding:3px;border:1px solid #DDD;text-align:center;width:6%;font-size:9pt;">'+n+'</th>';
+        });
+        html+='<th style="background:#FAFAF8;padding:3px;border:1px solid #DDD;text-align:center;width:6%;font-size:9pt;">NA</th>';
+        html+='</tr>';
+        // 各項
+        g.items.forEach(function(itText){
+          dopsItemIdx++;
+          var itKey=id+'_i'+dopsItemIdx;
+          var sel=d[itKey];
+          html+='<tr>';
+          html+='<td style="padding:4px 6px;border:1px solid #DDD;background:#FAFBFF;font-size:9pt;">'+itText+'</td>';
+          [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
+            var isSel=(sel==v||sel===String(v));
+            // 區段配色：1-3 藍、4-6 綠、7-9 黃、NA 灰
+            var grpBg='#fff', grpC='#bbb';
+            if(v===1||v===2||v===3){grpBg=isSel?'#1A5276':'#fff'; grpC=isSel?'#fff':'#bbb';}
+            else if(v===4||v===5||v===6){grpBg=isSel?'#27AE60':'#fff'; grpC=isSel?'#fff':'#bbb';}
+            else if(v===7||v===8||v===9){grpBg=isSel?'#B8860B':'#fff'; grpC=isSel?'#fff':'#bbb';}
+            else {grpBg=isSel?'#7F8C8D':'#fff'; grpC=isSel?'#fff':'#bbb';}
+            html+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+grpBg+';color:'+grpC+';font-weight:'+(isSel?'700':'400')+';font-size:9pt;">'+(isSel?'●':'')+'</td>';
+          });
+          html+='</tr>';
+        });
+        html+='</table>';
+      });
+    }
+    // ── 評分等級 ──
+    html+='<div class="section-head">評分等級</div>';
+    html+='<table>';
+    html+='<tr><td colspan="2" style="background:#FFF3CD;border:1px solid #F0C040;padding:5px 10px;font-size:10pt;font-weight:700;color:#8B6914;">★ UGY 分數需 ≥ 良：80-89 分</td></tr>';
+    html+='</table>';
+    html+='<table>';
+    html+=pdfR('評分等級',val('score_grade'),true);
+    html+='</table>';
+    // ── 評量結果 ──
+    html+='<div class="section-head">評量結果</div>';
+    html+='<table>';
+    html+=pdfR('評量結果',val('result'),true);
+    html+=pdfR('學生自覺技術複雜度',val('complexity'),false);
+    html+=pdfR('學生對此技術操作的心得感受',val('s_feeling'),false);
+    html+=pdfR('老師回饋',val('t_fb'),true);
+    html+='</table>';
+    // ── 簽名 ──
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
+    return html;
+  }
+
   // 通用表單（F03-F15, DOPS, EPA）
   html+='<table>';
   // 基本資料
