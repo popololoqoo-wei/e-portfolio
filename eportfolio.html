@@ -2504,26 +2504,37 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<tr style="background:#F0F8FF;"><td style="border:1px solid #DDD;padding:6px 10px;font-weight:700;font-size:11pt;">總分（及格≥70）</td>';
     html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:16pt;font-weight:700;color:'+(totalOk?'#27AE60':'#E74C3C')+';">'+f07total+' 分 '+(totalOk?'✓ 通過':'✗ 未通過')+'</td></tr>';
     html+='</table>';
-    // ── 回饋意見 ──
-    html+='<div class="section-head">回饋意見</div>';
+    // ── 臨床老師評語 ──
+    html+='<div class="section-head">臨床老師評語</div>';
     html+='<table>';
-    html+=pdfR('臨床老師優點',val('peer_good'),true);
-    html+=pdfR('臨床老師建議',val('peer_suggest'),true);
+    html+=pdfR('優點',val('peer_good'),true);
+    html+=pdfR('建議',val('peer_suggest'),true);
     html+=pdfR('臨床老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('臨床老師簽名日期',val('t_sign_date'),true);
     html+=pdfR('職稱',val('t_title'),true);
-    html+=pdfR('其他團隊人員優點',val('team_good'),false);
-    html+=pdfR('其他團隊人員建議',val('team_suggest'),false);
+    html+='</table>';
+    // ── 其他團隊人員評語 ──
+    html+='<div class="section-head">其他團隊人員評語</div>';
+    html+='<table>';
+    html+=pdfR('優點',val('team_good'),false);
+    html+=pdfR('建議',val('team_suggest'),false);
     html+=pdfR('其他團隊人員簽名',val('team_sign'),false);
-    html+=pdfR('其他人員職稱',val('team_title'),false);
-    html+=pdfR('實習指導教師綜合評語',val('director_fb'),true);
+    html+=pdfR('職稱',val('team_title'),false);
+    html+='</table>';
+    // ── 實習指導教師綜合評語 ──
+    html+='<div class="section-head">實習總指導教師綜合評語</div>';
+    html+='<table>';
+    html+=pdfR('綜合評語',val('director_fb'),true);
     html+=pdfR('學生回饋',val('s_fb'),false);
     html+='</table>';
+    // ── 簽名 ──
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign'),false);
     html+=pdfR('學生簽名日期',val('s_sign_date'),false);
-    html+=pdfR('計畫主持人簽名',val('host_sign'),true);
+    html+=pdfR('實習總指導教師簽名',val('t_sign2'),true);
+    html+=pdfR('實習總指導教師簽名日期',val('t_sign2_date'),true);
+    html+=pdfR('實習計畫主持人簽名',val('host_sign'),true);
     html+=pdfR('主持人簽名日期',val('host_sign_date'),true);
     html+='</table>';
     return html;
@@ -2796,7 +2807,7 @@ function makeDropdown(fid,key,options,disabled,placeholder,isTeacher){
   return '<select data-fid="'+fid+'" data-key="'+key+'"'+tAttr+' onchange="'+oc+'"'+dis+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';"><option value="">'+(placeholder||'請選擇')+'</option>'+opts+'</select>';
 }
 
-function signRow(fid,sKey,tKey,canT){
+function signRow(fid,sKey,tKey,canT,tLabel){
   var d=APP.formData[fid]||{};
   var sDateKey=sKey+'_date';
   var tDateKey=tKey+'_date';
@@ -2808,12 +2819,14 @@ function signRow(fid,sKey,tKey,canT){
   var sStudents=getStudentList();
   var sTeachers=getTeacherList();
   var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
-  var tField=makeDropdown(fid,tKey,sTeachers,!canT,'請選擇老師',true);
+  var tField=makeDropdown(fid,tKey,sTeachers,!canT,tLabel?'請選擇'+tLabel.replace(/簽名$/,''):'請選擇老師',true);
   // 簽名日期（含時間戳）
   var sDate=signDateWithTimestamp(fid,sDateKey,false);
   var tDate=signDateWithTimestamp(fid,tDateKey,!canT,true);
+  var tLab=tLabel||'老師簽名';
+  var tDateLab=tLabel?tLabel+'日期':'老師簽名日期';
   return '<div class="g2"><div class="field"><label>學生簽名</label>'+sField+'</div><div class="field"><label>學生簽名日期</label>'+sDate+'</div></div>'+
-    '<div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>'+tField+'</div><div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label>'+tDate+'</div></div>';
+    '<div class="g2"><div class="field"><label>'+tLab+'<span class="t-badge">老師</span></label>'+tField+'</div><div class="field"><label>'+tDateLab+'<span class="t-badge">老師</span></label>'+tDate+'</div></div>';
 }
 
 /* Rating helpers */
@@ -3694,7 +3707,7 @@ function build360(f,d,canT,fkey,canS){
   h+='<div class="field"><label>優點</label>'+ta(fid,'peer_good',2,!canT)+'</div>';
   h+='<div class="field"><label>建議</label>'+ta(fid,'peer_suggest',2,!canT)+'</div>';
   h+='</div>';
-  h+='<div class="g2"><div class="field"><label>實習總指導教師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇實習總指導教師',true)+'</div>';
+  h+='<div class="g2"><div class="field"><label>臨床老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇臨床老師',true)+'</div>';
   // 老師簽名日期（含時間戳，lockTeacherFields 可識別）
   h+='<div class="field"><label>臨床老師簽名日期<span class="t-badge">老師</span></label>'+signDateWithTimestamp(fid,'t_sign_date',!canT,true)+'</div></div>';
   h+=fi(fid,'t_title','text',!canT,'職稱');
@@ -3713,7 +3726,7 @@ function build360(f,d,canT,fkey,canS){
   // 實習指導教師
   h+='<div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>'+ta(fid,'director_fb',3,!canT)+'</div>';
   h+='<div class="field"><label>學生回饋</label>'+ta(fid,'s_fb',3,false)+'</div>';
-  h+=signRow(fid,'s_sign','s_sign',''); // student sign
+  h+=signRow(fid,'s_sign','t_sign2',canT,'實習總指導教師簽名'); // student sign + 實習總指導教師簽名（獨立 key t_sign2，避免與上方「臨床老師簽名」(t_sign) 衝突）
   // 實習計畫主持人下拉（包含固定選項張維倫）
   var hostList=['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';}));
   var hostField=makeDropdown(fid,'host_sign',hostList,!canT,'請選擇主持人',true);
