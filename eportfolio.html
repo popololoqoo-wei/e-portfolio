@@ -1931,7 +1931,7 @@ function downloadPDF(id){
   const formKey=getFormKey(id);
   const f=findForm(id);
   if(!f)return;
-  const d=APP.formData[formKey]||{};
+  const d=Object.assign({},APP.formData[formKey]||{},APP.formData[id]||{});
   const logs=APP.historyLog[formKey]||[];
   
   // 取得學生資訊
@@ -2070,6 +2070,16 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   function pdfSec(title){
     return '<tr><td colspan="2" style="background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>';
   }
+  // 日期範圍清理：把 "2026/06/29 - " 尾端多餘的 " - " 去掉
+  function cleanDate(v){
+    if(!v) return '—';
+    var s=String(v).trim();
+    // 如果是 "日期 - " 格式（結束日期未填），只取開始日期並補「～（未填）」
+    if(s.match(/\d{4}\/\d{2}\/\d{2}\s*-\s*$/)){
+      return s.replace(/\s*-\s*$/,'') + ' ～ （結束日期未填）';
+    }
+    return s||'—';
+  }
 
   // F01A 核心課程學前評值表
   if(id==='F01A'){
@@ -2078,7 +2088,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',studentName||val('s_name'),false);
     html+=pdfR('實習學校',val('school')||'—',false);
-    html+=pdfR('實習日期',val('s_date')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
     html+=pdfR('實習類別',val('intern_cat')||'—',false);
     html+='</table>';
     html+='<div class="section-head">學生學前自評</div>';
@@ -2114,7 +2124,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',studentName||val('s_name'),false);
     html+=pdfR('實習學校',val('school')||'—',false);
-    html+=pdfR('實習日期',val('s_date')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
     html+=pdfR('實習類別',val('intern_cat')||'—',false);
     html+='</table>';
     html+='<div class="section-head">核心技能評核（學後）</div>';
@@ -2342,19 +2352,54 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">基本資料</div>';
     html+='<table>';
     html+=pdfR('學生姓名',studentName||val('s_name'),false);
-    html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('實習日期',val('s_date'),false);
-    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
     html+='</table>';
-    // ── 360度評核表 ──
-    html+='<div class="section-head">360 度評核</div>';
-    html+='<table><tr><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;">類別</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;">面向</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評核細項</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;width:50px;">評分</th></tr>';
-    f07rows.forEach(function(r,i){
+    // ── 360度評核表（與網頁版完全一致：含優/良/可/劣/差各選項及分值） ──
+    // 評核細項：[類別, 面向, 說明, [優,良,可,劣,差的分值]]
+    var f07fullRows=[
+      ['態度','基本禮儀','儀容、禮貌合宜',['+2','+1','0','-1','-2']],
+      ['','','守時/出席狀況',['+2','+1','0','-1','-2']],
+      ['','學習態度','自動自發及敬業精神',['+3','+2','0','-2','-3']],
+      ['','','提供照護及討論前之準備',['+2','+1','0','-1','-2']],
+      ['','團隊合作','同事之間的溝通',['+2','+1','0','-1','-2']],
+      ['','','與醫療團隊成員合作精神',['+3','+2','0','-2','-3']],
+      ['','專業倫理','醫病溝通',['+3','+2','0','-2','-3']],
+      ['','','同理心及同情心',['+3','+2','0','-2','-3']],
+      ['臨床智能','呼吸紀錄','確立呼吸照護問題之正確性',['+2','+1','0','-1','-2']],
+      ['','','呼吸計畫之完整性',['+3','+2','0','-2','-3']],
+      ['','','病歷記載之完整性與邏輯性',['+2','+1','0','-1','-2']],
+      ['','照護技術','技術之正確性與熟練度',['+8','+4','0','-4','-8']],
+      ['','交班能力','資料收集整合及分析、時間掌控',['+3','+2','0','-2','-3']],
+      ['','知識考評','單位自行評值呼吸治療知識',['+7','+4','0','-4','-7']]
+    ];
+    var optLabels=['優','良','可','劣','差'];
+    html+='<div class="section-head">360 度評核（優=最高分 / 差=最低分）</div>';
+    html+='<table style="font-size:9pt;">';
+    html+='<tr>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;width:8%;">類別</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;width:10%;">面向</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:left;">評核細項</th>';
+    ['優','良','可','劣','差'].forEach(function(lbl){
+      html+='<th style="background:#C0392B;color:#fff;padding:4px 6px;border:1px solid #DDD;width:8%;text-align:center;">'+lbl+'</th>';
+    });
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;width:8%;text-align:center;">得分</th>';
+    html+='</tr>';
+    f07fullRows.forEach(function(r,i){
       var score=val('f07_'+i);
-      html+='<tr><td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;font-weight:500;">'+(r[0]||'')+'</td>';
-      html+='<td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;">'+(r[1]||'')+'</td>';
-      html+='<td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;">'+r[2]+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#C0392B;background:#FEF9F9;">'+(score||'—')+'</td></tr>';
+      var opts=r[3];
+      html+='<tr>';
+      html+='<td style="padding:3px 5px;border:1px solid #DDD;font-size:9pt;font-weight:500;">'+(r[0]||'')+'</td>';
+      html+='<td style="padding:3px 5px;border:1px solid #DDD;font-size:9pt;">'+(r[1]||'')+'</td>';
+      html+='<td style="padding:3px 5px;border:1px solid #DDD;font-size:9pt;">'+r[2]+'</td>';
+      opts.forEach(function(v){
+        var sel=(score===v||score===String(v));
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+(sel?'#C0392B':'#FEF9F9')+';font-size:9pt;color:'+(sel?'#fff':'#888')+';font-weight:'+(sel?'700':'400')+';white-space:nowrap;">';
+        html+=(sel?'✓ ':'')+v+'</td>';
+      });
+      html+='<td style="text-align:center;border:1px solid #DDD;font-size:11pt;font-weight:700;color:'+(score?'#C0392B':'#ccc')+';background:#FFF5F5;">'+(score||'—')+'</td>';
+      html+='</tr>';
     });
     html+='</table>';
     // ── 分數自動計算（與網頁版 calc360Score 相同公式） ──
