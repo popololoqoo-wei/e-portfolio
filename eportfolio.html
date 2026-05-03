@@ -2933,6 +2933,113 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
 
+  // F15 實習課程評值表
+  if(id==='F15'){
+    var f15Atts=['能確立個人學習目標','能主動參與所有教學活動、尋求學習機會','能遵守臨床實習規則','能適切表達意見、提出問題或尋求協助','能誠懇接受指導者之教導及建議','負責盡職'];
+    var f15Skills=['能利用適當工具執行病人評估及確立病人問題','能依病人問題擬定適當治療計劃選擇適當治療項目並評值','能擬定適當治療項目','能正確獨立執行各項治療技術','能評值治療結果作後續之建議','能正確執行呼吸監護紀錄','能正確操作及運用實習單位相關設備','能正確設定與調整呼吸器並評估病人反應','具備病人照護基本知識與技能','具備邏輯思考能力，能統整專業知識'];
+    var f15Comms=['能尊重與溝通實習單位其他醫療人員','能運用適當溝通技巧，與病人及家屬溝通','在提供治療時顧及病人安全舒適及隱私','能維持適當的專業角色'];
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName,false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    // 共用：渲染一個區段 (1~5 分按鈕表)
+    function f15Section(title,items,prefix,maxScore){
+      var sum=0;
+      var sec='<div class="section-head">'+title+'</div>';
+      sec+='<table style="font-size:9pt;">';
+      sec+='<tr>';
+      sec+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:left;">評值項目（每項最高 5 分，最低 1 分）</th>';
+      ['優(5)','良(4)','普(3)','差(2)','劣(1)'].forEach(function(lbl){
+        sec+='<th style="background:#C0392B;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:9%;font-size:9pt;">'+lbl+'</th>';
+      });
+      sec+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:9%;">得分</th>';
+      sec+='</tr>';
+      items.forEach(function(it,i){
+        var key=prefix+'_'+i;
+        var sc=parseInt(d[key]||0)||0;
+        sum+=sc;
+        sec+='<tr>';
+        sec+='<td style="padding:4px 6px;border:1px solid #DDD;background:#FAFBFF;font-size:9pt;">'+(i+1)+'. '+it+'</td>';
+        [5,4,3,2,1].forEach(function(v){
+          var sel=(d[key]==v||d[key]===String(v));
+          sec+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+(sel?'#C0392B':'#FEF9F9')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:9pt;">'+(sel?'✓':'')+'</td>';
+        });
+        sec+='<td style="text-align:center;border:1px solid #DDD;font-size:11pt;font-weight:700;color:'+(sc?'#C0392B':'#ccc')+';background:#FFF5F5;">'+(sc||'—')+'</td>';
+        sec+='</tr>';
+      });
+      // 小計列
+      sec+='<tr style="background:#EBF5FB;">';
+      sec+='<td colspan="6" style="padding:5px 8px;border:1px solid #DDD;text-align:right;font-weight:700;font-size:10pt;color:#1A5276;">小計（滿分 '+maxScore+'）</td>';
+      sec+='<td style="text-align:center;border:1px solid #DDD;font-size:13pt;font-weight:700;color:#1A5276;">'+sum+'</td>';
+      sec+='</tr>';
+      sec+='</table>';
+      return {html:sec,sum:sum};
+    }
+    var attRes=f15Section('一、學習態度（30%，共 6 題，滿分 30 分）',f15Atts,'f15_att',30);
+    html+=attRes.html;
+    var sklRes=f15Section('二、專業知識及技能（50%，共 10 題，滿分 50 分）',f15Skills,'f15_skl',50);
+    html+=sklRes.html;
+    var comRes=f15Section('三、溝通、協調與專業態度（20%，共 4 題，滿分 20 分）',f15Comms,'f15_com',20);
+    html+=comRes.html;
+    // ── 加分項目 ──
+    var bonusVal=val('bonus');
+    var bonusScore=(bonusVal&&bonusVal.indexOf('+5')>=0)?5:0;
+    html+='<div class="section-head">加分項目</div>';
+    html+='<table>';
+    html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;width:70%;">臨床專業能力可獨立負責一般治療師 1/2 以上工作量</td>';
+    ['是（+5分）','否（+0分）'].forEach(function(opt){
+      var sel=bonusVal===opt;
+      html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#27AE60':'#FEF9F9')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:10pt;width:15%;">'+(sel?'✓ '+opt:opt)+'</td>';
+    });
+    html+='</tr>';
+    html+='</table>';
+    // ── 分數自動計算 ──
+    var f15Total=attRes.sum+sklRes.sum+comRes.sum+bonusScore;
+    var f15Pass=f15Total>=60;
+    html+='<div class="section-head">分數自動計算</div>';
+    html+='<table>';
+    html+='<tr><td colspan="2" style="background:#FFF3CD;border:1px solid #F0C040;padding:5px 12px;font-size:10pt;font-weight:700;color:#8B6914;">★ 實習總分數須 ≧ 60 分才算及格</td></tr>';
+    html+='</table>';
+    html+='<table>';
+    html+='<tr>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#EBF5FB;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">學習態度</div><div style="font-size:14pt;font-weight:700;color:#1A5276;">'+attRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 30</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#EBF5FB;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">專業知識技能</div><div style="font-size:14pt;font-weight:700;color:#1A5276;">'+sklRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 50</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#EBF5FB;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">溝通協調</div><div style="font-size:14pt;font-weight:700;color:#1A5276;">'+comRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 20</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#E8F8F5;text-align:center;width:15%;"><div style="font-size:9pt;color:#666;">加分</div><div style="font-size:14pt;font-weight:700;color:#27AE60;">+'+bonusScore+'</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:linear-gradient(135deg,#FFF5F5,#FDEDEC);text-align:center;width:25%;"><div style="font-size:9pt;color:#666;">實習總分</div><div style="font-size:18pt;font-weight:700;color:'+(f15Pass?'#27AE60':'#C0392B')+';">'+f15Total+'</div><div style="font-size:9pt;color:#888;">/ 105 '+(f15Pass?'✓ 及格':'✗ 未及格')+'</div></td>';
+    html+='</tr>';
+    html+='</table>';
+    // ── 請假紀錄 ──
+    html+='<div class="section-head">請假紀錄</div>';
+    html+='<table>';
+    html+=pdfR('公假（天）',val('leave_pub'),false);
+    html+=pdfR('病假（天）',val('leave_sick'),false);
+    html+=pdfR('事假（天）',val('leave_priv'),false);
+    html+=pdfR('遲到（次）',val('late_cnt'),false);
+    html+='</table>';
+    // ── 評語與回饋 ──
+    html+='<div class="section-head">評語與回饋</div>';
+    html+='<table>';
+    html+=pdfR('學生自我評語和建議',val('s_comment'),false);
+    html+=pdfR('師生檢討與回饋',val('t_fb'),true);
+    html+='</table>';
+    // ── 簽名 ──
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('實習總指導教師簽名',val('t_sign'),true);
+    html+=pdfR('實習總指導教師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('實習計畫主持人簽名',val('host_sign'),true);
+    html+=pdfR('計畫主持人簽名時間',val('host_sign_date'),true);
+    html+='</table>';
+    return html;
+  }
+
   // 通用表單（F03-F15, DOPS, EPA）
   html+='<table>';
   // 基本資料
@@ -4743,7 +4850,11 @@ function buildF15(f,d,canT,fkey,canS){
     <div class="g2"><div class="field"><label>遲到（次）</label>${fi(fid,'late_cnt','number',false)}</div></div>
     <div class="field"><label>學生自我評語和建議</label>${ta(fid,'s_comment',3,false)}</div>
     <div class="field"><label>師生檢討與回饋<span class="t-badge">老師</span></label>${ta(fid,'t_fb',4,!canT)}</div>
-    ${signRow(fid,'s_sign','t_sign',canT)}
+    ${signRow(fid,'s_sign','t_sign',canT,'實習總指導教師簽名')}
+    <div class="g2">
+      <div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'host_sign',['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';})),!canT,'請選擇主持人',true)}</div>
+      <div class="field"><label>計畫主持人簽名時間<span class="t-badge">老師</span></label><input type="date" value="${d['host_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_sign_date" data-teacher="1" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+    </div>
   </div></div>`;
 
   // 渲染後初始化分數
