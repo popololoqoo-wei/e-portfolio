@@ -872,12 +872,12 @@ const REQUIRED_STUDENT_FIELDS = {
     'f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
     'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
     'peer_good','peer_suggest','t_sign','t_sign_date',
-    's_fb','s_sign','host_sign'],
+    's_fb','s_sign','t_sign2','host_sign'],
   F07S: ['s_name','school','s_date',
     'f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
     'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
     'peer_good','peer_suggest','t_sign','t_sign_date',
-    's_fb','s_sign','host_sign'],
+    's_fb','s_sign','t_sign2','host_sign'],
   // F08 全人照護
   F08: ['s_name','school','s_date','discuss_生','discuss_心','t_sign'],
   // F09 跨領域
@@ -901,8 +901,12 @@ const REQUIRED_STUDENT_FIELDS = {
   E01: ['s_name','school','s_date'],
   E02: ['s_name','school','s_date'],
   E03: ['s_name','school','s_date'],
-  // F15 實習課程評值
-  F15: ['s_name','s_comment'],
+  // F15 實習課程評值（必填：基本資料+20 題評核+加分+實習總指導教師簽名+計畫主持人簽名）
+  F15: ['s_name','s_comment',
+    'f15_att_0','f15_att_1','f15_att_2','f15_att_3','f15_att_4','f15_att_5',
+    'f15_skl_0','f15_skl_1','f15_skl_2','f15_skl_3','f15_skl_4','f15_skl_5','f15_skl_6','f15_skl_7','f15_skl_8','f15_skl_9',
+    'f15_com_0','f15_com_1','f15_com_2','f15_com_3',
+    'bonus','t_sign','t_sign_date','host_sign','host_sign_date'],
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -957,14 +961,14 @@ function getStatus(id){
       }
       return sv.length>=8;
     }
-    if(k==='t_sign'||k==='s_sign'){
+    if(k==='t_sign'||k==='s_sign'||k==='t_sign2'||k==='host_sign'){
       var sv2=String(v).trim();
       return sv2!==''
         &&sv2!=='請選擇學生'&&sv2!=='請選擇老師'
         &&sv2!=='請選擇臨床老師'&&sv2!=='請選擇實習總指導教師'
         &&sv2!=='請選擇指導老師'&&sv2!=='請選擇主持人';
     }
-    if(k==='t_sign_date'||k==='s_sign_date'){
+    if(k==='t_sign_date'||k==='s_sign_date'||k==='t_sign2_date'||k==='host_sign_date'){
       return String(v).trim().length>=8;
     }
     return true;
