@@ -4651,7 +4651,7 @@ function renderStatusSection(filterStatus){
       const dotC=st==='done'?'dot-done':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
       const stLabel=st==='done'?'✅ 已完成':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
-      const pdfBtn=(filterStatus==='done'&&canDownloadPDF(f.id))
+      const pdfBtn=(filterStatus==='done')
         ?`<button onclick="event.stopPropagation();checkAndDownloadPDF('${f.id}')" style="margin-top:8px;padding:5px 12px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:11px;cursor:pointer;font-weight:600;width:100%;">⬇ 下載 PDF</button>`
         :'';
       html+=`<div class="form-card" onclick="openForm('${f.id}')">
