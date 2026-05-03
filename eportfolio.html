@@ -1931,15 +1931,7 @@ function downloadPDF(id){
   const formKey=getFormKey(id);
   const f=findForm(id);
   if(!f)return;
-  // 從 localStorage 草稿補充（涵蓋尚未上傳但已填的欄位，如 intern_cat、s_sign_date）
-  var dFromDraft={};
-  try{
-    var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    // 合併裸 id 和 formKey 兩個草稿來源
-    Object.assign(dFromDraft, allDrafts[id]||{}, allDrafts[formKey]||{});
-  }catch(e){}
-  // 優先順序：localStorage草稿 < APP.formData[formKey] < APP.formData[id]（最新的在後面蓋前面）
-  const d=Object.assign({},dFromDraft,APP.formData[formKey]||{},APP.formData[id]||{});
+  const d=Object.assign({},APP.formData[formKey]||{},APP.formData[id]||{});
   const logs=APP.historyLog[formKey]||[];
   
   // 取得學生資訊
@@ -4856,15 +4848,9 @@ function batchDownloadPDF(){
     if(stu){studentName=stu.name;studentId=APP.currentStudentId;studentSchool=stu.school||'';}
   }
 
-  // 預先讀取所有 localStorage 草稿（批次下載時一次性讀取）
-  var allDraftsCache={};
-  try{allDraftsCache=JSON.parse(localStorage.getItem('form_drafts')||'{}');}catch(e){}
-
   doneForms.forEach(function(f,idx){
     var formKey=getFormKey(f.id);
-    // 合併草稿 + APP.formData（確保 intern_cat、s_sign_date 等欄位不遺漏）
-    var dDraft=Object.assign({},allDraftsCache[f.id]||{},allDraftsCache[formKey]||{});
-    var d=Object.assign({},dDraft,APP.formData[f.id]||{},APP.formData[formKey]||{});
+    var d=Object.assign({},APP.formData[f.id]||{},APP.formData[formKey]||{});
     var logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[f.id]||[]);
     // 去重 logs
     var logSeen={};
