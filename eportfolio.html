@@ -1607,7 +1607,7 @@ function unlockTeacherFieldsInDOM(){
     var tKeyPfx=['t_fb','t_sign','t_sign_date','t_comment','t_good','t_improve',
       't_note','t_title','t_date','epa_level','result','score','director_fb',
       'team_sign','team_title','peer_good','peer_suggest','peer_sign',
-      'host_sign','host_sign_date','host_date','f01_p1_','f01_p2_'];
+      'host_sign','host_sign_date','host_date','f01_p1_'];
     var isT=tKeyPfx.some(function(p){return key===p||key.startsWith(p);})
       || /^f(06|07|13|14|15)_/.test(key)
       || /^f0[67][MS]_/.test(key)
@@ -2093,20 +2093,18 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table style="font-size:9pt;"><tr>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能</th>';
     html+='<th colspan="4" style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">學後自評</th>';
-    html+='<th colspan="4" style="background:#C0392B;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(1)</th>';
-    html+='<th colspan="4" style="background:#7D3C98;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(2)</th></tr>';
+    html+='<th colspan="4" style="background:#C0392B;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(1)</th></tr>';
     html+='<tr><th style="border:1px solid #DDD;background:var(--cream);"></th>';
-    var bgs=['#D6EAF8','#D6EAF8','#D6EAF8','#D6EAF8','#FADBD8','#FADBD8','#FADBD8','#FADBD8','#F5EEF8','#F5EEF8','#F5EEF8','#F5EEF8'];
-    ['佳','可','差','NA','佳','可','差','NA','佳','可','差','NA'].forEach(function(v,i){
-      html+='<th style="background:'+bgs[i]+';border:1px solid #DDD;width:36px;text-align:center;padding:3px 2px;">'+v+'</th>';
+    var bgs=['#D6EAF8','#D6EAF8','#D6EAF8','#D6EAF8','#FADBD8','#FADBD8','#FADBD8','#FADBD8'];
+    ['佳','可','差','NA','佳','可','差','NA'].forEach(function(v,i){
+      html+='<th style="background:'+bgs[i]+';border:1px solid #DDD;width:40px;text-align:center;padding:3px 2px;">'+v+'</th>';
     });
     html+='</tr>';
     skills.forEach(function(skill,i){
-      var post=d['f01_post_'+i]||'',p1=d['f01_p1_'+i]||'',p2=d['f01_p2_'+i]||'';
+      var post=d['f01_post_'+i]||'',p1=d['f01_p1_'+i]||'';
       html+='<tr><td style="padding:3px 6px;border:1px solid #DDD;font-size:9pt;">'+(i+1)+'. '+skill+'</td>';
       ['佳','可','差','NA'].forEach(function(v){var s=post===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#2471A3'):'#fff')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
       ['佳','可','差','NA'].forEach(function(v){var s=p1===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#C0392B'):'#FEF9F9')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
-      ['佳','可','差','NA'].forEach(function(v){var s=p2===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#7D3C98'):'#FAF0FE')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
       html+='</tr>';
     });
     html+='</table>';
@@ -2801,19 +2799,16 @@ function buildF01B(f,d,canT,fkey,canS){
   h+='<table class="rating-table f01b-table"><tr>';
   h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:90px;max-width:120px;">核心技能學習目標</th>';
   h+='<th colspan="4" style="background:#EBF5FB;">學後自評</th>';
-  h+='<th colspan="4" style="background:#FDEDEC;">指導者評核(1)<span class="t-badge">老師</span></th>';
-  h+='<th colspan="4" style="background:#F5EEF8;">指導者評核(2)<span class="t-badge">老師</span></th></tr>';
+  h+='<th colspan="4" style="background:#FDEDEC;">指導者評核(1)<span class="t-badge">老師</span></th></tr>';
   h+='<tr>';
   h+='<th style="position:sticky;left:0;z-index:2;background:var(--cream);"></th>';
   h+='<th style="background:#EBF5FB;">佳</th><th style="background:#EBF5FB;">可</th><th style="background:#EBF5FB;">差</th><th style="background:#EBF5FB;">NA</th>';
-  h+='<th style="background:#FDEDEC;">佳</th><th style="background:#FDEDEC;">可</th><th style="background:#FDEDEC;">差</th><th style="background:#FDEDEC;">NA</th>';
-  h+='<th style="background:#F5EEF8;">佳</th><th style="background:#F5EEF8;">可</th><th style="background:#F5EEF8;">差</th><th style="background:#F5EEF8;">NA</th></tr>';
+  h+='<th style="background:#FDEDEC;">佳</th><th style="background:#FDEDEC;">可</th><th style="background:#FDEDEC;">差</th><th style="background:#FDEDEC;">NA</th></tr>';
   skills.forEach(function(skill,i){
-    var k1='f01_p1_'+i,k2='f01_p2_'+i,kpo='f01_post_'+i;
+    var k1='f01_p1_'+i,kpo='f01_post_'+i;
     h+='<tr><td class="row-label f01b-label" style="position:sticky;left:0;background:#FAFAF8;z-index:1;max-width:120px;word-break:break-all;font-size:10px;">'+(i+1)+'. '+skill+'</td>';
     ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#F5F9FF;">'+mkBtn(kpo,v,false)+'</td>';});
     ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#FFF5F5;">'+mkBtn(k1,v,true)+'</td>';});
-    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#FAF0FE;">'+mkBtn(k2,v,true)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
