@@ -161,6 +161,9 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .rating-table th,.rating-table td{padding:6px 7px;border:1px solid var(--border2);vertical-align:middle;}
 .rating-table th{background:var(--cream);font-size:10px;font-weight:600;color:var(--ink3);text-align:center;}
 .rating-table td.row-label{font-size:12px;color:var(--ink);text-align:left;}
+/* Sticky first column for scrollable tables */
+.sticky-col{position:sticky;left:0;z-index:1;background:#FAFAF8;}
+.sticky-head{position:sticky;left:0;z-index:2;background:var(--cream);}
 .r-btn{width:28px;height:28px;border-radius:4px;border:1px solid var(--border);background:#fff;font-size:10px;cursor:pointer;color:var(--ink3);transition:all .12s;}
 .r-btn.sel-s{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600;}
 .r-btn.sel-t{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
@@ -297,19 +300,49 @@ input[type=text],input[type=date],input[type=number],input[type=password],select
     padding: 10px 8px;
   }
 
-  /* 4. F01B 指導者評核表格：縮小字體讓更多欄位可見 */
+  /* 4. F01B 指導者評核表格：sticky 首欄 + 橫向捲動 */
+  .f01b-table {
+    font-size: 9px !important;
+    width: max-content;
+    min-width: 100%;
+  }
+  .f01b-table th, .f01b-table td {
+    padding: 2px 1px !important;
+    font-size: 9px !important;
+  }
+  .f01b-label {
+    font-size: 9px !important;
+    max-width: 80px !important;
+    min-width: 70px !important;
+    word-break: break-all;
+  }
+  .f01b-table button {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 8px !important;
+    padding: 0 !important;
+  }
+  /* 一般 rating-table */
   .rating-table {
-    font-size: 10px;
-    min-width: 480px; /* 允許橫向捲動 */
+    font-size: 9px;
   }
   .rating-table th, .rating-table td {
-    padding: 3px 2px;
-    font-size: 10px;
+    padding: 2px 2px;
+    font-size: 9px;
+  }
+  .rating-table td.row-label {
+    font-size: 9px;
   }
 
-  /* 5. 呼吸器設定表格：允許橫向捲動 */
-  table[style*="width:100%"] {
-    min-width: 320px;
+  /* 5. 所有表格外層：overflow-x:auto */
+  .card-body table {
+    max-width: none;
+  }
+  /* 呼吸器設定表格 */
+  table td input[type="text"] {
+    width: 32px !important;
+    font-size: 10px !important;
+    padding: 1px 2px !important;
   }
 
   .dops-tbl th, .dops-tbl td {
@@ -2692,11 +2725,13 @@ function buildF01A(f,d,canT,fkey,canS){
 
   let h=basicInfoCard(fid,d,'');
   h+='<div class="card"><div class="card-head"><div class="card-head-title">學生學前自評<span class="s-badge">學生填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學前自評</th></tr>';
+  h+='<table class="rating-table f01b-table"><tr>';
+  h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:80px;max-width:120px;">核心技能學習目標</th>';
+  h+='<th colspan="3" style="background:#EBF5FB;">學生學前自評</th></tr>';
   h+='<tr><th></th><th>佳</th><th>可</th><th>差</th></tr>';
   skills.forEach(function(skill,i){
     var kp='f01_pre_'+i;
-    h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
+    h+='<tr><td class="row-label f01b-label" style="position:sticky;left:0;background:#FAFAF8;z-index:1;word-break:break-all;font-size:10px;">'+(i+1)+'. '+skill+'</td>';
     ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kp,v,false)+'</td>';});
     h+='</tr>';
   });
@@ -2732,14 +2767,20 @@ function buildF01B(f,d,canT,fkey,canS){
   }
 
   let h=basicInfoCard(fid,d,'');
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<table class="rating-table"><tr><th style="text-align:left;min-width:160px;">核心技能學習目標</th><th colspan="3">學生學後自評</th><th colspan="3">指導者評核<span class="t-badge">老師</span></th></tr>';
-  h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>佳</th><th>可</th><th>差</th></tr>';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">';
+  h+='<table class="rating-table f01b-table"><tr>';
+  h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:90px;max-width:120px;">核心技能學習目標</th>';
+  h+='<th colspan="3" style="background:#EBF5FB;">學後自評</th>';
+  h+='<th colspan="3" style="background:#FDEDEC;">指導者評核<span class="t-badge">老師</span></th></tr>';
+  h+='<tr>';
+  h+='<th style="position:sticky;left:0;z-index:2;background:var(--cream);"></th>';
+  h+='<th style="background:#EBF5FB;">佳</th><th style="background:#EBF5FB;">可</th><th style="background:#EBF5FB;">差</th>';
+  h+='<th style="background:#FDEDEC;">佳</th><th style="background:#FDEDEC;">可</th><th style="background:#FDEDEC;">差</th></tr>';
   skills.forEach(function(skill,i){
     var k1='f01_p1_'+i,kpo='f01_post_'+i;
-    h+='<tr><td class="row-label">'+(i+1)+'. '+skill+'</td>';
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(kpo,v,false)+'</td>';});
-    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;">'+mkBtn(k1,v,true)+'</td>';});
+    h+='<tr><td class="row-label f01b-label" style="position:sticky;left:0;background:#FAFAF8;z-index:1;max-width:120px;word-break:break-all;font-size:10px;">'+(i+1)+'. '+skill+'</td>';
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;background:#F5F9FF;">'+mkBtn(kpo,v,false)+'</td>';});
+    ['佳','可','差'].forEach(function(v){h+='<td style="text-align:center;background:#FFF5F5;">'+mkBtn(k1,v,true)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
