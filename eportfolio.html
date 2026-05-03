@@ -4451,18 +4451,19 @@ function batchDownloadPDF(){
 
   allHtml+='</body></html>';
 
-  // 開新視窗列印
-  var pw=window.open('','_blank','width=900,height=700');
-  if(!pw){toast('⚠ 請允許彈出視窗以產生PDF');return;}
-  pw.document.write(allHtml);
-  pw.document.close();
-  pw.focus();
-  setTimeout(function(){
-    pw.print();
-    // 列印對話框關閉後關視窗
-    pw.onafterprint=function(){pw.close();};
-  },800);
-  toast('✅ 正在開啟列印視窗，請選擇「另存為PDF」');
+  // 直接用 Blob + <a> 下載 HTML 檔案（不需彈出視窗）
+  var blob=new Blob([allHtml],{type:'text/html;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  var now=new Date();
+  var ts=now.getFullYear()+''+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+  var sn=studentName||'學生';
+  a.download='臺中榮總_ePortfolio_'+sn+'_已完成表單_'+ts+'.html';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+  toast('✅ 已下載！請用瀏覽器開啟該檔案，再按 Ctrl+P 選「另存為PDF」');
 }
 
 function renderStatusSection(filterStatus){
