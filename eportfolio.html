@@ -1938,8 +1938,9 @@ function downloadPDF(id){
     // 合併裸 id 和 formKey 兩個草稿來源
     Object.assign(dFromDraft, allDrafts[id]||{}, allDrafts[formKey]||{});
   }catch(e){}
-  // 優先順序：localStorage草稿 < APP.formData[formKey] < APP.formData[id]（最新的在後面蓋前面）
-  const d=Object.assign({},dFromDraft,APP.formData[formKey]||{},APP.formData[id]||{});
+  // 優先順序：APP.formData[id]（裸 id，跨學生共用空間，可能有殘留）< localStorage 草稿 < APP.formData[formKey]（含學號，當前學生獨立）
+  // 後面覆蓋前面，故 formKey 最終勝出
+  const d=Object.assign({},APP.formData[id]||{},dFromDraft,APP.formData[formKey]||{});
   const logs=APP.historyLog[formKey]||[];
   
   // 取得學生資訊
