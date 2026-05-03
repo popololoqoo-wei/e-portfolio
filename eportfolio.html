@@ -2247,19 +2247,34 @@ function setRating360(fid,key,val,role,btn){
   setTimeout(function(){calc360Score(fid);},50);
 }
 
-/* calc360Score：360度評估表分數計算（14題，每題5分，滿分70分）*/
+/* calc360Score：360度評估表分數計算 */
 function calc360Score(fid){
   var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
   var d=Object.assign({},APP.formData[fid]||{},APP.formData[realFid]||{});
-  var total=0;
-  for(var i=0;i<14;i++){
+
+  // 態度：題 0-7，基本分80，每題(+2/+1/0/-1/-2)
+  var attBase=80, attScore=attBase;
+  for(var i=0;i<8;i++){
     var v=parseInt(d['f07_'+i]||0)||0;
-    total+=v;
+    attScore+=v;
   }
-  var el=document.getElementById('score360_'+fid);
-  if(el){
-    el.innerHTML='<span style="font-size:24px;font-weight:700;color:'+(total>=52?'var(--green)':'var(--red)')+'">'+total+'</span><span style="font-size:14px;color:var(--ink3);"> / 70</span>';
+  // 臨床智能：題 8-13，基本分75，每題(+2/+1/0/-1/-2)
+  var clinBase=75, clinScore=clinBase;
+  for(var i=8;i<14;i++){
+    var v2=parseInt(d['f07_'+i]||0)||0;
+    clinScore+=v2;
   }
+  // 換算總分（態度佔50%，臨床佔50%）
+  var total=Math.round((attScore*0.5)+(clinScore*0.5));
+
+  var attEl=document.getElementById('score-att-'+fid);
+  var clinEl=document.getElementById('score-clin-'+fid);
+  var totEl=document.getElementById('score-total-'+fid);
+
+  var attOk=attScore>=80, clinOk=clinScore>=75;
+  if(attEl) attEl.innerHTML='<span style="font-weight:700;color:'+(attOk?'var(--green)':'var(--red)')+'">'+attScore+'</span><span style="color:var(--ink3);font-size:11px;"> / 100 '+(attOk?'✓':'✗')+'</span>';
+  if(clinEl) clinEl.innerHTML='<span style="font-weight:700;color:'+(clinOk?'var(--green)':'var(--red)')+'">'+clinScore+'</span><span style="color:var(--ink3);font-size:11px;"> / 100 '+(clinOk?'✓':'✗')+'</span>';
+  if(totEl) totEl.innerHTML='<span style="font-size:18px;font-weight:700;color:'+(total>=70?'var(--green)':'var(--red)')+'">'+total+'</span><span style="color:var(--ink3);font-size:11px;"> 分</span>';
 }
 
 /* autoSaveDraft：切換表單時暫存到 localStorage */
@@ -2980,8 +2995,7 @@ function build360(f,d,canT,fkey,canS){
   h+='<div class="field"><label>實習總指導教師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇實習總指導教師',true)+'</div>';
   h+=fi(fid,'t_title','text',!canT,'職稱');
   h+='<div style="font-size:10px;color:var(--ink3);margin-top:4px;">※ 以上為臨床老師填寫欄位，需 PIN 碼解鎖</div>';
-  // 分數顯示
-  h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);margin-top:8px;"><div class="card-body" style="text-align:center;padding:12px;"><div style="font-size:13px;color:var(--ink3);">評核總分</div><div id="score360_'+fid+'"><span style="font-size:24px;font-weight:700;">-</span></div><div style="font-size:11px;color:var(--ink3);">（滿分70分，態度≥80%、臨床≥75% 為標準）</div></div></div>';
+
   // 老師簽名日期（含時間戳，lockTeacherFields 可識別）
   h+='<div class="field" style="margin-top:8px;"><label>臨床老師簽名日期<span class="t-badge">老師</span></label>'+signDateWithTimestamp(fid,'t_sign_date',!canT,true)+'</div>';
   h+='</div>';
@@ -3596,31 +3610,27 @@ function setEPA(fid,lv,fid2){
 
 /* ─── F15 課程評值 ─── */
 function calcF15Score(fid){
-  var d=APP.formData[fid]||{};
+  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  var d=Object.assign({},APP.formData[fid]||{},APP.formData[realFid]||{});
   var attSum=0,sklSum=0,comSum=0,bonus=0;
   for(var i=0;i<6;i++){var v=parseInt(d['f15_att_'+i]||0);attSum+=isNaN(v)?0:v;}
-  for(var i=0;i<10;i++){var v=parseInt(d['f15_skl_'+i]||0);sklSum+=isNaN(v)?0:v;}
-  for(var i=0;i<4;i++){var v=parseInt(d['f15_com_'+i]||0);comSum+=isNaN(v)?0:v;}
+  for(var i=0;i<10;i++){var v2=parseInt(d['f15_skl_'+i]||0);sklSum+=isNaN(v2)?0:v2;}
+  for(var i=0;i<4;i++){var v3=parseInt(d['f15_com_'+i]||0);comSum+=isNaN(v3)?0:v3;}
   if((d['bonus']||'').indexOf('+5')>=0) bonus=5;
-  // 換算：各區滿分 × 比例
-  var attScore=Math.round(attSum/30*30);
-  var sklScore=Math.round(sklSum/50*50);
-  var comScore=Math.round(comSum/20*20);
-  var total=attScore+sklScore+comScore+bonus;
-  // 更新分數顯示
-  var el=document.getElementById('f15_score_'+fid);
-  if(el){
-    el.textContent=total;
-    el.style.color=total>=60?'var(--green)':'var(--red)';
-  }
+  var total=attSum+sklSum+comSum+bonus;
+  var ok=total>=60;
+
   var attEl=document.getElementById('f15_att_score_'+fid);
-  if(attEl) attEl.textContent=attScore+'/30';
   var sklEl=document.getElementById('f15_skl_score_'+fid);
-  if(sklEl) sklEl.textContent=sklScore+'/50';
   var comEl=document.getElementById('f15_com_score_'+fid);
-  if(comEl) comEl.textContent=comScore+'/20';
   var bonEl=document.getElementById('f15_bonus_score_'+fid);
-  if(bonEl) bonEl.textContent=(bonus>0?'+'+bonus:'0');
+  var totEl=document.getElementById('f15_score_'+fid);
+
+  if(attEl) attEl.innerHTML='<span style="font-weight:700;color:var(--blue)">'+attSum+'</span><span style="color:var(--ink3);font-size:11px;"> / 30</span>';
+  if(sklEl) sklEl.innerHTML='<span style="font-weight:700;color:var(--blue)">'+sklSum+'</span><span style="color:var(--ink3);font-size:11px;"> / 50</span>';
+  if(comEl) comEl.innerHTML='<span style="font-weight:700;color:var(--blue)">'+comSum+'</span><span style="color:var(--ink3);font-size:11px;"> / 20</span>';
+  if(bonEl) bonEl.innerHTML='<span style="font-weight:700;color:var(--green)">'+(bonus>0?'+'+bonus:'0')+'</span>';
+  if(totEl) totEl.innerHTML='<span style="font-size:18px;font-weight:700;color:'+(ok?'var(--green)':'var(--red)')+'">'+total+'</span><span style="color:var(--ink3);font-size:11px;"> / 105 '+(ok?'✓ 及格':'✗ 未及格')+'</span>';
 }
 
 function buildF15(f,d,canT,fkey,canS){
@@ -3650,23 +3660,7 @@ function buildF15(f,d,canT,fkey,canS){
 
   let h=basicInfoCard(fid,d,'');
 
-  // 分數總覽卡片
-  h+=`<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">
-    <div class="card-body" style="text-align:center;padding:16px;">
-      <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">實習總分數</div>
-      <div style="font-size:48px;font-weight:700;" id="f15_score_${fid}">0</div>
-      <div style="font-size:12px;color:var(--ink3);">/ 105分（含加分）</div>
-      <div style="margin-top:8px;background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:700;color:#8B6914;display:inline-block;">
-        ★ 實習總分數須 ≧ 60 分才算及格
-      </div>
-      <div style="display:flex;justify-content:center;gap:20px;margin-top:12px;font-size:12px;color:var(--ink3);">
-        <span>學習態度：<b id="f15_att_score_${fid}">0/30</b></span>
-        <span>專業知識技能：<b id="f15_skl_score_${fid}">0/50</b></span>
-        <span>溝通協調：<b id="f15_com_score_${fid}">0/20</b></span>
-        <span>加分：<b id="f15_bonus_score_${fid}">0</b></span>
-      </div>
-    </div>
-  </div>`;
+
 
   h+=mkSection('一、學習態度（30%，共6題，每題5分，滿分30分）',atts,'f15_att','f15_att_score_'+fid,30);
   h+=mkSection('二、專業知識及技能（50%，共10題，每題5分，滿分50分）',skills,'f15_skl','f15_skl_score_'+fid,50);
@@ -3680,6 +3674,33 @@ function buildF15(f,d,canT,fkey,canS){
     </div>
   </div></div>`;
 
+  // 分數自動計算區（在評分表下方，像360度一樣）
+  h+=`<div style="background:#EEF2F8;border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;">
+    <div style="font-weight:700;color:var(--blue);margin-bottom:6px;">📊 分數自動計算</div>
+    <div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;padding:5px 10px;font-size:11px;font-weight:700;color:#8B6914;margin-bottom:8px;">★ 實習總分數須 ≧ 60 分才算及格</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">學習態度（滿分30）</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_att_score_${fid}">計算中...</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">專業知識技能（滿分50）</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_skl_score_${fid}">計算中...</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">溝通協調（滿分20）</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_com_score_${fid}">計算中...</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">加分項目</div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue);" id="f15_bonus_score_${fid}">計算中...</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">實習總分</div>
+        <div style="font-size:16px;font-weight:700;" id="f15_score_${fid}">計算中...</div>
+      </div>
+    </div>
+  </div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">請假紀錄與回饋</div></div><div class="card-body">
     <div class="g3">
       <div class="field"><label>公假（天）</label>${fi(fid,'leave_pub','number',false)}</div>
