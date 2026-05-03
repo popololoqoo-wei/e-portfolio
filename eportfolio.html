@@ -3142,21 +3142,42 @@ function buildF13(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估（含個案簡介）',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫與措施',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
   let h=basicInfoCard(fid,d,'');
+
+  // 總分即時計算
+  h+=`<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">
+    <div class="card-body" style="text-align:center;padding:16px;">
+      <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">書面報告總分</div>
+      <div style="font-size:48px;font-weight:700;" id="f13_total_${fid}">0</div>
+      <div style="font-size:12px;color:var(--ink3);">/ 100 分</div>
+    </div>
+  </div>`;
+
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   items.forEach(([key,label,max])=>{
+    const cur=parseInt(d[key]||0)||0;
+    const oc=`(function(){var v=parseInt(this.value)||0;if(v>${max})v=${max};if(v<0)v=0;this.value=v;saveDraftField('${fid}','${key}',v);calcF13Score('${fid}');})(this)`;
     h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);">
-      <span style="flex:1;font-size:12px;">${label}（${max}分）</span>
-      <input type="number" min="0" max="${max}" value="${d[key]||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
+      <span style="flex:1;font-size:12px;">${label}（滿分${max}分）</span>
+      <input type="number" min="0" max="${max}" value="${cur}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" data-teacher="1" onchange="${oc}" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
     </div>`;
   });
-  const total=items.reduce((s,[k])=>s+(parseInt(d[k])||0),0);
-  h+=`<div style="text-align:right;padding-top:8px;font-size:15px;font-weight:700;color:var(--blue);">合計：${total} / 100 分</div>
-  </div></div>`;
+  h+=`</div></div>`;
+
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">綜合意見<span class="t-badge">老師</span></div></div><div class="card-body">
-    <div class="field">${ta(f.id,'t_comment',4,!canT)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
+    <div class="field">${ta(fid,'t_comment',4,!canT)}</div>
+    ${signRow(fid,'s_sign','t_sign',canT)}
   </div></div>`;
+
+  setTimeout(function(){calcF13Score(fid);},50);
   return h;
+}
+
+function calcF13Score(fid){
+  var d=Object.assign({},APP.formData[fid]||{},APP.formData[getFormKey(APP.currentFormId||fid)]||{});
+  var keys=['s1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h'];
+  var total=keys.reduce(function(s,k){return s+(parseInt(d[k])||0);},0);
+  var el=document.getElementById('f13_total_'+fid);
+  if(el){el.textContent=total;el.style.color=total>=60?'var(--green)':'var(--red)';}
 }
 
 /* ─── F14 PPT ─── */
