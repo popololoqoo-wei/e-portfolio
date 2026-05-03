@@ -161,9 +161,39 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .rating-table th,.rating-table td{padding:6px 7px;border:1px solid var(--border2);vertical-align:middle;}
 .rating-table th{background:var(--cream);font-size:10px;font-weight:600;color:var(--ink3);text-align:center;}
 .rating-table td.row-label{font-size:12px;color:var(--ink);text-align:left;}
-/* Sticky first column for scrollable tables */
-.sticky-col{position:sticky;left:0;z-index:1;background:#FAFAF8;}
-.sticky-head{position:sticky;left:0;z-index:2;background:var(--cream);}
+/* 簽名區統一樣式（select 和 date input 完全一致）*/
+.sign-input{
+  display:block;
+  width:100%;
+  max-width:100%;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  font-size:13px;
+  box-sizing:border-box;
+  margin:0;
+  background:#fff;
+  color:var(--ink);
+  -webkit-appearance:none;
+  appearance:none;
+}
+.sign-input:disabled{background:var(--cream);cursor:not-allowed;}
+.sign-input[type="date"]{
+  /* iOS Safari date input 特別處理 */
+  -webkit-appearance:none;
+  min-height:38px;
+  line-height:1.4;
+}
+/* 手機版：簽名區強制全寬對齊 */
+@media(max-width:767px){
+  .sign-input,.sign-input[type="date"]{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    box-sizing:border-box !important;
+    font-size:16px !important;
+  }
+}
 .r-btn{width:28px;height:28px;border-radius:4px;border:1px solid var(--border);background:#fff;font-size:10px;cursor:pointer;color:var(--ink3);transition:all .12s;}
 .r-btn.sel-s{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600;}
 .r-btn.sel-t{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
@@ -2343,7 +2373,7 @@ function makeDropdown(fid,key,options,disabled,placeholder,isTeacher){
   }).join('');
   // Teacher fields get data-teacher="1" for reliable lock/unlock targeting
   var tAttr=isTeacher?' data-teacher="1"':'';
-  return '<select data-fid="'+fid+'" data-key="'+key+'"'+tAttr+' onchange="'+oc+'"'+dis+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';"><option value="">'+(placeholder||'請選擇')+'</option>'+opts+'</select>';
+  return '<select data-fid="'+fid+'" data-key="'+key+'"'+tAttr+' onchange="'+oc+'"'+dis+' class="sign-input" style="background:'+bg+';"><option value="">'+(placeholder||'請選擇')+'</option>'+opts+'</select>';
 }
 
 function signRow(fid,sKey,tKey,canT){
@@ -2625,7 +2655,7 @@ function signDateWithTimestamp(fid,key,disabled,isTeacher){
   var dateVal=val?val.split(' ')[0].replace(/\//g,'-'):'';
   var tsDisplay=val&&val.indexOf(' ')>0?'<div style="font-size:10px;color:var(--green);margin-top:2px;">⏱ 時間戳：'+val.split(' ').slice(1).join(' ')+'</div>':'';
   var tAttr=isTeacher?' data-teacher="1"':'';
-  return '<input type="date" value="'+dateVal+'"'+dis+tAttr+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;min-width:0;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
+  return '<input type="date" value="'+dateVal+'"'+dis+tAttr+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" class="sign-input" style="background:'+bg+';">'+tsDisplay;
 }
 
 function saveDraftField(fid, key, val){
