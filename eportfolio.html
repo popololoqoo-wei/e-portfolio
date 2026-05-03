@@ -74,6 +74,8 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .app-body{display:flex;min-height:calc(100vh - 54px);}
 .sidebar{width:200px;background:var(--paper);border-right:1px solid var(--border);padding:1.25rem 0;flex-shrink:0;}
 @media(max-width:768px){
+  input[type="date"],input[type="number"]{min-width:0;width:100%;box-sizing:border-box;}
+
   .app-body{flex-direction:column;}
   .sidebar{display:none !important;}
   .main-content{width:100% !important;min-height:calc(100vh - 54px);}
@@ -150,7 +152,7 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .field textarea{resize:vertical;min-height:68px;}
 .t-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:999px;background:#F5EBE8;color:var(--red);border:1px solid #E8C8C0;margin-left:4px;font-weight:600;}
 .s-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:999px;background:#E8F0EE;color:var(--blue);border:1px solid #C0D4D0;margin-left:4px;font-weight:600;}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.g2>*{min-width:0;overflow:hidden;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 @media(max-width:560px){.g2,.g3{grid-template-columns:1fr;}}
 
@@ -1292,19 +1294,23 @@ async function openForm(id){
   },50);
 
   // 老師登入：鎖定學生欄位（防止竄改）
+  // 注意：F01A 是 student-only，老師登入不應鎖定學生評分按鈕
   if(APP.currentRole==='teacher'){
-  mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
-    var key=el.dataset.key||'';
-    var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
-      'epa_level','result','score','director_fb'].some(function(p){return key.startsWith(p);}) ||
-      /^f(05|06|07|15)_/.test(key);
-    if(!isTField) el.disabled=true;
-  });
-  mc.querySelectorAll('button[data-teacher="0"]').forEach(function(btn){
-    btn.disabled=true;
-    btn.style.opacity='0.35';
-    btn.style.cursor='not-allowed';
-  });
+    var isStudentOnlyForm=(f&&f.roles==='student');
+    if(!isStudentOnlyForm){
+      mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+        var key=el.dataset.key||'';
+        var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
+          'epa_level','result','score','director_fb'].some(function(p){return key.startsWith(p);}) ||
+          /^f(05|06|07|15)_/.test(key);
+        if(!isTField) el.disabled=true;
+      });
+      mc.querySelectorAll('button[data-teacher="0"]').forEach(function(btn){
+        btn.disabled=true;
+        btn.style.opacity='0.35';
+        btn.style.cursor='not-allowed';
+      });
+    }
   }
 
   if(GAS_URL && GAS_URL !== 'YOUR_GAS_URL_HERE'){
@@ -2420,7 +2426,7 @@ function signDateWithTimestamp(fid,key,disabled,isTeacher){
   var dateVal=val?val.split(' ')[0].replace(/\//g,'-'):'';
   var tsDisplay=val&&val.indexOf(' ')>0?'<div style="font-size:10px;color:var(--green);margin-top:2px;">⏱ 時間戳：'+val.split(' ').slice(1).join(' ')+'</div>':'';
   var tAttr=isTeacher?' data-teacher="1"':'';
-  return '<input type="date" value="'+dateVal+'"'+dis+tAttr+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
+  return '<input type="date" value="'+dateVal+'"'+dis+tAttr+' data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;min-width:0;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">'+tsDisplay;
 }
 
 function saveDraftField(fid, key, val){
