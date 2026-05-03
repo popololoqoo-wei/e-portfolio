@@ -852,61 +852,89 @@ function getFormKey(id){
 /* 各表單學生必填欄位定義 */
 const REQUIRED_STUDENT_FIELDS = {
   // F01A 學前評值（學生單填）
-  F01A: ['school','s_date','s_sign'].concat(Array.from({length:28},function(_,i){return 'f01_pre_'+i;})),
+  F01A: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date'].concat(Array.from({length:28},function(_,i){return 'f01_pre_'+i;})),
   // F01B 學後評值
-  F01B: ['s_name','school','s_date','t_sign'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
+  F01B: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date','t_sign','t_sign_date'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
   // F02 臨床表現
-  F02: ['s_name','school','s_date','s_sign','t_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
-  // F04 床邊教學（必填：學生姓名,實習學校,實習日期,實習類別,病床號,病人名,診斷,醫療重點,治療計畫,老師回饋,老師簽名,老師簽名日期,學生簽名,學生簽名日期）
-  F04M: ['s_name','school','s_date','intern_cat','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
-  F04S: ['s_name','school','s_date','intern_cat','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
-  // F06 CbD（必填：基本資料+複雜度+主診斷+7項評量+雙向回饋）
-  F06M: ['s_name','school','s_date','complexity','case_dx',
+  F02: ['s_name','school','intern_cat','s_date','s_comment','t_fb','s_sign','s_sign_date','t_sign','t_sign_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
+  // F04 床邊教學
+  F04M: ['s_name','school','s_date','intern_cat','bed','pt_name','gender','birth_date','diagnosis','rt_ind','vent_type','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign','s_sign_date'],
+  F04S: ['s_name','school','s_date','intern_cat','bed','pt_name','gender','birth_date','diagnosis','rt_ind','vent_type','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign','s_sign_date'],
+  // F06 CbD
+  F06M: ['s_name','school','intern_cat','s_date','complexity','case_dx',
     'f06_0','f06_1','f06_2','f06_3','f06_4','f06_5','f06_6',
-    's_feeling','t_good','s_improve','t_improve','s_sign','t_sign'],
-  F06S: ['s_name','school','s_date','complexity','case_dx',
+    's_feeling','t_good','s_improve','t_improve','s_sign','s_sign_date','t_sign','t_sign_date'],
+  F06S: ['s_name','school','intern_cat','s_date','complexity','case_dx',
     'f06_0','f06_1','f06_2','f06_3','f06_4','f06_5','f06_6',
-    's_feeling','t_good','s_improve','t_improve','s_sign','t_sign'],
-  // F07 360度（必填：基本資料+14題評核+各方回饋簽名）
-  F07M: ['s_name','school','s_date',
+    's_feeling','t_good','s_improve','t_improve','s_sign','s_sign_date','t_sign','t_sign_date'],
+  // F07 360度
+  F07M: ['s_name','school','intern_cat','s_date',
     'f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
     'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
-    'peer_good','peer_suggest','t_sign','t_sign_date',
-    's_fb','s_sign','t_sign2','host_sign'],
-  F07S: ['s_name','school','s_date',
+    'peer_good','peer_suggest','t_sign','t_sign_date','t_title',
+    'team_good','team_suggest','team_sign','team_title',
+    'director_fb','s_fb','s_sign','s_sign_date',
+    't_sign2','t_sign2_date','host_sign','host_sign_date'],
+  F07S: ['s_name','school','intern_cat','s_date',
     'f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
     'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
-    'peer_good','peer_suggest','t_sign','t_sign_date',
-    's_fb','s_sign','t_sign2','host_sign'],
-  // F08 全人照護
-  F08: ['s_name','school','s_date','discuss_生','discuss_心','t_sign'],
+    'peer_good','peer_suggest','t_sign','t_sign_date','t_title',
+    'team_good','team_suggest','team_sign','team_title',
+    'director_fb','s_fb','s_sign','s_sign_date',
+    't_sign2','t_sign2_date','host_sign','host_sign_date'],
+  // F08 全人照護（注意：__prof_any、__team_first 是虛擬必填，由 getStatus 特例處理）
+  F08: ['s_name','school','intern_cat','s_date','cat','diagnosis','__prof_any',
+    'discuss_生','discuss_心','discuss_靈','discuss_社','__team_first',
+    's_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date'],
   // F09 跨領域
-  F09: ['s_name','school','s_date','c1','s_feeling','t_sign'],
-  // F10A/F10B 輔導記錄（注意：日期用'date'不是's_date'）
-  F10A: ['s_name','intern_cat','date','school','t_sign'],
-  F10B: ['s_name','intern_cat','date','school','t_sign'],
+  F09: ['s_name','school','intern_cat','s_date','diagnosis','__prof_any',
+    'c1','c2','c3','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date'],
+  // F10A/F10B 輔導記錄（日期用 'date'）
+  F10A: ['s_name','intern_cat','date','school',
+    'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+    't_note','t_sign','t_sign_date',
+    's_q2','s_q3','s_q4','s_q5','s_q6'],
+  F10B: ['s_name','intern_cat','date','school',
+    'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+    't_note','t_sign','t_sign_date',
+    's_q2','s_q3','s_q4','s_q5','s_q6'],
   // F11 ILP
-  F11: ['s_name','school','s_date','goal','motivation','strategy'],
-  // F12 學習心得
-  F12: ['s_name','school','s_date','env_review'],
-  // F13/F14 個案報告
-  F13: ['s_name','school','s_date'],
-  F14: ['s_name','school','s_date'],
-  // DOPS
-  D01: ['s_name','school','s_date','complexity'],
-  D02: ['s_name','school','s_date','complexity'],
-  D03: ['s_name','school','s_date','complexity'],
-  D04: ['s_name','school','s_date','complexity'],
-  // EPA
-  E01: ['s_name','school','s_date'],
-  E02: ['s_name','school','s_date'],
-  E03: ['s_name','school','s_date'],
-  // F15 實習課程評值（必填：基本資料+20 題評核+加分+實習總指導教師簽名+計畫主持人簽名）
-  F15: ['s_name','school','s_date','s_comment',
+  F11: ['s_name','school','intern_cat','s_date','goal','motivation','strategy','difficulty','criteria','timeline','t_fb','t_sign','t_sign_date','follow_date'],
+  // F12 學習心得（注意：F12 主持人日期用 host_date 不是 host_sign_date）
+  F12: ['s_name','school','intern_cat','s_date','env_review','teacher_review','self_review','t_fb','s_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_date'],
+  // F13 書面個案
+  F13: ['s_name','school','intern_cat','s_date',
+    's1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h',
+    't_comment','s_sign','s_sign_date','t_sign','t_sign_date'],
+  // F14 PPT 評分
+  F14: ['s_name','school','intern_cat','s_date',
+    'f14_sc_0','f14_sc_1','f14_sc_2','f14_sc_3','f14_sc_4','f14_sc_5',
+    'f14_sc_6','f14_sc_7','f14_sc_8','f14_sc_9','f14_sc_10','f14_sc_11',
+    't_fb','s_sign','s_sign_date','t_sign','t_sign_date'],
+  // DOPS：每張的評核項目數量不同（D01=21、D02=18、D03=18、D04=33）
+  D01: ['s_name','school','s_date','intern_cat','complexity']
+    .concat(Array.from({length:21},function(_,i){return 'D01_i'+(i+1);}))
+    .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
+  D02: ['s_name','school','s_date','intern_cat','complexity']
+    .concat(Array.from({length:18},function(_,i){return 'D02_i'+(i+1);}))
+    .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
+  D03: ['s_name','school','s_date','intern_cat','complexity']
+    .concat(Array.from({length:18},function(_,i){return 'D03_i'+(i+1);}))
+    .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
+  D04: ['s_name','school','s_date','intern_cat','complexity']
+    .concat(Array.from({length:33},function(_,i){return 'D04_i'+(i+1);}))
+    .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
+  // EPA（注意：__sc_any 是虛擬必填，由 getStatus 特例處理 e0X_sc 至少一項）
+  E01: ['s_name','school','s_date','intern_cat','__sc_any','epa_level','t_fb','t_sign','t_sign_date'],
+  E02: ['s_name','school','s_date','intern_cat','__sc_any','epa_level','t_fb','t_sign','t_sign_date'],
+  E03: ['s_name','school','s_date','intern_cat','__sc_any','epa_level','t_fb','t_sign','t_sign_date'],
+  // F15 實習課程評值
+  F15: ['s_name','school','s_date','intern_cat','s_comment',
     'f15_att_0','f15_att_1','f15_att_2','f15_att_3','f15_att_4','f15_att_5',
     'f15_skl_0','f15_skl_1','f15_skl_2','f15_skl_3','f15_skl_4','f15_skl_5','f15_skl_6','f15_skl_7','f15_skl_8','f15_skl_9',
     'f15_com_0','f15_com_1','f15_com_2','f15_com_3',
-    'bonus','t_sign','t_sign_date','host_sign','host_sign_date'],
+    'bonus','leave_pub','leave_sick','leave_priv','late_cnt','t_fb',
+    's_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_sign_date'],
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -951,6 +979,28 @@ function getStatus(id){
 
   // 輔助：checkField 驗證單一必填欄位
   function checkField(k){
+    // ── 虛擬必填項：複合條件 ──
+    // __prof_any：F08/F09 「參加職類」17 個 prof_* 任一個 truthy 即算填
+    if(k==='__prof_any'){
+      return Object.keys(d).some(function(kk){
+        return kk.indexOf('prof_')===0 && d[kk]===true;
+      });
+    }
+    // __team_first：F08 「跨團隊照護」第一組 team_type_1 + team_care_1 都要填
+    if(k==='__team_first'){
+      return hasRealVal(d['team_type_1']) && hasRealVal(d['team_care_1']);
+    }
+    // __sc_any：EPA 「臨床情境」JSON array (e0X_sc) 至少一項
+    if(k==='__sc_any'){
+      var raw=d['e01_sc']||d['e02_sc']||d['e03_sc']||'';
+      if(!raw) return false;
+      try{
+        var arr=JSON.parse(raw);
+        return Array.isArray(arr) && arr.length>0;
+      }catch(e){
+        return false;
+      }
+    }
     var v=d[k];
     if(!hasRealVal(v)) return false;
     if(k==='s_date'){
@@ -968,8 +1018,17 @@ function getStatus(id){
         &&sv2!=='請選擇臨床老師'&&sv2!=='請選擇實習總指導教師'
         &&sv2!=='請選擇指導老師'&&sv2!=='請選擇主持人';
     }
-    if(k==='t_sign_date'||k==='s_sign_date'||k==='t_sign2_date'||k==='host_sign_date'){
+    if(k==='t_sign_date'||k==='s_sign_date'||k==='t_sign2_date'||k==='host_sign_date'||k==='host_date'||k==='follow_date'){
       return String(v).trim().length>=8;
+    }
+    // F04 呼吸問題確立、呼吸器機型 等 JSON array：parse 後至少一項
+    if(k==='rt_ind'||k==='vent_type'){
+      try{
+        var arr2=JSON.parse(String(v));
+        return Array.isArray(arr2) && arr2.length>0;
+      }catch(e){
+        return false;
+      }
     }
     return true;
   }
@@ -5551,8 +5610,7 @@ window.debugStatus=function(id){
   var req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
   var f=findForm(id);
   if(f&&f.roles==='both'&&req.indexOf('t_sign')<0) req.push('t_sign');
-  if(id==='F04M'||id==='F04S') req=['s_name','school','s_date','intern_cat','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'];
-  if(id==='F10A'||id==='F10B') req=['s_name','school'];
+  // 直接使用 REQUIRED_STUDENT_FIELDS，不再硬寫 override（原本的硬寫已過時）
 
   function hasRealVal(v){if(v===undefined||v===null||v===false)return false;return String(v).trim()!=='';}
   function checkField(k){
