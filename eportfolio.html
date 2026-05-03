@@ -1964,7 +1964,7 @@ function downloadPDF(id){
     's_sign':'學生簽名','s_sign_date':'學生簽名日期',
     't_sign':'老師簽名','t_sign_date':'老師簽名日期',
     't_fb':'老師回饋','t_good':'表現良好','t_improve':'建議加強','t_comment':'綜合意見',
-    't_note':'輔導備注','director_fb':'指導教師評語',
+    't_note':'輔導備註','director_fb':'指導教師評語',
     'peer_good':'其他團隊優點','peer_suggest':'其他團隊建議',
     'host_sign':'主持人簽名','host_sign_date':'主持人簽名日期',
     'bed':'病床號','pt_name':'病人名','gender':'性別','birth_date':'出生日期',
@@ -2048,7 +2048,7 @@ const FIELD_LABELS={
   's_sign':'學生簽名','s_sign_date':'學生簽名日期',
   't_sign':'老師簽名','t_sign_date':'老師簽名日期',
   't_fb':'老師回饋','t_good':'表現良好','t_improve':'建議加強','t_comment':'綜合意見',
-  't_note':'輔導備注','director_fb':'指導教師評語','t_title':'職稱',
+  't_note':'輔導備註','director_fb':'指導教師評語','t_title':'職稱',
   'peer_good':'其他團隊優點','peer_suggest':'其他團隊建議',
   'host_sign':'主持人簽名','host_sign_date':'主持人簽名日期',
   'bed':'病床號','pt_name':'病人名','gender':'性別','birth_date':'出生日期',
@@ -2564,8 +2564,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">實習總指導教師查核</div>';
     html+='<table>';
     html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:75%;">查核項目</th>';
-    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">是</th>';
-    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">否</th></tr>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;"></th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;"></th></tr>';
     tqs.forEach(function(q){
       var ans=val(q[0]);
       html+='<tr>';
@@ -2577,9 +2577,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='</tr>';
     });
     html+='</table>';
-    // 老師備注 / 簽名
+    // 老師備註 / 簽名
     html+='<table>';
-    html+=pdfR('輔導備注',val('t_note'),true);
+    html+=pdfR('輔導備註',val('t_note'),true);
     html+=pdfR('老師簽名',val('t_sign'),true);
     html+=pdfR('老師簽名日期',val('t_sign_date'),true);
     html+='</table>';
@@ -2593,9 +2593,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     ];
     html+='<div class="section-head">實習學生填寫</div>';
     html+='<table>';
-    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:75%;">問項</th>';
-    html+='<th style="background:#2471A3;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">選項1</th>';
-    html+='<th style="background:#2471A3;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;">選項2</th></tr>';
+    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:75%;">項目</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;"></th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:12.5%;"></th></tr>';
     sqs.forEach(function(q){
       var ans=val(q[0]);
       var opts=q[2];
@@ -3813,7 +3813,7 @@ function buildF10(f,d,canT,fkey,canS){
     ${tqs.map(([k,label])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
       <span>${label}</span><div class="check-group">${['是','否'].map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>`).join('')}
-    <div class="field" style="margin-top:10px;"><label>輔導備注<span class="t-badge">老師</span></label>${ta(f.id,'t_note',2,!canT)}</div>
+    <div class="field" style="margin-top:10px;"><label>輔導備註<span class="t-badge">老師</span></label>${ta(f.id,'t_note',2,!canT)}</div>
     <div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)}</div>
     <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div></div>
   </div></div>`;
