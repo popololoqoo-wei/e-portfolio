@@ -2247,18 +2247,19 @@ function setRating360(fid,key,val,role,btn){
   setTimeout(function(){calc360Score(fid);},50);
 }
 
-/* calc360Score：360度評估表分數計算 */
+/* calc360Score：360度評估表分數計算（14題，每題5分，滿分70分）*/
 function calc360Score(fid){
-  var d=Object.assign({},APP.formData[fid]||{},APP.formData[getFormKey(APP.currentFormId||fid)]||{});
-  var total=0,count=0;
-  Object.keys(d).forEach(function(k){
-    if(/^f07[MS]?_\d+$/.test(k)||/^f07_\d+$/.test(k)){
-      var v=parseInt(d[k]);
-      if(!isNaN(v)){total+=v;count++;}
-    }
-  });
+  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  var d=Object.assign({},APP.formData[fid]||{},APP.formData[realFid]||{});
+  var total=0;
+  for(var i=0;i<14;i++){
+    var v=parseInt(d['f07_'+i]||0)||0;
+    total+=v;
+  }
   var el=document.getElementById('score360_'+fid);
-  if(el) el.textContent=count>0?Math.round(total/count*10)/10:'-';
+  if(el){
+    el.innerHTML='<span style="font-size:24px;font-weight:700;color:'+(total>=52?'var(--green)':'var(--red)')+'">'+total+'</span><span style="font-size:14px;color:var(--ink3);"> / 70</span>';
+  }
 }
 
 /* autoSaveDraft：切換表單時暫存到 localStorage */
@@ -2979,6 +2980,8 @@ function build360(f,d,canT,fkey,canS){
   h+='<div class="field"><label>實習總指導教師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇實習總指導教師',true)+'</div>';
   h+=fi(fid,'t_title','text',!canT,'職稱');
   h+='<div style="font-size:10px;color:var(--ink3);margin-top:4px;">※ 以上為臨床老師填寫欄位，需 PIN 碼解鎖</div>';
+  // 分數顯示
+  h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);margin-top:8px;"><div class="card-body" style="text-align:center;padding:12px;"><div style="font-size:13px;color:var(--ink3);">評核總分</div><div id="score360_'+fid+'"><span style="font-size:24px;font-weight:700;">-</span></div><div style="font-size:11px;color:var(--ink3);">（滿分70分，態度≥80%、臨床≥75% 為標準）</div></div></div>';
   // 老師簽名日期（含時間戳，lockTeacherFields 可識別）
   h+='<div class="field" style="margin-top:8px;"><label>臨床老師簽名日期<span class="t-badge">老師</span></label>'+signDateWithTimestamp(fid,'t_sign_date',!canT,true)+'</div>';
   h+='</div>';
@@ -3143,15 +3146,6 @@ function buildF13(f,d,canT,fkey,canS){
   const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估（含個案簡介）',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫與措施',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
   let h=basicInfoCard(fid,d,'');
 
-  // 總分即時計算
-  h+=`<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">
-    <div class="card-body" style="text-align:center;padding:16px;">
-      <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">書面報告總分</div>
-      <div style="font-size:48px;font-weight:700;" id="f13_total_${fid}">0</div>
-      <div style="font-size:12px;color:var(--ink3);">/ 100 分</div>
-    </div>
-  </div>`;
-
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   items.forEach(([key,label,max])=>{
     const cur=parseInt(d[key]||0)||0;
@@ -3163,6 +3157,13 @@ function buildF13(f,d,canT,fkey,canS){
   });
   h+=`</div></div>`;
 
+  // 分數顯示卡（在評分表下方）
+  h+=`<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">
+    <div class="card-body" style="text-align:center;padding:16px;">
+      <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">書面報告總分</div>
+      <div id="f13_total_${fid}" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / 100</span></div>
+    </div>
+  </div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">綜合意見<span class="t-badge">老師</span></div></div><div class="card-body">
     <div class="field">${ta(fid,'t_comment',4,!canT)}</div>
     ${signRow(fid,'s_sign','t_sign',canT)}
@@ -3173,11 +3174,14 @@ function buildF13(f,d,canT,fkey,canS){
 }
 
 function calcF13Score(fid){
-  var d=Object.assign({},APP.formData[fid]||{},APP.formData[getFormKey(APP.currentFormId||fid)]||{});
+  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  var d=Object.assign({},APP.formData[fid]||{},APP.formData[realFid]||{});
   var keys=['s1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h'];
   var total=keys.reduce(function(s,k){return s+(parseInt(d[k])||0);},0);
   var el=document.getElementById('f13_total_'+fid);
-  if(el){el.textContent=total;el.style.color=total>=60?'var(--green)':'var(--red)';}
+  if(el){
+    el.innerHTML='<span style="font-size:36px;font-weight:700;color:'+(total>=60?'var(--green)':'var(--red)')+'">'+total+'</span><span style="font-size:14px;color:var(--ink3);"> / 100</span>';
+  }
 }
 
 /* ─── F14 PPT ─── */
@@ -3203,14 +3207,6 @@ function buildF14(f,d,canT,fkey,canS){
   ];
   const totalMax=items.reduce(function(a,b){return a+b.max;},0);
 
-  // 分數卡片
-  h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">';
-  h+='<div class="card-body" style="text-align:center;padding:16px;">';
-  h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">PPT 報告總分</div>';
-  h+='<div style="font-size:48px;font-weight:700;" id="f14_total_'+fid+'">0</div>';
-  h+='<div style="font-size:12px;color:var(--ink3);">/ '+totalMax+' 分</div>';
-  h+='</div></div>';
-
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分'+totalMax+'分）<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
   h+='<table class="rating-table"><tr><th style="text-align:left;">評核項目</th><th>滿分</th><th>得分（數字輸入）</th></tr>';
 
@@ -3226,6 +3222,12 @@ function buildF14(f,d,canT,fkey,canS){
   });
   h+='</table></div></div>';
 
+  // 分數顯示卡（在評分表下方）
+  h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">';
+  h+='<div class="card-body" style="text-align:center;padding:16px;">';
+  h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">PPT 報告總分</div>';
+  h+='<div id="f14_total_'+fid+'" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / '+totalMax+'</span></div>';
+  h+='</div></div>';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評語與回饋<span class="t-badge">老師</span></div></div><div class="card-body">';
   h+='<div class="field"><label>老師評語</label>'+ta(fid,'t_fb',3,!canT)+'</div>';
   h+=signRow(fid,'s_sign','t_sign',canT);
@@ -3236,9 +3238,11 @@ function buildF14(f,d,canT,fkey,canS){
 }
 
 function calcF14Score(fid){
-  var d=APP.formData[fid]||{};
+  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
+  var d=Object.assign({},APP.formData[fid]||{},APP.formData[realFid]||{});
   var total=0;
   var items=[10,10,10,10,10,10,10,10,5,5,5,5];
+  var totalMax=items.reduce(function(a,b){return a+b;},0);
   items.forEach(function(max,i){
     var v=parseInt(d['f14_sc_'+i]||0)||0;
     if(v>max)v=max;
@@ -3246,7 +3250,9 @@ function calcF14Score(fid){
     total+=v;
   });
   var el=document.getElementById('f14_total_'+fid);
-  if(el) el.textContent=total;
+  if(el){
+    el.innerHTML='<span style="font-size:36px;font-weight:700;color:'+(total>=60?'var(--green)':'var(--red)')+'">'+total+'</span><span style="font-size:14px;color:var(--ink3);"> / '+totalMax+'</span>';
+  }
 }
 
 
@@ -3430,7 +3436,6 @@ function buildDOPS(f,d,canT,fkey,canS){
       h+='<label class="check-item"><input type="radio" name="'+f.id+'_result" '+chk+' '+dis+' onchange="'+oc+'" style="accent-color:var(--gold);"> '+v+'</label>';
     });
     h+='</div></div>';
-    h+='<div class="field"><label>評分分數（0-100）<span class="t-badge">老師</span></label>'+fi(fid,'score','number',!canT)+'</div>';
     h+='<div class="field"><label>學生自覺技術複雜度</label><div class="check-group">';['低','中','高'].forEach(function(v2){var c2=d['complexity']===v2?'checked':'';var o2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['complexity']='"+v2+"'";h+='<label class="check-item"><input type="radio" name="'+fid+'_cx" '+c2+' onchange="'+o2+'" style="accent-color:var(--gold);"> '+v2+'</label>';});h+='</div></div>';
     h+='<div class="field"><label>學生對此技術操作的心得感受</label>'+ta(fid,'s_feeling',3,false)+'</div>';
     h+='<div class="field"><label>老師回饋<span class="t-badge">老師</span></label>'+ta(fid,'t_fb',3,!canT)+'</div>';
