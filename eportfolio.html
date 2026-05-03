@@ -2112,6 +2112,115 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
   
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // F04M / F04S 床邊教學訓練記錄表
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F04M'||id==='F04S'){
+    var isMedF=(id==='F04M');
+    // ── 頁首標題 ──
+    html+='<div style="text-align:center;font-weight:700;font-size:12pt;margin-bottom:8px;">實習學生—床邊教學訓練記錄表（'+(isMedF?'內科':'外科')+'）</div>';
+
+    // ── 學生資料 ──
+    html+='<div class="section-head">學生資料</div>';
+    html+='<table>';
+    html+=row('學生姓名',val('s_name'),false);
+    html+=row('實習學校',val('school'),false);
+    html+='</table>';
+
+    // ── 病患資料 ──
+    html+='<div class="section-head">病患資料</div>';
+    html+='<table><tr>';
+    html+='<td style="border:1px solid #DDD;padding:5px 8px;width:25%;"><b>病床號</b><br>'+(val('bed')||'—')+'</td>';
+    html+='<td style="border:1px solid #DDD;padding:5px 8px;width:25%;"><b>病人名</b><br>'+(val('pt_name')||'—')+'</td>';
+    html+='<td style="border:1px solid #DDD;padding:5px 8px;width:25%;"><b>性別</b><br>'+(val('gender')||'—')+'</td>';
+    html+='<td style="border:1px solid #DDD;padding:5px 8px;width:25%;"><b>出生日期</b><br>'+(val('birth_date')||'—')+'</td>';
+    html+='</tr></table>';
+
+    // ── 一、診斷 ──
+    html+='<div class="section-head">一、診斷</div>';
+    html+='<table>'+row('診斷',val('diagnosis'),false)+'</table>';
+
+    // ── 二、呼吸問題確立 ──
+    var indArr=[];try{indArr=JSON.parse(d['rt_ind']||'[]');}catch(e){}
+    var allInd=['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'];
+    html+='<div class="section-head">二、呼吸問題確立 — Indications of mechanical ventilation</div>';
+    html+='<table><tr>';
+    allInd.forEach(function(ind,i){
+      var checked=indArr.indexOf(ind)>=0;
+      html+='<td style="border:1px solid #DDD;padding:4px 6px;font-size:9pt;white-space:nowrap;">';
+      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+ind+'</td>';
+      if(i===4){html+='</tr><tr>';}
+    });
+    html+='</tr>';
+    if(val('rt_ind_others')){
+      html+='<tr><td colspan="5" style="border:1px solid #DDD;padding:4px 6px;font-size:9pt;">Others：'+val('rt_ind_others')+'</td></tr>';
+    }
+    html+='</table>';
+
+    // ── 三、呼吸治療評估 ──
+    html+='<div class="section-head">三、呼吸治療評估</div>';
+    // 呼吸器機型
+    var ventArr=[];try{ventArr=JSON.parse(d['vent_type']||'[]');}catch(e){}
+    var allVent=['PB840','Servo','Hamilton-G5','Drager','NKV-550'];
+    html+='<table><tr><td colspan="2" style="border:1px solid #DDD;padding:5px 8px;"><b>呼吸器機型：</b>';
+    allVent.forEach(function(vt){
+      var checked=ventArr.indexOf(vt)>=0;
+      html+='<span style="margin-right:12px;font-size:10pt;color:'+(checked?'#2471A3':'#888')+';font-weight:'+(checked?'700':'400')+';"><span style="margin-right:2px;">'+(checked?'☑':'☐')+'</span>'+vt+'</span>';
+    });
+    html+='</td></tr>';
+    if(val('vent_servo_note')||val('vent_drager_note')){
+      html+='<tr>';
+      html+='<td style="border:1px solid #DDD;padding:4px 8px;font-size:10pt;">Servo 型號：'+(val('vent_servo_note')||'—')+'</td>';
+      html+='<td style="border:1px solid #DDD;padding:4px 8px;font-size:10pt;">Drager 型號：'+(val('vent_drager_note')||'—')+'</td>';
+      html+='</tr>';
+    }
+    html+='</table>';
+    // 呼吸器設定參數
+    html+='<div style="font-size:10pt;font-weight:700;margin:8px 0 4px;">目前呼吸器設定：</div>';
+    html+='<table style="font-size:9pt;">';
+    function pRow(cells){
+      var tr='<tr>';
+      cells.forEach(function(cell){
+        var label=cell[0],v=cell[1],unit=cell[2]||'';
+        tr+='<td style="border:1px solid #DDD;padding:4px 6px;white-space:nowrap;"><b>'+label+'</b>：'+(v||'—')+(unit?' '+unit:'')+'</td>';
+      });
+      tr+='</tr>';
+      return tr;
+    }
+    html+=pRow([['Mode',val('vent_mode')],['FiO₂',val('fio2'),'%'],['PEEP',val('peep'),'cmH₂O']]);
+    html+=pRow([['Vt set/exp',(val('vt_set')||'—')+'/'+(val('vt_exp')||'—'),'mL'],['Flow',val('flow'),'L'],['PS/PC',(val('ps')||'—')+'/'+(val('pc')||'—'),'cmH₂O']]);
+    html+=pRow([['RR set/total',(val('rr_set')||'—')+'/'+(val('rr_total')||'—'),'bpm'],['Ti/I:E',(val('ti')||'—')+'/'+(val('ie')||'—')],['MV',val('mv'),'L']]);
+    html+=pRow([['Peak/Plateau',(val('peak')||'—')+'/'+(val('plateau')||'—'),'cmH₂O'],['MAP',val('map'),'cmH₂O'],['Cst/Raw',(val('cst')||'—')+'/'+(val('raw')||'—')]]);
+    html+='</table>';
+    if(val('vent_others')){
+      html+='<table>'+row('其他',val('vent_others'),false)+'</table>';
+    }
+
+    // ── 四、目前醫療重點 ──
+    html+='<div class="section-head">四、目前醫療重點</div>';
+    html+='<table>'+row('醫師意見或其它醫療團隊人員建議',val('medical_focus'),false)+'</table>';
+
+    // ── 五、呼吸治療計畫 ──
+    html+='<div class="section-head">五、呼吸治療計畫</div>';
+    html+='<table>'+row('治療計畫',val('rt_plan'),false)+'</table>';
+
+    // ── 臨床實習老師回饋 ──
+    if(val('t_fb')){
+      html+='<div class="section-head">臨床實習老師回饋</div>';
+      html+='<table>'+row('老師回饋',val('t_fb'),true)+'</table>';
+    }
+
+    // ── 簽名 ──
+    html+='<table style="margin-top:8px;">';
+    html+=row('臨床實習老師簽名',val('t_sign'),true);
+    html+=row('老師簽名日期',val('t_sign_date'),true);
+    html+=row('學生簽名',val('s_sign'),false);
+    html+=row('學生簽名日期',val('s_sign_date'),false);
+    html+='</table>';
+
+    return html;
+  }
+
   // F02 臨床表現自我學後評值表
   if(id==='F02'){
     var items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
