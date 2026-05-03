@@ -2076,10 +2076,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     var skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','抽痰(Open、In-line)','tracheostomy care','Extubation technique','Cuff pressure maintenance (MLT、MOV)','Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','NPB-840呼吸器','Servo系列呼吸器','Hamilton-G5呼吸器','NKV-550呼吸器','Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
     html+='<div class="section-head">基本資料</div>';
     html+='<table>';
-    html+=pdfR('學生姓名',val('s_name'),false);
-    html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('實習日期',val('s_date'),false);
-    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',val('s_date')||'—',false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
     html+='</table>';
     html+='<div class="section-head">學生學前自評</div>';
     html+='<table style="font-size:9pt;"><tr>';
@@ -2101,8 +2101,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
-    html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名',studentName||val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
     html+='</table>';
     return html;
   }
@@ -2112,10 +2112,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     var skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','抽痰(Open、In-line)','tracheostomy care','Extubation technique','Cuff pressure maintenance (MLT、MOV)','Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','NPB-840呼吸器','Servo系列呼吸器','Hamilton-G5呼吸器','NKV-550呼吸器','Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
     html+='<div class="section-head">基本資料</div>';
     html+='<table>';
-    html+=pdfR('學生姓名',val('s_name'),false);
-    html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('實習日期',val('s_date'),false);
-    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',val('s_date')||'—',false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
     html+='</table>';
     html+='<div class="section-head">核心技能評核（學後）</div>';
     html+='<table style="font-size:9pt;"><tr>';
@@ -2138,10 +2138,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
-    html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
-    html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('學生簽名',studentName||val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
+    html+=pdfR('老師簽名',val('t_sign')||'—',true);
+    html+=pdfR('老師簽名日期',val('t_sign_date')||'—',true);
     html+='</table>';
     return html;
   }
