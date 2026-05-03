@@ -2069,10 +2069,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
 
   // ── 統一輔助：直接接受 value，兩條呼叫路徑皆適用 ──
   function pdfR(label,v,isT){
-    if(v===undefined||v===null||v==='') return '';
     var bg=isT?'#FFF5F5':'#FAFBFF';
+    var disp=(v===undefined||v===null||v==='')?'—':String(v);
     return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:10pt;vertical-align:top;">'+label+'</td>'
-         +'<td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:10pt;white-space:pre-wrap;">'+String(v)+'</td></tr>';
+         +'<td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:10pt;white-space:pre-wrap;">'+disp+'</td></tr>';
   }
   // 基本資料 section header
   function pdfSec(title){
