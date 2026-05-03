@@ -2840,6 +2840,92 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
 
+  // E01 / E02 / E03 EPA 可信賴專業活動評核
+  if(id==='E01'||id==='E02'||id==='E03'){
+    var epaTask=(typeof EPA_TASKS!=='undefined'&&EPA_TASKS[id])?EPA_TASKS[id]:{};
+    var epaName=(typeof EPA_NAMES!=='undefined'&&EPA_NAMES[id])?EPA_NAMES[id]:f.name;
+    // ── 任務說明 ──
+    html+='<div class="section-head">任務說明</div>';
+    html+='<table>';
+    html+='<tr><td colspan="2" style="background:#EBF5FB;border:1px solid #AED6F1;padding:8px 12px;font-size:11pt;font-weight:700;color:#1A5276;">'+epaName+'</td></tr>';
+    if(epaTask.trustNote){
+      html+='<tr><td colspan="2" style="background:#FFF3CD;border:1px solid #F0C040;padding:6px 12px;font-size:10pt;font-weight:600;color:#8B6914;">⭐ '+epaTask.trustNote+'</td></tr>';
+    }
+    if(epaTask.steps&&epaTask.steps.length>0){
+      var stepsHtml='<div style="font-size:10pt;color:#555;margin-bottom:4px;">任務作業流程：</div><ol style="margin:0 0 4px 18px;padding:0;font-size:10pt;">';
+      epaTask.steps.forEach(function(s){stepsHtml+='<li style="margin-bottom:2px;">'+s+'</li>';});
+      stepsHtml+='</ol>';
+      html+='<tr><td colspan="2" style="background:#FAFBFF;border:1px solid #DDD;padding:8px 12px;">'+stepsHtml+'</td></tr>';
+    }
+    if(epaTask.limit){
+      html+='<tr><td colspan="2" style="background:#FDEDEC;border:1px solid #F1948A;padding:6px 12px;font-size:10pt;font-weight:600;color:#C0392B;">⚠ 限制：'+epaTask.limit+'</td></tr>';
+    }
+    html+='</table>';
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName,false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('評核日期',val('s_date'),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    // ── 臨床情境（複選） ──
+    if(epaTask.scenarios&&epaTask.scenarios.length>0){
+      var scSaved=[];
+      try{scSaved=JSON.parse(val(epaTask.skey)||'[]');}catch(e){scSaved=[];}
+      var scOthersText=val(epaTask.skey+'_others');
+      html+='<div class="section-head">臨床情境（可複選）</div>';
+      html+='<table>';
+      html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:60%;">情境</th>';
+      html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:40%;">勾選</th></tr>';
+      epaTask.scenarios.forEach(function(sc){
+        var picked=scSaved.indexOf(sc)>=0;
+        html+='<tr>';
+        html+='<td style="padding:5px 8px;border:1px solid #DDD;background:'+(picked?'#EBF5FB':'#FAFBFF')+';font-size:10pt;">'+sc;
+        if(sc==='其他'&&picked&&scOthersText){
+          html+='<span style="margin-left:6px;color:#1A5276;">：'+scOthersText+'</span>';
+        }
+        html+='</td>';
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(picked?'#1A5276':'#FAFBFF')+';color:'+(picked?'#fff':'#bbb')+';font-weight:'+(picked?'700':'400')+';font-size:11pt;">'+(picked?'✓':'')+'</td>';
+        html+='</tr>';
+      });
+      html+='</table>';
+    }
+    // ── 可信賴等級 ──
+    var lvls=[
+      ['1','Level 1：學習者在旁觀察'],
+      ['2','Level 2：教師直接觀察'],
+      ['3','Level 3：教師間接觀察'],
+      ['4','Level 4：可獨立執行'],
+      ['5','Level 5：可對其他人進行教學']
+    ];
+    var pickedLv=val('epa_level');
+    html+='<div class="section-head">可信賴等級</div>';
+    html+='<table>';
+    html+='<tr><td colspan="2" style="background:#FFF3CD;border:1px solid #F0C040;padding:5px 12px;font-size:10pt;font-weight:700;color:#8B6914;">★ UGY 信賴等級最高至 Level 2</td></tr>';
+    html+='</table>';
+    html+='<table>';
+    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:85%;">等級說明</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:15%;">勾選</th></tr>';
+    lvls.forEach(function(pair){
+      var lv=pair[0],desc=pair[1];
+      var sel=(pickedLv===lv||pickedLv==lv);
+      html+='<tr>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:'+(sel?'#EBF5FB':'#FAFBFF')+';font-size:10pt;'+(sel?'font-weight:700;color:#1A5276;':'')+'">Level '+lv+' — '+desc.replace(/^Level \d+：/,'')+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#1A5276':'#FAFBFF')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓':'')+'</td>';
+      html+='</tr>';
+    });
+    html+='</table>';
+    // ── 老師回饋與簽名 ──
+    html+='<div class="section-head">老師回饋</div>';
+    html+='<table>';
+    html+=pdfR('老師回饋',val('t_fb'),true);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
+    return html;
+  }
+
   // 通用表單（F03-F15, DOPS, EPA）
   html+='<table>';
   // 基本資料
