@@ -2348,16 +2348,24 @@ function cbdClick(btn){
 
 /* f01Click：F01A/F01B 評分按鈕 */
 function f01Click(btn){
-  // Debug: 檢查按鈕狀態
-  if(btn.disabled){
-    console.warn('f01Click: button is disabled!', btn);
-    return;
-  }
+  if(btn.disabled) return;
   var key=btn.getAttribute('data-rkey');
   var val=btn.getAttribute('data-rval');
   var fid=btn.getAttribute('data-fid');
   var isTeacher=btn.getAttribute('data-teacher')==='1';
   var role=isTeacher?'t':'s';
+
+  // 先更新 inline style（F01A/F01B 按鈕用 inline style，不是 CSS class）
+  var selBg=isTeacher?'#C0392B':'#2471A3';
+  document.querySelectorAll('[data-rkey="'+key+'"]').forEach(function(b){
+    var isSel=(b.getAttribute('data-rval')===val);
+    b.style.background=isSel?selBg:'#fff';
+    b.style.color=isSel?'#fff':'#7A706A';
+    b.style.fontWeight=isSel?'700':'400';
+    b.style.borderColor=isSel?selBg:'#D4C9BB';
+  });
+
+  // 再存資料
   setRating(fid,key,val,role,btn);
 }
 
