@@ -4344,13 +4344,125 @@ function renderTeacherHome(){
 /* ── 批次下載已完成表單 PDF ── */
 function batchDownloadPDF(){
   var doneForms=FORMS.filter(function(f){return getStatus(f.id)==='done';});
-  if(doneForms.length===0){toast('目前沒有已完成的表單',false);return;}
-  toast('開始產生 '+doneForms.length+' 份 PDF，請稍候...');
-  var delay=0;
-  doneForms.forEach(function(f){
-    setTimeout(function(){downloadPDF(f.id);},delay);
-    delay+=800; // 每份間隔 0.8 秒，避免瀏覽器阻擋
+  if(doneForms.length===0){toast('目前沒有已完成的表單');return;}
+
+  // 收集所有已完成表單的 HTML
+  var allHtml='<!DOCTYPE html><html><head><meta charset="UTF-8">';
+  allHtml+='<title>臺中榮總 e-Portfolio 已完成表單</title>';
+  allHtml+='<style>';
+  allHtml+='@page{size:A4;margin:1.5cm;}';
+  allHtml+='body{font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;font-size:10pt;color:#1A1612;margin:0;}';
+  allHtml+='table{width:100%;border-collapse:collapse;margin-bottom:10px;}';
+  allHtml+='td,th{border:1px solid #DDD;padding:5px 8px;font-size:10pt;}';
+  allHtml+='.page-break{page-break-after:always;border-bottom:3px double #B8860B;margin-bottom:20px;padding-bottom:20px;}';
+  allHtml+='.header{text-align:center;border-bottom:3px solid #B8860B;padding-bottom:10px;margin-bottom:12px;}';
+  allHtml+='.hosp{font-size:9pt;color:#666;letter-spacing:1px;}';
+  allHtml+='.title{font-size:15pt;font-weight:700;margin:5px 0;}';
+  allHtml+='.sub{font-size:9pt;color:#888;}';
+  allHtml+='.info-bar{font-size:9pt;color:#555;margin-top:5px;background:#F5F5F0;padding:4px 8px;border-radius:3px;}';
+  allHtml+='.sec{background:#1A3A5C;color:#fff;font-weight:700;padding:5px 10px;margin-top:10px;}';
+  allHtml+='.t-row td{background:#FFF5F5;}';
+  allHtml+='.s-row td{background:#F5F9FF;}';
+  allHtml+='.r-sel-s{background:#2471A3!important;color:#fff!important;font-weight:700;}';
+  allHtml+='.r-sel-t{background:#C0392B!important;color:#fff!important;font-weight:700;}';
+  allHtml+='.history{border-top:2px solid #DDD;margin-top:12px;padding-top:8px;font-size:9pt;color:#666;}';
+  allHtml+='.history-row{padding:2px 0;border-bottom:1px dashed #EEE;}';
+  allHtml+='</style></head><body>';
+
+  var studentName='',studentId='',studentSchool='';
+  if(APP.currentRole==='student'&&APP.currentUser){
+    studentName=APP.currentUser.name;
+    studentId=APP.currentUser.sid||'';
+    studentSchool=APP.currentUser.school||'';
+  } else if(APP.currentStudentId){
+    var stu=APP.students[APP.currentStudentId];
+    if(stu){studentName=stu.name;studentId=APP.currentStudentId;studentSchool=stu.school||'';}
+  }
+
+  doneForms.forEach(function(f,idx){
+    var formKey=getFormKey(f.id);
+    var d=Object.assign({},APP.formData[f.id]||{},APP.formData[formKey]||{});
+    var logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[f.id]||[]);
+    // 去重 logs
+    var logSeen={};
+    var uniqueLogs=logs.filter(function(l){if(logSeen[l.ts])return false;logSeen[l.ts]=true;return true;});
+    uniqueLogs.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
+
+    var sName=studentName||d['s_name']||'';
+    var sSchool=studentSchool||d['school']||'';
+    var lastSave=uniqueLogs.length>0?new Date(uniqueLogs[0].ts).toLocaleString('zh-TW'):'';
+
+    // 頁首
+    allHtml+='<div class="'+(idx<doneForms.length-1?'page-break':'')+'">';
+    allHtml+='<div class="header">';
+    allHtml+='<div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
+    allHtml+='<div class="title">'+f.name+'</div>';
+    allHtml+='<div class="sub">'+f.sub+'</div>';
+    allHtml+='<div class="info-bar">';
+    if(sName) allHtml+='學生：<b>'+sName+'</b>　';
+    if(studentId) allHtml+='學號：'+studentId+'　';
+    if(sSchool) allHtml+='學校：'+sSchool+'　';
+    if(lastSave) allHtml+='最後儲存：'+lastSave;
+    allHtml+='</div></div>';
+
+    // 表單內容
+    function val(key){var v=d[key];return(v!==undefined&&v!==null&&v!==''&&v!==false)?String(v):'';}
+    function row(label,key,isT){
+      var v=val(key);if(!v)return'';
+      return'<tr class="'+(isT?'t-row':'s-row')+'"><td style="width:35%;font-weight:600;">'+label+'</td><td style="white-space:pre-wrap;">'+v+'</td></tr>';
+    }
+    function sec(title){return'<tr><td colspan="2" class="sec">'+title+'</td></tr>';}
+
+    allHtml+='<table>';
+    allHtml+=sec('基本資料');
+    allHtml+=row('學生姓名','s_name',false);
+    allHtml+=row('實習學校','school',false);
+    allHtml+=row('實習日期','s_date',false);
+    allHtml+=row('實習類別','intern_cat',false);
+
+    // 各表單特定欄位
+    allHtml+=buildPDFContent(f.id,f,d,val,row,sec,sName,sSchool);
+    allHtml+='</table>';
+
+    // 簽名區
+    if(val('s_sign')||val('t_sign')){
+      allHtml+='<table><tr class="sec"><td colspan="4" class="sec">簽名區</td></tr>';
+      allHtml+='<tr>';
+      allHtml+='<td style="width:25%;font-weight:600;">學生簽名</td><td>'+val('s_sign')+'</td>';
+      allHtml+='<td style="width:25%;font-weight:600;">學生簽名日期</td><td>'+val('s_sign_date')+'</td>';
+      allHtml+='</tr><tr class="t-row">';
+      allHtml+='<td style="font-weight:600;">老師簽名</td><td>'+val('t_sign')+'</td>';
+      allHtml+='<td style="font-weight:600;">老師簽名日期</td><td>'+val('t_sign_date')+'</td>';
+      allHtml+='</tr></table>';
+    }
+
+    // 填寫歷史紀錄
+    if(uniqueLogs.length>0){
+      allHtml+='<div class="history">';
+      allHtml+='<b>填寫歷史紀錄</b>（共'+uniqueLogs.length+'筆）<br>';
+      uniqueLogs.forEach(function(l,i){
+        var ts=new Date(l.ts).toLocaleString('zh-TW');
+        allHtml+='<div class="history-row">#'+(uniqueLogs.length-i)+'&nbsp;&nbsp;'+ts+'&nbsp;&nbsp;'+l.roleLabel+'：'+l.name+'</div>';
+      });
+      allHtml+='</div>';
+    }
+    allHtml+='</div>'; // end page-break div
   });
+
+  allHtml+='</body></html>';
+
+  // 開新視窗列印
+  var pw=window.open('','_blank','width=900,height=700');
+  if(!pw){toast('⚠ 請允許彈出視窗以產生PDF');return;}
+  pw.document.write(allHtml);
+  pw.document.close();
+  pw.focus();
+  setTimeout(function(){
+    pw.print();
+    // 列印對話框關閉後關視窗
+    pw.onafterprint=function(){pw.close();};
+  },800);
+  toast('✅ 正在開啟列印視窗，請選擇「另存為PDF」');
 }
 
 function renderStatusSection(filterStatus){
