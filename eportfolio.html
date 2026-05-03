@@ -2761,7 +2761,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',val('s_name')||studentName,false);
     html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('評核日期',val('s_date'),false);
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
     // ── D03 額外的呼吸器機型欄位 ──
@@ -2806,7 +2806,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
             else if(v===4||v===5||v===6){grpBg=isSel?'#27AE60':'#fff'; grpC=isSel?'#fff':'#bbb';}
             else if(v===7||v===8||v===9){grpBg=isSel?'#B8860B':'#fff'; grpC=isSel?'#fff':'#bbb';}
             else {grpBg=isSel?'#7F8C8D':'#fff'; grpC=isSel?'#fff':'#bbb';}
-            html+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+grpBg+';color:'+grpC+';font-weight:'+(isSel?'700':'400')+';font-size:9pt;">'+(isSel?'●':'')+'</td>';
+            html+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+grpBg+';color:'+grpC+';font-weight:'+(isSel?'700':'400')+';font-size:9pt;">'+(isSel?'✓':'')+'</td>';
           });
           html+='</tr>';
         });
@@ -4351,7 +4351,7 @@ function buildDOPS(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   const data=DOPS_DATA[f.id];if(!data)return buildGeneric(f,d,canT);
-  let h=basicInfoCard(fid,d,'','實習日期',false);
+  let h=basicInfoCard(fid,d,'','評核日期',true);
   let itemIdx=0;
   data.groups.forEach(g=>{
     h+='<div class="card"><div class="card-head" style="background:linear-gradient(90deg,#EAF2FB,#F5F9FC);"><div class="card-head-title" style="color:#1A5276;">'+g.hd+'<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">';
