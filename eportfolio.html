@@ -2326,15 +2326,21 @@ function rBtn(fid,key,v,role,disabled){
   return`<button class="r-btn ${selC}" ${dis} onclick="setRating('${fid}','${key}',${vStr},'${role}',this)">${v}</button>`;
 }
 function setRating(fid,key,val,role,btn){
-  // 統一使用 formKey 存資料（帶學號版本）
   var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
-  if(!APP.formData[realFid])APP.formData[realFid]={};
-  APP.formData[realFid][key]=val;
+  // 同時存到 realFid（含學號）和 fid（裸 id）兩個 key
+  [realFid, fid].forEach(function(k){
+    if(!k)return;
+    if(!APP.formData[k])APP.formData[k]={};
+    APP.formData[k][key]=val;
+  });
   // 同時存到 localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(!drafts[realFid])drafts[realFid]={};
-    drafts[realFid][key]=val;
+    [realFid, fid].forEach(function(k){
+      if(!k)return;
+      if(!drafts[k])drafts[k]={};
+      drafts[k][key]=val;
+    });
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
   // Update button visuals
@@ -2384,6 +2390,11 @@ function cbdClick(btn){
 
 /* f01Click：F01A/F01B 評分按鈕 */
 function f01Click(btn){
+  // Debug: 檢查按鈕狀態
+  if(btn.disabled){
+    console.warn('f01Click: button is disabled!', btn);
+    return;
+  }
   var key=btn.getAttribute('data-rkey');
   var val=btn.getAttribute('data-rval');
   var fid=btn.getAttribute('data-fid');
@@ -2391,6 +2402,22 @@ function f01Click(btn){
   var role=isTeacher?'t':'s';
   setRating(fid,key,val,role,btn);
 }
+
+/* debugF01A：在 Console 執行 debugF01A() 診斷 F01A 按鈕狀態 */
+window.debugF01A=function(){
+  var btns=document.querySelectorAll('[data-rkey^="f01_pre_"]');
+  console.log('F01A 按鈕總數:', btns.length);
+  btns.forEach(function(btn,i){
+    if(i<3) console.log('按鈕'+i+': disabled='+btn.disabled+', style='+btn.style.pointerEvents+', opacity='+btn.style.opacity);
+  });
+  var mc=document.getElementById('main-content');
+  if(mc){
+    var allDisabled=mc.querySelectorAll('button[disabled]');
+    console.log('main-content 內所有 disabled 按鈕:', allDisabled.length);
+  }
+  console.log('canS should be:', APP.currentRole==='student');
+  console.log('APP.currentRole:', APP.currentRole);
+};
 
 /* setRating360：360度評估表評分 */
 function setRating360(fid,key,val,role,btn){
