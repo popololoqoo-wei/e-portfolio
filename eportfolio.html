@@ -1935,21 +1935,11 @@ function downloadPDF(id){
   var dFromDraft={};
   try{
     var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    // 合併所有可能的 key：裸id、formKey，以及任何以裸id為前綴的 key（如 F01A_P145023）
-    Object.assign(dFromDraft, allDrafts[id]||{});
-    Object.assign(dFromDraft, allDrafts[formKey]||{});
-    // 額外掃描：找出所有以 id+ 為前綴的草稿 key（補漏網）
-    Object.keys(allDrafts).forEach(function(k){
-      if(k.startsWith(id+'_')) Object.assign(dFromDraft, allDrafts[k]||{});
-    });
+    // 合併裸 id 和 formKey 兩個草稿來源
+    Object.assign(dFromDraft, allDrafts[id]||{}, allDrafts[formKey]||{});
   }catch(e){}
-  // 額外掃描 APP.formData 中所有以 id_ 開頭的 key（涵蓋所有學號變體）
-  var dFromApp={};
-  Object.keys(APP.formData||{}).forEach(function(k){
-    if(k===id||k===formKey||k.startsWith(id+'_')) Object.assign(dFromApp,APP.formData[k]||{});
-  });
-  // 優先順序：localStorage草稿 < APP.formData 各來源（後者蓋前者）
-  const d=Object.assign({},dFromDraft,dFromApp);
+  // 優先順序：localStorage草稿 < APP.formData[formKey] < APP.formData[id]（最新的在後面蓋前面）
+  const d=Object.assign({},dFromDraft,APP.formData[formKey]||{},APP.formData[id]||{});
   const logs=APP.historyLog[formKey]||[];
   
   // 取得學生資訊
@@ -3127,7 +3117,8 @@ function buildF01A(f,d,canT,fkey,canS){
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名區</div></div><div class="card-body">';
   h+='<div class="g2">';
   h+='<div class="field"><label>學生簽名</label>'+makeDropdown(fid,'s_sign',getStudentList(),false,'請選擇學生')+'</div>';
-  h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+f01a_sd+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="saveDraftField(''+fid+'','s_sign_date',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
+  var f01a_oc="APP.formData['" +fid+ "']=(APP.formData['" +fid+ "']||{});APP.formData['" +fid+ "']['s_sign_date']=this.value";
+  h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+f01a_sd+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+f01a_oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
   h+='</div></div></div>';
   return h;
 }
@@ -4872,13 +4863,7 @@ function batchDownloadPDF(){
   doneForms.forEach(function(f,idx){
     var formKey=getFormKey(f.id);
     // 合併草稿 + APP.formData（確保 intern_cat、s_sign_date 等欄位不遺漏）
-    var dDraft={};
-    Object.assign(dDraft, allDraftsCache[f.id]||{});
-    Object.assign(dDraft, allDraftsCache[formKey]||{});
-    // 額外掃描以裸id為前綴的所有 key
-    Object.keys(allDraftsCache).forEach(function(k){
-      if(k.startsWith(f.id+'_')) Object.assign(dDraft, allDraftsCache[k]||{});
-    });
+    var dDraft=Object.assign({},allDraftsCache[f.id]||{},allDraftsCache[formKey]||{});
     var d=Object.assign({},dDraft,APP.formData[f.id]||{},APP.formData[formKey]||{});
     var logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[f.id]||[]);
     // 去重 logs
