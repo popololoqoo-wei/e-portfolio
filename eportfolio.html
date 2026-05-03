@@ -248,6 +248,13 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 input,select,textarea,button{-webkit-text-size-adjust:100%;}
 input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{font-size:16px !important;}
 
+/* ─── 全域修正：所有 date input 不可超出容器 ─── */
+input[type="date"]{
+  box-sizing:border-box !important;
+  max-width:100% !important;
+  min-width:0 !important;
+}
+
 /* ══════════════════════════════════════════════════
    手機版響應式修正（僅在 < 768px 生效，不影響桌機）
    ══════════════════════════════════════════════════ */
