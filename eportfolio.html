@@ -244,6 +244,121 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 
 input,select,textarea,button{-webkit-text-size-adjust:100%;}
 input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{font-size:16px !important;}
+
+/* ═══════════ 手機版響應式 CSS ═══════════ */
+
+/* 1. 全域容器寬度限制 */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+#main-content, .form-detail-body, .card, .card-body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* 2. 所有 input/select/textarea 自動伸縮 */
+input, select, textarea {
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px !important; /* 防止 iOS 自動縮放 */
+}
+
+/* 3. 日期欄位特別處理 */
+input[type="date"] {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 4. 表格響應式 */
+.rating-table, .dops-tbl, table {
+  width: 100%;
+  table-layout: auto;
+}
+
+.card-body[style*="overflow-x:auto"],
+.card-body {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 5. g2/g3 Grid 在小螢幕自動換行 */
+.g2 > *, .g3 > * {
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  /* Grid 在手機版改為單欄 */
+  .g2, .g3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 簽名區欄位強制全寬 */
+  .g2 input[type="date"],
+  .g2 select,
+  .g2 input[type="text"],
+  .g3 input[type="date"],
+  .g3 select,
+  .g3 input[type="text"] {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* 卡片 padding 縮小 */
+  .card-body {
+    padding: 10px 8px;
+  }
+
+  /* 表格文字縮小 */
+  .rating-table th,
+  .rating-table td,
+  .dops-tbl th,
+  .dops-tbl td {
+    font-size: 11px;
+    padding: 4px 3px;
+  }
+
+  /* 日期區間欄位強制換行 */
+  div[style*="display:flex"][style*="align-items:center"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* 快捷列換行 */
+  .quick-nav {
+    flex-wrap: wrap !important;
+  }
+
+  /* form-detail-header 文字不截斷 */
+  .form-detail-header h2 {
+    font-size: 15px;
+    word-break: break-word;
+  }
+
+  /* signRow g2 強制單欄 */
+  .card .g2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 極小螢幕追加處理 */
+  .topbar {
+    padding: 8px 10px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .r-btn {
+    min-width: 28px;
+    padding: 4px 2px;
+    font-size: 11px;
+  }
+}
+/* ═══════════ END 手機版響應式 CSS ═══════════ */
 </style>
 </head>
 <body>
