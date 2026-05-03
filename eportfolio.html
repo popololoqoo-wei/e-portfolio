@@ -857,9 +857,9 @@ const REQUIRED_STUDENT_FIELDS = {
   F01B: ['s_name','school','s_date','t_sign'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
   // F02 臨床表現
   F02: ['s_name','school','s_date','s_sign','t_sign'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
-  // F04 床邊教學（必填：學生姓名,實習學校,病床號,病人名,診斷,醫療重點,治療計畫,老師回饋,老師簽名,老師簽名日期,學生簽名,學生簽名日期）
-  F04M: ['s_name','school','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
-  F04S: ['s_name','school','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
+  // F04 床邊教學（必填：學生姓名,實習學校,實習日期,實習類別,病床號,病人名,診斷,醫療重點,治療計畫,老師回饋,老師簽名,老師簽名日期,學生簽名,學生簽名日期）
+  F04M: ['s_name','school','s_date','intern_cat','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
+  F04S: ['s_name','school','s_date','intern_cat','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'],
   // F06 CbD（必填：基本資料+複雜度+主診斷+7項評量+雙向回饋）
   F06M: ['s_name','school','s_date','complexity','case_dx',
     'f06_0','f06_1','f06_2','f06_3','f06_4','f06_5','f06_6',
@@ -2200,6 +2200,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=f04row('學生姓名',val('s_name'),false);
     html+=f04row('實習學校',val('school'),false);
+    html+=f04row('實習日期',cleanDate(val('s_date')),false);
+    html+=f04row('實習類別',val('intern_cat'),false);
     html+='</table>';
 
     // ── 病患資料 ──
@@ -3875,6 +3877,15 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   var schoolOpts=schools.map(function(s){return '<option value="'+s+'" '+(sc===s?'selected':'')+'>'+s+'</option>';}).join('');
   var schoolOC="saveDraftField('"+fid+"','school',this.value)";
   h+='<div class="field"><label>實習學校</label><select data-fid="'+fid+'" data-key="school" onchange="'+schoolOC+'" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇</option>'+schoolOpts+'</select></div>';
+  h+='</div>';
+  // 實習日期（區間）+ 實習類別（下拉）
+  h+='<div class="g2">';
+  h+='<div class="field"><label>實習日期</label>'+dateRangeField(fid,'s_date',false)+'</div>';
+  var f04cats=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
+  var f04catVal=d['intern_cat']||'';
+  var f04catOpts=f04cats.map(function(c){return '<option value="'+c+'" '+(f04catVal===c?'selected':'')+'>'+c+'</option>';}).join('');
+  var f04catOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['intern_cat']=this.value;saveDraftField('"+fid+"','intern_cat',this.value)";
+  h+='<div class="field"><label>實習類別</label><select data-fid="'+fid+'" data-key="intern_cat" onchange="'+f04catOC+'" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習類別</option>'+f04catOpts+'</select></div>';
   h+='</div></div></div>';
 
   // 病患基本資料
@@ -5540,7 +5551,7 @@ window.debugStatus=function(id){
   var req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
   var f=findForm(id);
   if(f&&f.roles==='both'&&req.indexOf('t_sign')<0) req.push('t_sign');
-  if(id==='F04M'||id==='F04S') req=['s_name','school','s_date','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','s_sign'];
+  if(id==='F04M'||id==='F04S') req=['s_name','school','s_date','intern_cat','bed','pt_name','diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'];
   if(id==='F10A'||id==='F10B') req=['s_name','school'];
 
   function hasRealVal(v){if(v===undefined||v===null||v===false)return false;return String(v).trim()!=='';}
