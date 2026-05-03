@@ -2091,6 +2091,13 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     if(mEnd) return mEnd[1];
     return s||'—';
   }
+  // 單一日期欄位專用：若舊資料殘留區間格式（"YYYY/MM/DD - YYYY/MM/DD" 或 "YYYY-MM-DD - YYYY-MM-DD"），只取開始日期
+  function singleDateOnly(v){
+    if(!v) return v;
+    var s=String(v).trim();
+    var m=s.match(/^(\d{4}[-\/]\d{2}[-\/]\d{2})/);
+    return m?m[1]:s;
+  }
 
   // F01A 核心課程學前評值表
   if(id==='F01A'){
@@ -2761,7 +2768,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',val('s_name')||studentName,false);
     html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('評核日期',val('s_date'),false);
+    html+=pdfR('評核日期',singleDateOnly(val('s_date')),false);
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
     // ── D03 額外的呼吸器機型欄位 ──
@@ -2866,7 +2873,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',val('s_name')||studentName,false);
     html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('評核日期',val('s_date'),false);
+    html+=pdfR('評核日期',singleDateOnly(val('s_date')),false);
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
     // ── 臨床情境（複選） ──
