@@ -1890,8 +1890,23 @@ function downloadPDF(id){
   const lastSave=logs.length>0?logs[0]:null;
   const lastTs=lastSave?new Date(lastSave.ts).toLocaleString('zh-TW'):'';
   
-  // 取得所有欄位的中文名稱
-  const fn=getFieldNames(id);
+  // 取得所有欄位的中文名稱（內建映射，不依賴外部函數）
+  var fn={
+    's_name':'學生姓名','school':'實習學校','s_date':'實習日期','intern_cat':'實習類別',
+    's_sign':'學生簽名','s_sign_date':'學生簽名日期',
+    't_sign':'老師簽名','t_sign_date':'老師簽名日期',
+    't_fb':'老師回饋','t_good':'表現良好','t_improve':'建議加強','t_comment':'綜合意見',
+    't_note':'輔導備注','director_fb':'指導教師評語',
+    'peer_good':'其他團隊優點','peer_suggest':'其他團隊建議',
+    'host_sign':'主持人簽名','host_sign_date':'主持人簽名日期',
+    'bed':'病床號','pt_name':'病人名','gender':'性別','birth_date':'出生日期',
+    'diagnosis':'診斷','case_dx':'主診斷','medical_focus':'醫療重點','rt_plan':'治療計畫',
+    's_feeling':'學習心得','s_fb':'學生回饋','s_improve':'自覺加強',
+    'goal':'學習目標','motivation':'學習動機','strategy':'學習策略',
+    'env_review':'環境評值','complexity':'病情複雜度',
+    'epa_level':'可信賴等級','result':'評量結果',
+    'date':'輔導日期','t_title':'職稱','team_sign':'其他人員簽名',
+  };
   
   // 輔助：取值並顯示
   function val(key){ var v=d[key]; return (v!==undefined&&v!==null&&v!==''&&v!==false)?String(v):''; }
@@ -1957,6 +1972,29 @@ function downloadPDF(id){
   URL.revokeObjectURL(url);
   toast('PDF 已產生，請在瀏覽器中選擇「列印→另存PDF」');
 }
+
+
+/* ── 全域欄位中文名稱對照表 ── */
+const FIELD_LABELS={
+  's_name':'學生姓名','school':'實習學校','s_date':'實習日期','intern_cat':'實習類別',
+  's_sign':'學生簽名','s_sign_date':'學生簽名日期',
+  't_sign':'老師簽名','t_sign_date':'老師簽名日期',
+  't_fb':'老師回饋','t_good':'表現良好','t_improve':'建議加強','t_comment':'綜合意見',
+  't_note':'輔導備注','director_fb':'指導教師評語','t_title':'職稱',
+  'peer_good':'其他團隊優點','peer_suggest':'其他團隊建議',
+  'host_sign':'主持人簽名','host_sign_date':'主持人簽名日期',
+  'bed':'病床號','pt_name':'病人名','gender':'性別','birth_date':'出生日期',
+  'diagnosis':'診斷','case_dx':'主診斷','medical_focus':'醫療重點','rt_plan':'治療計畫',
+  's_feeling':'學習心得','s_fb':'學生回饋','s_improve':'自覺加強','s_suggest':'其他建議',
+  'goal':'學習目標','motivation':'學習動機','strategy':'學習策略',
+  'env_review':'環境評值','complexity':'病情複雜度','case_title':'個案標題',
+  'epa_level':'可信賴等級','result':'評量結果','score_grade':'評分等級',
+  'date':'輔導日期','team_sign':'其他人員簽名','team_title':'其他人員職稱',
+  'team_good':'其他團隊優點','team_suggest':'其他團隊建議',
+  'discuss_生':'生理討論','discuss_心':'心理討論','discuss_靈':'靈性討論',
+  'c1':'照護討論1','c2':'照護討論2','s_comment':'學生評語',
+  'env_review':'學習心得','note':'備注','s_note':'學生觀察紀錄',
+};
 
 function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool){
   var html='';
@@ -2067,7 +2105,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool){
   html+='<table>';
   // 基本資料
   var basicKeys=['s_name','school','s_date','date','t_name','teacher_name','period','topic','speaker','pt_info','bed','mode','fio2','peep','vt','rr'];
-  basicKeys.forEach(function(k){ if(d[k]) html+=row(getFieldNames(id)[k]||k,k,false); });
+  basicKeys.forEach(function(k){ if(d[k]) html+=row((FIELD_LABELS[k]||k),k,false); });
   html+='</table>';
   
   // 評分項目（數字型）
@@ -2075,7 +2113,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool){
   if(scoreKeys.length>0){
     html+='<div class="section-head">評分項目</div><table>';
     scoreKeys.forEach(function(k){
-      var label=getFieldNames(id)[k]||k;
+      var label=(FIELD_LABELS[k]||k);
       html+=row(label,k,true);
     });
     html+='</table>';
@@ -2085,7 +2123,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool){
   var textKeys=['diagnosis','medical_focus','rt_plan','goal','motivation','strategy','s_comment','s_fb','s_feeling','s_improve','s_note','s_suggest','s_self','t_fb','t_good','t_improve','t_comment','t_note','director_fb','peer_good','peer_suggest','env_review','teacher_review','self_review','content','feeling','c1','c2','c3','ilp_fb','host_note','overall','result','complexity'];
   html+='<table>';
   textKeys.forEach(function(k){
-    if(d[k]&&d[k]!=='') html+=row(getFieldNames(id)[k]||k,k,['t_fb','t_good','t_improve','t_comment','t_note','director_fb','peer_good','peer_suggest'].includes(k));
+    if(d[k]&&d[k]!=='') html+=row((FIELD_LABELS[k]||k),k,['t_fb','t_good','t_improve','t_comment','t_note','director_fb','peer_good','peer_suggest'].includes(k));
   });
   html+='</table>';
   
@@ -2093,7 +2131,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool){
   html+='<div class="sign-box"><table>';
   var signKeys=['s_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_date'];
   signKeys.forEach(function(k){
-    if(d[k]) html+=row(getFieldNames(id)[k]||k,k,k.startsWith('t_')||k.startsWith('host'));
+    if(d[k]) html+=row((FIELD_LABELS[k]||k),k,k.startsWith('t_')||k.startsWith('host'));
   });
   html+='</table></div>';
   
