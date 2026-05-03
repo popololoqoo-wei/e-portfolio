@@ -2058,11 +2058,29 @@ const FIELD_LABELS={
 
 function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   var html='';
-  
+
+  // ── 統一輔助：直接接受 value，兩條呼叫路徑皆適用 ──
+  function pdfR(label,v,isT){
+    if(v===undefined||v===null||v==='') return '';
+    var bg=isT?'#FFF5F5':'#FAFBFF';
+    return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:10pt;vertical-align:top;">'+label+'</td>'
+         +'<td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:10pt;white-space:pre-wrap;">'+String(v)+'</td></tr>';
+  }
+  // 基本資料 section header
+  function pdfSec(title){
+    return '<tr><td colspan="2" style="background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>';
+  }
+
   // F01A 核心課程學前評值表
   if(id==='F01A'){
     var skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','抽痰(Open、In-line)','tracheostomy care','Extubation technique','Cuff pressure maintenance (MLT、MOV)','Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','NPB-840呼吸器','Servo系列呼吸器','Hamilton-G5呼吸器','NKV-550呼吸器','Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
-    html+='<table>'+row('學生姓名',val('s_name'),false)+row('實習學校',val('school'),false)+row('實習日期',val('s_date'),false)+'</table>';
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name'),false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',val('s_date'),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
     html+='<div class="section-head">學生學前自評</div>';
     html+='<table style="font-size:9pt;"><tr>';
     html+='<th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能學習目標</th>';
@@ -2081,14 +2099,24 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='</tr>';
     });
     html+='</table>';
-    html+='<table>'+row('學生簽名',val('s_sign'),false)+row('學生簽名日期',val('s_sign_date'),false)+'</table>';
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+='</table>';
     return html;
   }
-  
+
   // F01B 核心課程學後評值表
   if(id==='F01B'){
     var skills=['洗手技術','無菌操作','設備清潔、消毒','認識病歷','認識醫囑(含RT order)','認識及書寫RT紀錄','認識病患生命徵候及血液動力學監測系統','動脈血液氣體分析判讀','身體檢查與評估、呼吸音聽診','認識中央送氣(central piping)系統','認識不同的人工氣道','抽痰(Open、In-line)','tracheostomy care','Extubation technique','Cuff pressure maintenance (MLT、MOV)','Pharyngeal airway insertion','認識並操作氧氣治療','認識並操作噴霧藥物治療(非呼吸器)','認識並操作噴霧藥物治療(呼吸器)','認識並操作呼吸器病患溼氣藥物治療','認識並操作非侵入性機械通氣治療','NPB-840呼吸器','Servo系列呼吸器','Hamilton-G5呼吸器','NKV-550呼吸器','Drager系列呼吸器','操作呼吸脫離指標','全人照護參與'];
-    html+='<table>'+row('學生姓名',val('s_name'),false)+row('實習學校',val('school'),false)+row('實習日期',val('s_date'),false)+'</table>';
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name'),false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',val('s_date'),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
     html+='<div class="section-head">核心技能評核（學後）</div>';
     html+='<table style="font-size:9pt;"><tr>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能</th>';
@@ -2108,7 +2136,13 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='</tr>';
     });
     html+='</table>';
-    html+='<table>'+row('學生簽名',val('s_sign'),false)+row('學生簽名日期',val('s_sign_date'),false)+row('老師簽名',val('t_sign'),true)+row('老師簽名日期',val('t_sign_date'),true)+'</table>';
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
     return html;
   }
   
@@ -2229,22 +2263,47 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   // F02 臨床表現自我學後評值表
   if(id==='F02'){
     var items=['能說出了解或執行病人之病情變化及其所接受之治療','能正確完整的說出了解或執行醫囑與執行病人的醫療措施','能正確說出了解或執行呼吸治療技術','能正確完整的說出了解或執行呼吸治療衛教','能根據病人反應及病情改變說出了解或執行變更設定','能正確完整的說出了解或執行呼吸治療記錄與各項表單之填寫','能獨力說出了解或執行各項協調作業','能有組織的說出了解或執行規劃每日的工作順序','能主動尋求醫療資源能的支援','在下班前完成每日之工作職責'];
-    html+='<table>'+row('學生姓名','s_name',false)+row('實習學校','school',false)+row('實習日期','s_date',false)+'</table>';
-    html+='<div class="section-head">臨床表現評估（5=非常好，1=非常差）</div>';
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',val('s_date'),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    html+='<div class="section-head">臨床表現評估（非常好5 / 好4 / 普通3 / 不好2 / 非常差1）</div>';
     html+='<table><tr><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評估項目</th><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:60px;text-align:center;">分數</th></tr>';
     items.forEach(function(item,i){
       var score=val('f02_'+i);
-      html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td><td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#2471A3;">'+score+'</td></tr>';
+      html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td><td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#2471A3;">'+(score||'—')+'</td></tr>';
     });
     html+='</table>';
-    html+='<table>'+row('學生心得','s_comment',false)+row('學生簽名','s_sign',false)+row('學生簽名日期','s_sign_date',false)+row('老師回饋','t_fb',true)+row('老師簽名','t_sign',true)+row('老師簽名日期','t_sign_date',true)+'</table>';
+    html+='<div class="section-head">學生心得與簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生心得',val('s_comment'),false);
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+='</table>';
+    html+='<div class="section-head">老師回饋與簽名</div>';
+    html+='<table>';
+    html+=pdfR('老師回饋',val('t_fb'),true);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
     return html;
   }
   
   // F06M/F06S CbD
   if(id==='F06M'||id==='F06S'){
     var items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
-    html+='<table>'+row('學生姓名','s_name',false)+row('病情複雜度','complexity',false)+row('主診斷','diagnosis',false)+'</table>';
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',val('s_date'),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+=pdfR('病情複雜度',val('complexity'),false);
+    html+=pdfR('主診斷',val('diagnosis'),false);
+    html+='</table>';
     html+='<div class="section-head">評量項目（1-9分；1-3=有待加強，4-6=合乎標準，7-9=優良；UGY≥5合格）</div>';
     html+='<table><tr><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評量項目</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;width:80px;text-align:center;">評分</th></tr>';
     items.forEach(function(item,i){
@@ -2261,32 +2320,81 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<div class="section-head">雙向回饋</div>';
     html+='<table>';
-    html+=row('學員學習心得','s_feeling',false);
-    html+=row('自覺可再加強','s_improve',false);
-    html+=row('表現良好項目','t_good',true);
-    html+=row('建議加強項目','t_improve',true);
+    html+=pdfR('學員學習心得',val('s_feeling'),false);
+    html+=pdfR('自覺可再加強',val('s_improve'),false);
+    html+=pdfR('表現良好項目',val('t_good'),true);
+    html+=pdfR('建議加強項目',val('t_improve'),true);
     html+='</table>';
-    html+='<table>'+row('學生簽名','s_sign',false)+row('學生簽名日期','s_sign_date',false)+row('老師簽名','t_sign',true)+row('老師簽名日期','t_sign_date',true)+'</table>';
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+='</table>';
     return html;
   }
-  
+
   // F07M/F07S 360度評估表
   if(id==='F07M'||id==='F07S'){
-    var rows=[['態度','基本禮儀','儀容、禮貌合宜'],[,'','守時/出席狀況'],[,'學習態度','自動自發及敬業精神'],[,'','提供照護及討論前之準備'],[,'團隊合作','同事之間的溝通'],[,'','與醫療團隊成員合作精神'],[,'專業倫理','醫病溝通'],[,'','同理心及同情心'],['臨床智能','呼吸紀錄','確立呼吸照護問題之正確性'],[,'','呼吸計畫之完整性'],[,'','病歷記載之完整性與邏輯性'],[,'照護技術','技術之正確性與熟練度'],[,'交班能力','資料收集整合及分析、時間掌控'],[,'知識考評','單位自行評值呼吸治療知識']];
-    html+='<table>'+row('學生姓名','s_name',false)+row('實習日期','s_date',false)+'</table>';
+    var f07rows=[['態度','基本禮儀','儀容、禮貌合宜'],[,'','守時/出席狀況'],[,'學習態度','自動自發及敬業精神'],[,'','提供照護及討論前之準備'],[,'團隊合作','同事之間的溝通'],[,'','與醫療團隊成員合作精神'],[,'專業倫理','醫病溝通'],[,'','同理心及同情心'],['臨床智能','呼吸紀錄','確立呼吸照護問題之正確性'],[,'','呼吸計畫之完整性'],[,'','病歷記載之完整性與邏輯性'],[,'照護技術','技術之正確性與熟練度'],[,'交班能力','資料收集整合及分析、時間掌控'],[,'知識考評','單位自行評值呼吸治療知識']];
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school'),false);
+    html+=pdfR('實習日期',val('s_date'),false);
+    html+=pdfR('實習類別',val('intern_cat'),false);
+    html+='</table>';
+    // ── 360度評核表 ──
     html+='<div class="section-head">360 度評核</div>';
     html+='<table><tr><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;">類別</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;">面向</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評核細項</th><th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;width:50px;">評分</th></tr>';
-    rows.forEach(function(r,i){
+    f07rows.forEach(function(r,i){
       var score=val('f07_'+i);
       html+='<tr><td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;font-weight:500;">'+(r[0]||'')+'</td>';
       html+='<td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;">'+(r[1]||'')+'</td>';
       html+='<td style="padding:4px 6px;border:1px solid #DDD;font-size:9pt;">'+r[2]+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#C0392B;background:#FEF9F9;">'+score+'</td></tr>';
+      html+='<td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#C0392B;background:#FEF9F9;">'+(score||'—')+'</td></tr>';
     });
     html+='</table>';
+    // ── 分數自動計算（與網頁版 calc360Score 相同公式） ──
+    var attBase=80,attScore=attBase;
+    for(var ai=0;ai<8;ai++){attScore+=parseInt(d['f07_'+ai]||0)||0;}
+    var clinBase=75,clinScore=clinBase;
+    for(var ci=8;ci<14;ci++){clinScore+=parseInt(d['f07_'+ci]||0)||0;}
+    var f07total=Math.round((attScore*0.5)+(clinScore*0.5));
+    var attOk=attScore>=80,clinOk=clinScore>=75,totalOk=f07total>=70;
+    html+='<div class="section-head">分數計算結果</div>';
+    html+='<table>';
+    html+='<tr><td style="border:1px solid #DDD;padding:6px 10px;font-weight:600;width:35%;">態度分數（及格≥80）</td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:13pt;font-weight:700;color:'+(attOk?'#27AE60':'#E74C3C')+';">'+attScore+' / 100 '+(attOk?'✓ 合格':'✗ 未達標')+'</td></tr>';
+    html+='<tr><td style="border:1px solid #DDD;padding:6px 10px;font-weight:600;">臨床智能分數（及格≥75）</td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:13pt;font-weight:700;color:'+(clinOk?'#27AE60':'#E74C3C')+';">'+clinScore+' / 100 '+(clinOk?'✓ 合格':'✗ 未達標')+'</td></tr>';
+    html+='<tr style="background:#F0F8FF;"><td style="border:1px solid #DDD;padding:6px 10px;font-weight:700;font-size:11pt;">總分（及格≥70）</td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:16pt;font-weight:700;color:'+(totalOk?'#27AE60':'#E74C3C')+';">'+f07total+' 分 '+(totalOk?'✓ 通過':'✗ 未通過')+'</td></tr>';
+    html+='</table>';
+    // ── 回饋意見 ──
     html+='<div class="section-head">回饋意見</div>';
-    html+='<table>'+row('臨床老師優點','peer_good',true)+row('臨床老師建議','peer_suggest',true)+row('臨床老師簽名','t_sign',true)+row('職稱','t_title',true)+row('其他團隊人員優點','team_good',false)+row('其他團隊人員建議','team_suggest',false)+row('其他團隊人員簽名','team_sign',false)+row('職稱','team_title',false)+row('實習指導教師綜合評語','director_fb',true)+row('學生回饋','s_fb',false)+'</table>';
-    html+='<table>'+row('學生簽名','s_sign',false)+row('計畫主持人簽名','host_sign',true)+row('主持人簽名日期','host_sign_date',true)+'</table>';
+    html+='<table>';
+    html+=pdfR('臨床老師優點',val('peer_good'),true);
+    html+=pdfR('臨床老師建議',val('peer_suggest'),true);
+    html+=pdfR('臨床老師簽名',val('t_sign'),true);
+    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('職稱',val('t_title'),true);
+    html+=pdfR('其他團隊人員優點',val('team_good'),false);
+    html+=pdfR('其他團隊人員建議',val('team_suggest'),false);
+    html+=pdfR('其他團隊人員簽名',val('team_sign'),false);
+    html+=pdfR('其他人員職稱',val('team_title'),false);
+    html+=pdfR('實習指導教師綜合評語',val('director_fb'),true);
+    html+=pdfR('學生回饋',val('s_fb'),false);
+    html+='</table>';
+    html+='<div class="section-head">簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('計畫主持人簽名',val('host_sign'),true);
+    html+=pdfR('主持人簽名日期',val('host_sign_date'),true);
+    html+='</table>';
     return html;
   }
   
