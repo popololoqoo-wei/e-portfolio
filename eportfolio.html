@@ -1014,8 +1014,10 @@ function getFormKey(id){
 const REQUIRED_STUDENT_FIELDS = {
   // F01A 學前評值（學生單填）
   F01A: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date'].concat(Array.from({length:28},function(_,i){return 'f01_pre_'+i;})),
-  // F01B 學後評值
-  F01B: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date','t_sign','t_sign_date'].concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;})),
+  // F01B 學後評值（含 28 個學後自評 + 28 個指導者評核 + 雙方簽名）
+  F01B: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date','t_sign','t_sign_date']
+    .concat(Array.from({length:28},function(_,i){return 'f01_post_'+i;}))
+    .concat(Array.from({length:28},function(_,i){return 'f01_p1_'+i;})),
   // F02 臨床表現
   F02: ['s_name','school','intern_cat','s_date','s_comment','t_fb','s_sign','s_sign_date','t_sign','t_sign_date'].concat(Array.from({length:10},function(_,i){return 'f02_'+i;})),
   // F04 床邊教學
@@ -1375,13 +1377,30 @@ function selectStudent(sid){
 }
 
 function getStudentFormStatus(formId, sid){
+  // 借用 getStatus 的完整必填邏輯，先暫時把 currentStudentId 指向目標學生
   const key = formId+'_'+sid;
-  const d = APP.formData[key]||{};
-  if(Object.keys(d).length===0) return 'new';
-  const f = findForm(formId);if(!f)return'new';
-  const allT = f.tFields ? f.tFields.every(k=>d[k]&&String(d[k]).trim()) : true;
-  if(Object.keys(d).length>0 && !allT) return 'wait';
-  return 'done';
+  const data = APP.formData[key];
+  if(!data || Object.keys(data).length===0) return 'new';
+  // 暫存目前狀態
+  const savedStudentId = APP.currentStudentId;
+  const savedRole = APP.currentRole;
+  const savedUser = APP.currentUser;
+  // 切換成 admin/teacher 模式 + currentStudentId=sid，讓 getFormKey 回傳 formId+'_'+sid
+  if(APP.currentRole === 'student'){
+    // 學生不會用到此函式（學生只看自己），但仍保險處理
+    APP.currentRole = 'admin';
+    APP.currentUser = null;
+  }
+  APP.currentStudentId = sid;
+  let st;
+  try {
+    st = getStatus(formId);
+  } finally {
+    APP.currentStudentId = savedStudentId;
+    APP.currentRole = savedRole;
+    APP.currentUser = savedUser;
+  }
+  return st;
 }
 
 
@@ -1726,8 +1745,8 @@ function lockTeacherFields(){
     if(parent) parent.style.opacity='0.6';
   });
 
-  // 鎖定所有老師評分按鈕（r-btn、d-btn）
-  mc.querySelectorAll('button.r-btn[data-teacher="1"],button.d-btn').forEach(function(btn){
+  // 鎖定所有老師評分按鈕：r-btn、d-btn、F01A/F01B 的 inline-style 按鈕（凡有 data-teacher="1" 的 button 一律鎖定）
+  mc.querySelectorAll('button[data-teacher="1"],button.d-btn').forEach(function(btn){
     btn.disabled=true;
     btn.style.opacity='0.35';
     btn.style.cursor='not-allowed';
@@ -1816,8 +1835,7 @@ function unlockTeacherFieldsInDOM(){
     }
   });
   // 解鎖所有老師評分按鈕和輸入欄位
-  mc.querySelectorAll('button[disabled],button.r-btn,button.d-btn').forEach(function(btn){
-    var isStudentBtn=btn.getAttribute('data-teacher')==='0';
+  mc.querySelectorAll('button[disabled],button[data-teacher="1"],button.r-btn,button.d-btn').forEach(function(btn){
     var isStudentBtn=btn.getAttribute('data-teacher')==='0';
     if(!isStudentBtn){
       btn.disabled=false;
@@ -5725,31 +5743,75 @@ function updateStudentExpiry(sid, date) {
 function editStudent(sid) {
   const acc = APP.students[sid];
   if (!acc) return;
+  const newSid = prompt('修改學號（目前：' + sid + '）\n⚠ 注意：修改學號後，學生需用新學號登入', sid);
+  if (newSid === null) return;
+  const trimmedSid = newSid.trim();
+  if (trimmedSid && trimmedSid !== sid) {
+    if (!trimmedSid) { toast('⚠ 學號不可為空'); return; }
+    if (APP.students[trimmedSid]) { toast('⚠ 此學號「' + trimmedSid + '」已被使用'); return; }
+  }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
   const newSchool = prompt('修改學校（目前：' + (acc.school||'') + '）', acc.school||'');
   if (newSchool === null) return;
   const newPwd = prompt('修改密碼（目前：' + acc.pwd + '，留空不更改）', '');
-  APP.students[sid].name = newName || acc.name;
-  APP.students[sid].school = newSchool || acc.school;
-  if (newPwd && newPwd.trim()) APP.students[sid].pwd = newPwd.trim();
+  if (trimmedSid && trimmedSid !== sid) {
+    APP.students[trimmedSid] = {
+      name: newName || acc.name,
+      school: newSchool || acc.school,
+      pwd: (newPwd && newPwd.trim()) ? newPwd.trim() : acc.pwd,
+      expiry: acc.expiry,
+      selfRegistered: acc.selfRegistered,
+      registeredAt: acc.registeredAt
+    };
+    delete APP.students[sid];
+    // 同步更新 studentOrder
+    if (APP.studentOrder && APP.studentOrder.indexOf(sid) >= 0) {
+      APP.studentOrder = APP.studentOrder.map(function(s){ return s === sid ? trimmedSid : s; });
+    }
+  } else {
+    APP.students[sid].name = newName || acc.name;
+    APP.students[sid].school = newSchool || acc.school;
+    if (newPwd && newPwd.trim()) APP.students[sid].pwd = newPwd.trim();
+  }
   refreshStudentTable();
   saveConfigToSheets();
-  toast('學生資料已更新');
+  toast('✓ 學生資料已更新');
 }
 
 /* ── 老師帳號修改 ── */
 function editTeacher(card) {
   const acc = APP.teachers[card];
   if (!acc) return;
+  const newCard = prompt('修改卡號（目前：' + card + '）\n⚠ 注意：修改卡號後，老師需用新卡號登入', card);
+  if (newCard === null) return;
+  const trimmedCard = newCard.trim();
+  // 卡號變動時的檢查
+  if (trimmedCard && trimmedCard !== card) {
+    if (!trimmedCard) { toast('⚠ 卡號不可為空'); return; }
+    if (APP.teachers[trimmedCard]) { toast('⚠ 此卡號「' + trimmedCard + '」已被使用'); return; }
+  }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
   const newPwd = prompt('修改密碼（目前：' + acc.pwd + '，留空不更改）', '');
-  APP.teachers[card].name = newName || acc.name;
-  if (newPwd && newPwd.trim()) APP.teachers[card].pwd = newPwd.trim();
+  // 若卡號變更：建立新 key 並刪除舊 key
+  if (trimmedCard && trimmedCard !== card) {
+    APP.teachers[trimmedCard] = {
+      name: newName || acc.name,
+      pwd: (newPwd && newPwd.trim()) ? newPwd.trim() : acc.pwd
+    };
+    delete APP.teachers[card];
+    // 同步更新 teacherOrder
+    if (APP.teacherOrder && APP.teacherOrder.indexOf(card) >= 0) {
+      APP.teacherOrder = APP.teacherOrder.map(function(c){ return c === card ? trimmedCard : c; });
+    }
+  } else {
+    APP.teachers[card].name = newName || acc.name;
+    if (newPwd && newPwd.trim()) APP.teachers[card].pwd = newPwd.trim();
+  }
   refreshTeacherTable();
   saveConfigToSheets();
-  toast('老師資料已更新');
+  toast('✓ 老師資料已更新');
 }
 
 /* ── 帳號期限檢查 ── */
