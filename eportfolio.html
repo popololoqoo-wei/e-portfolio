@@ -6765,7 +6765,17 @@ function batchDownloadPDF(){
   allHtml+='body{font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;font-size:10pt;color:#1A1612;margin:0;}';
   allHtml+='table{width:100%;border-collapse:collapse;margin-bottom:10px;}';
   allHtml+='td,th{border:1px solid #DDD;padding:5px 8px;font-size:10pt;}';
-  allHtml+='.page-break{border-bottom:3px double #B8860B;margin-bottom:20px;padding-bottom:20px;}';
+  /* ★ 每張表單獨立成頁：列印時強制下一張表單從新一頁開始 */
+  allHtml+='.form-page{page-break-after:always;break-after:page;}';
+  allHtml+='.form-page:last-child{page-break-after:auto;break-after:auto;}';
+  /* 表單內的元素盡量避免被切開（標題與內容、表格列等） */
+  allHtml+='.header{page-break-after:avoid;break-after:avoid;}';
+  allHtml+='.sec{page-break-after:avoid;break-after:avoid;page-break-inside:avoid;break-inside:avoid;}';
+  allHtml+='table{page-break-inside:auto;}';
+  allHtml+='tr{page-break-inside:avoid;break-inside:avoid;}';
+  allHtml+='.history{page-break-inside:avoid;break-inside:avoid;}';
+  /* 螢幕預覽時也用視覺分隔線顯示分頁位置 */
+  allHtml+='@media screen{.form-page{border-bottom:3px double #B8860B;margin-bottom:24px;padding-bottom:20px;}.form-page:last-child{border-bottom:none;}}';
   allHtml+='.header{text-align:center;border-bottom:3px solid #B8860B;padding-bottom:10px;margin-bottom:12px;}';
   allHtml+='.hosp{font-size:9pt;color:#666;letter-spacing:1px;}';
   allHtml+='.title{font-size:15pt;font-weight:700;margin:5px 0;}';
@@ -6809,8 +6819,8 @@ function batchDownloadPDF(){
     var sSchool=studentSchool||d['school']||'';
     var lastSave=uniqueLogs.length>0?new Date(uniqueLogs[0].ts).toLocaleString('zh-TW'):'';
 
-    // 頁首
-    allHtml+='<div class="'+(idx<doneForms.length-1?'page-break':'')+'">';
+    // 頁首（每張表單都包在 form-page 內，列印時強制下一張表單從新頁開始）
+    allHtml+='<div class="form-page">';
     allHtml+='<div class="header">';
     allHtml+='<div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
     allHtml+='<div class="title">'+f.name+'</div>';
@@ -6869,7 +6879,7 @@ function batchDownloadPDF(){
       });
       allHtml+='</div>';
     }
-    allHtml+='</div>'; // end page-break div
+    allHtml+='</div>'; // end form-page div
   });
 
   allHtml+='</body></html>';
