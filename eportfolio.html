@@ -198,6 +198,57 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .check-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink2);}
 .check-item input{accent-color:var(--gold);}
 
+/* ─── FONT-SIZE NORMALIZATION ───
+   全表單區字體統一規範，覆蓋所有 inline font-size 樣式
+   - Labels（欄位標籤）       : 12px
+   - Inputs/Textareas/Selects : 13px
+   - Body text / 輔助文字     : 12px
+   - 說明文字 / hint          : 11px
+   - 表格內容                  : 12px
+   - 評分按鈕（r-btn）        : 12px
+   - 卡片標題                  : 13px
+*/
+.form-detail-view .field > label{font-size:12px !important;}
+.form-detail-view .field input[type=text],
+.form-detail-view .field input[type=number],
+.form-detail-view .field input[type=date],
+.form-detail-view .field textarea,
+.form-detail-view .field select{font-size:13px !important;}
+.form-detail-view .card-head-title{font-size:13px !important;}
+.form-detail-view .check-item{font-size:12px !important;}
+.form-detail-view .check-item input{flex-shrink:0;}
+/* 表格內容統一 */
+.form-detail-view .rating-table th,
+.form-detail-view .rating-table td{font-size:12px;}
+.form-detail-view .rating-table .row-label{font-size:12px !important;}
+.form-detail-view .dops-tbl th,
+.form-detail-view .dops-tbl td{font-size:12px;}
+.form-detail-view .dops-tbl .item-cell{font-size:12px !important;}
+/* badge 統一 */
+.form-detail-view .t-badge,
+.form-detail-view .s-badge{font-size:10px !important;}
+/* 表單區內 inline span/div 預設字體（不影響特定 size class） */
+.form-detail-view .card-body > div:not([class]),
+.form-detail-view .card-body > span:not([class]){font-size:12px;}
+/* 評分按鈕統一 */
+.form-detail-view .r-btn{font-size:12px !important;}
+.form-detail-view .d-btn{font-size:12px !important;}
+/* lock-bar 與 saved-msg */
+.form-detail-view .lock-bar{font-size:12px;}
+/* 行動裝置：表格內字體微縮以利顯示，但仍維持一致 */
+@media(max-width:768px){
+  .form-detail-view .rating-table th,
+  .form-detail-view .rating-table td,
+  .form-detail-view .rating-table .row-label,
+  .form-detail-view .dops-tbl th,
+  .form-detail-view .dops-tbl td,
+  .form-detail-view .dops-tbl .item-cell{font-size:10px !important;}
+  .form-detail-view .r-btn,
+  .form-detail-view .d-btn{font-size:10px !important;}
+}
+/* F01A/F01B 較窄標題列 */
+.form-detail-view .f01b-label{font-size:11px !important;}
+
 /* ─── FORM FOOTER ─── */
 .form-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:1rem 0 .5rem;flex-wrap:wrap;}
 .form-footer-right{display:flex;gap:8px;align-items:center;}
@@ -407,7 +458,7 @@ input[type="date"]{
           <div class="fg"><label>密碼</label><div class="pwd-wrap"><input id="s-pwd" type="password" placeholder="預設密碼：123"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('s-pwd',this)" title="顯示密碼">👁</button></div></div>
           <button class="btn-primary" onclick="doLogin('student')">登入</button>
           <div class="login-err" id="s-err">學號或密碼錯誤</div>
-          <div style="text-align:right;margin-top:6px;"><a href="javascript:void(0)" onclick="showForgotPwd()" style="font-size:11px;color:var(--ink3);text-decoration:none;border-bottom:1px dashed var(--ink3);">忘記密碼？</a></div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;"><a href="javascript:void(0)" onclick="showPanel('student-change-panel')" style="color:var(--ink3);text-decoration:none;border-bottom:1px dashed var(--ink3);">修改密碼</a><a href="javascript:void(0)" onclick="showForgotPwd()" style="color:var(--red);text-decoration:none;border-bottom:1px dashed var(--red);font-weight:600;">🔐 忘記密碼？</a></div>
           <div class="divider"><div class="divider-line"></div><div class="divider-text">首次登入</div><div class="divider-line"></div></div>
           <button class="btn-ghost" onclick="showPanel('student-reg-panel')">建立帳號</button>
         </div>
@@ -1624,9 +1675,11 @@ function lockTeacherFields(){
   if(!mc)return;
 
   // 【直接鎖定】已知老師欄位 key
-  var directLockKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
-    't_title','t_note','director_fb','peer_good','peer_suggest','host_sign',
-    'host_sign_date','host_date','result','score','epa_level','follow_date'];
+  var directLockKeys=['t_sign','t_sign_date','t_sign2','t_sign2_date','t_fb','t_good','t_improve','t_comment',
+    't_title','t_note','t_date','director_fb','peer_good','peer_suggest','peer_sign','host_sign',
+    'host_sign_date','host_date','host_note','result','score','score_grade','epa_level','follow_date',
+    'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+    'bonus','s1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h'];
   directLockKeys.forEach(function(k){
     mc.querySelectorAll('[data-key="'+k+'"]').forEach(function(el){
       if(el.hasAttribute('readonly'))return;
@@ -1637,12 +1690,14 @@ function lockTeacherFields(){
     });
   });
 
-  // 鎖定 data-teacher="1" 的所有欄位（含 EPA checkbox、臨床情境等）
+  // 鎖定 data-teacher="1" 的所有欄位（含 EPA checkbox、臨床情境、F10 老師查核 radio 等）
   mc.querySelectorAll('input[data-teacher="1"],textarea[data-teacher="1"],select[data-teacher="1"]').forEach(function(el){
     el.disabled=true;
-    el.style.opacity='0.6';
-    el.style.cursor='not-allowed';
-    el.style.background='var(--cream)';
+    if(el.type!=='radio'&&el.type!=='checkbox'){
+      el.style.opacity='0.6';
+      el.style.cursor='not-allowed';
+      el.style.background='var(--cream)';
+    }
     var parent=el.closest('label');
     if(parent) parent.style.opacity='0.6';
   });
@@ -1692,9 +1747,11 @@ function unlockTeacherFieldsInDOM(){
   if(!mc)return;
 
   // 【直接解鎖】已知老師欄位（最可靠的方式）
-  var directKeys=['t_sign','t_sign_date','t_fb','t_good','t_improve','t_comment',
-    't_title','t_note','director_fb','peer_good','peer_suggest','host_sign',
-    'host_sign_date','host_date','result','score','epa_level'];
+  var directKeys=['t_sign','t_sign_date','t_sign2','t_sign2_date','t_fb','t_good','t_improve','t_comment',
+    't_title','t_note','t_date','director_fb','peer_good','peer_suggest','peer_sign','host_sign',
+    'host_sign_date','host_date','host_note','result','score','score_grade','epa_level','follow_date',
+    'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+    'bonus','s1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h'];
   directKeys.forEach(function(k){
     mc.querySelectorAll('[data-key="'+k+'"]').forEach(function(el){
       if(el.hasAttribute('readonly'))return;
@@ -4477,7 +4534,7 @@ function buildF10(f,d,canT,fkey,canS){
   </div></div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習總指導教師查核<span class="t-badge">老師</span></div></div><div class="card-body">
     ${tqs.map(([k,label])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
-      <span>${label}</span><div class="check-group">${['是','否'].map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" ${d[k]===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+      <span>${label}</span><div class="check-group">${['是','否'].map(v=>`<label class="check-item"><input type="radio" name="f10_${k}" data-fid="${fid}" data-key="${k}" data-teacher="1" ${d[k]===v?'checked':''} ${!canT?'disabled':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${k}']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>`).join('')}
     <div class="field" style="margin-top:10px;"><label>輔導備註<span class="t-badge">老師</span></label>${ta(f.id,'t_note',2,!canT)}</div>
     <div class="g2"><div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)}</div>
@@ -5355,22 +5412,27 @@ function refreshStudentTable(){
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
-  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（點擊👁顯示）</span></th><th>帳號期限</th><th>操作</th></tr>';
   orderedSids.forEach(function(sid){
     var acc = APP.students[sid]; if(!acc) return;
     var expired = acc.expiry && new Date(acc.expiry) < new Date();
     var expiryColor = expired ? 'color:var(--red);font-weight:500;' : '';
     var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
+    var pwdId='pwd_'+sid.replace(/[^A-Za-z0-9]/g,'_');
+    var pwdMasked='••••••';
+    var pwdCell='<span id="'+pwdId+'" data-pwd="'+(acc.pwd||'').replace(/"/g,'&quot;')+'" data-shown="0" style="font-family:monospace;font-size:12px;">'+pwdMasked+'</span>'+
+      '<button onclick="togglePwdShow(\''+pwdId+'\',this)" title="顯示/隱藏密碼" style="margin-left:6px;padding:2px 6px;background:transparent;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;color:var(--ink3);">👁</button>';
     rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+sid+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
-      '<td>'+sid+'</td><td>'+acc.name+selfReg+'</td><td>'+(acc.school||'—')+'</td><td>'+acc.pwd+'</td>'+
+      '<td>'+sid+'</td><td>'+acc.name+selfReg+'</td><td>'+(acc.school||'—')+'</td><td>'+pwdCell+'</td>'+
       '<td style="'+expiryColor+'">'+
         '<input type="date" value="'+(acc.expiry||'')+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+sid+'\',this.value)">'+
         (expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':'')+
       '</td>'+
       '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
         '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editStudent(\''+sid+'\')">修改</button>'+
+        '<button style="padding:3px 8px;font-size:11px;background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;color:#8B6914;cursor:pointer;font-weight:600;" onclick="resetStudentPwd(\''+sid+'\')" title="重設為預設密碼 123">🔐 重設</button>'+
         '<button class="btn-del" onclick="delStudent(\''+sid+'\')">刪除</button>'+
       '</td></tr>';
   });
@@ -5387,6 +5449,44 @@ function getStudentOrder(){
   return APP.studentOrder;
 }
 function delStudent(sid){delete APP.students[sid];refreshStudentTable();saveConfigToSheets();}
+
+/* ─── 密碼顯示/隱藏切換 ─── */
+function togglePwdShow(elId,btn){
+  var el=document.getElementById(elId);
+  if(!el)return;
+  var shown=el.getAttribute('data-shown')==='1';
+  if(shown){
+    el.textContent='••••••';
+    el.setAttribute('data-shown','0');
+    if(btn)btn.textContent='👁';
+  }else{
+    el.textContent=el.getAttribute('data-pwd')||'';
+    el.setAttribute('data-shown','1');
+    if(btn)btn.textContent='🙈';
+  }
+}
+
+/* ─── 學生密碼快速重設（重設為預設值 123） ─── */
+function resetStudentPwd(sid){
+  var acc=APP.students[sid];
+  if(!acc)return;
+  if(!confirm('確定要將學生「'+acc.name+'」（'+sid+'）的密碼重設為預設值「123」嗎？\n\n重設後請通知學生使用新密碼登入。')) return;
+  APP.students[sid].pwd='123';
+  refreshStudentTable();
+  saveConfigToSheets();
+  toast('✓ 已將 '+acc.name+' 的密碼重設為「123」');
+}
+
+/* ─── 老師密碼快速重設（重設為預設值 000） ─── */
+function resetTeacherPwd(card){
+  var acc=APP.teachers[card];
+  if(!acc)return;
+  if(!confirm('確定要將老師「'+acc.name+'」（'+card+'）的密碼重設為預設值「000」嗎？')) return;
+  APP.teachers[card].pwd='000';
+  refreshTeacherTable();
+  saveConfigToSheets();
+  toast('✓ 已將 '+acc.name+' 的密碼重設為「000」');
+}
 function addTeacher(){
   const card=document.getElementById('nt-card').value.trim();
   const name=document.getElementById('nt-name').value.trim();
@@ -5400,15 +5500,19 @@ function addTeacher(){
 function refreshTeacherTable(){
   const tbl=document.getElementById('teacher-table');if(!tbl)return;
   var orderedCards = getTeacherOrder();
-  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（點擊👁顯示）</span></th><th>操作</th></tr>';
   orderedCards.forEach(function(card){
     var acc = APP.teachers[card]; if(!acc) return;
+    var pwdId='tpwd_'+card.replace(/[^A-Za-z0-9]/g,'_');
+    var pwdCell='<span id="'+pwdId+'" data-pwd="'+(acc.pwd||'').replace(/"/g,'&quot;')+'" data-shown="0" style="font-family:monospace;font-size:12px;">••••••</span>'+
+      '<button onclick="togglePwdShow(\''+pwdId+'\',this)" title="顯示/隱藏密碼" style="margin-left:6px;padding:2px 6px;background:transparent;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;color:var(--ink3);">👁</button>';
     rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+card+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
-      '<td>'+card+'</td><td id="tname_'+card+'">'+acc.name+'</td><td>'+acc.pwd+'</td>'+
+      '<td>'+card+'</td><td id="tname_'+card+'">'+acc.name+'</td><td>'+pwdCell+'</td>'+
       '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
         '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editTeacher(\''+card+'\')">修改</button>'+
+        '<button style="padding:3px 8px;font-size:11px;background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;color:#8B6914;cursor:pointer;font-weight:600;" onclick="resetTeacherPwd(\''+card+'\')" title="重設為預設密碼 000">🔐 重設</button>'+
         '<button class="btn-del" onclick="delTeacher(\''+card+'\')">刪除</button>'+
       '</td></tr>';
   });
