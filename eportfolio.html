@@ -5838,18 +5838,19 @@ function renderAdmin(){
       <div class="admin-card-body">
         <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#7F1D1D;line-height:1.7;">
           <b>⚠ 此工具僅在系統正式上線前清除測試階段資料使用。</b><br>
-          • 只清除「表單填寫資料」與「歷史紀錄」<br>
+          • 同時清除「本機」與「雲端 Google Sheets」的表單資料與歷史紀錄<br>
           • <b>不會</b>刪除學生/老師帳號、密碼、PIN 等設定<br>
-          • 雲端 Google Sheets 的資料需另外手動清除<br>
+          • 雲端清除過程約 30 秒至 2 分鐘（依資料量），請耐心等候<br>
           • 操作前會要求二次確認，請謹慎使用
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button onclick="clearLocalTestData()" style="padding:8px 16px;background:#F59E0B;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🧹 清除本機測試資料</button>
+          <button onclick="clearLocalTestData()" style="padding:8px 16px;background:#F59E0B;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🧹 清除所有測試資料（本機+雲端）</button>
           <button onclick="clearAllStudentForms()" style="padding:8px 16px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🗑 清除指定學生所有表單</button>
           <button onclick="exportBackup()" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">💾 備份所有資料</button>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:8px;line-height:1.6;">
-          💡 建議流程：先「備份」→「清除本機測試資料」→ 重新登入確認 → 再到 Google Sheets 手動清空試算表。
+          💡 建議流程：先「備份」→「清除」→ 重新登入學生帳號確認資料已清空。<br>
+          🔧 若清除後雲端仍有殘留，可手動到 Google Sheets 試算表清空對應分頁。
         </div>
       </div>
     </div>
@@ -6049,26 +6050,95 @@ async function updateAdminPwd(){
 }
 
 /* ── 清除本機測試資料：清空 APP.formData、APP.historyLog、localStorage 草稿 ── */
-function clearLocalTestData(){
-  if(!confirm('⚠ 確定要清除本機所有「表單填寫資料」與「歷史紀錄」嗎？\n\n（此操作不會刪除帳號、密碼、PIN 等設定）\n\n建議先點「備份所有資料」保留一份。')) return;
-  if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？')) return;
-  // 清空記憶體
+/* ── 雲端清除 helper：把 formKey 的雲端資料覆蓋為空，並送出特殊清除指令 ── */
+async function clearCloudFormData(formKey){
+  if(!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return false;
+  return new Promise(function(resolve){
+    try{
+      var iframeId = '_clr_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+      var iframe = document.createElement('iframe');
+      iframe.name = iframeId; iframe.id = iframeId; iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      var form = document.createElement('form');
+      form.method = 'POST'; form.action = GAS_URL; form.target = iframeId; form.style.display = 'none';
+      var payload = {
+        action: 'saveForm',
+        formId: formKey,
+        data: '{}',           // 空資料覆蓋
+        history: '[]',        // 空歷史紀錄覆蓋
+        studentId: 'admin_clear'
+      };
+      Object.entries(payload).forEach(function(entry){
+        var k=entry[0], v=entry[1];
+        var inp = document.createElement('input');
+        inp.type='hidden'; inp.name=k; inp.value=v;
+        form.appendChild(inp);
+      });
+      document.body.appendChild(form);
+      form.submit();
+      setTimeout(function(){
+        try{ document.body.removeChild(form); document.body.removeChild(iframe); }catch(e){}
+        resolve(true);
+      }, 1500);
+    }catch(e){
+      console.warn('clearCloudFormData failed:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function clearLocalTestData(){
+  if(!confirm('⚠ 確定要清除「所有表單填寫資料」與「歷史紀錄」嗎？\n\n此操作會：\n• ✅ 清除本機（瀏覽器）的所有表單資料\n• ✅ 清除雲端 Google Sheets 對應的所有表單資料\n\n不會清除：\n• ❌ 學生/老師帳號\n• ❌ 密碼、PIN、其他設定\n\n💡 建議先點「備份所有資料」保留一份。')) return;
+  if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？\n\n雲端清除可能需要 30 秒以上，過程請勿關閉視窗。')) return;
+
+  // 蒐集所有要清除的 formKey（從本機資料推算）
+  var allFormKeys = new Set();
+  Object.keys(APP.formData).forEach(function(k){ if(k.indexOf('_')>0) allFormKeys.add(k); });
+  Object.keys(APP.historyLog).forEach(function(k){ if(k.indexOf('_')>0) allFormKeys.add(k); });
+  try{
+    var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    Object.keys(drafts).forEach(function(k){ if(k.indexOf('_')>0) allFormKeys.add(k); });
+    var hLogs = JSON.parse(localStorage.getItem('history_logs')||'{}');
+    Object.keys(hLogs).forEach(function(k){ if(k.indexOf('_')>0) allFormKeys.add(k); });
+  }catch(e){}
+
+  // 也對所有現存學生 × 所有表單 ID 都做一次（即使本機沒記錄，雲端可能有）
+  if(typeof FORMS!=='undefined' && APP.students){
+    Object.keys(APP.students).forEach(function(sid){
+      FORMS.forEach(function(f){ allFormKeys.add(f.id+'_'+sid); });
+    });
+  }
+
+  var formKeyList = Array.from(allFormKeys);
+  toast('⏳ 正在清除雲端資料...請稍候 (' + formKeyList.length + ' 份)');
+
+  // 清雲端：依序清除（避免太多並行請求被 GAS 限流）
+  var cleared = 0;
+  for(var i=0; i<formKeyList.length; i++){
+    await clearCloudFormData(formKeyList[i]);
+    cleared++;
+    if(cleared % 5 === 0){
+      toast('⏳ 雲端清除進度：'+cleared+' / '+formKeyList.length);
+    }
+  }
+
+  // 清本機
   APP.formData = {};
   APP.historyLog = {};
-  // 清空 localStorage（僅清除表單相關）
   try{
     localStorage.removeItem('form_drafts');
     localStorage.removeItem('history_logs');
   }catch(e){}
-  toast('✓ 本機測試資料已清除（雲端資料需另外處理）');
+
+  toast('✓ 本機與雲端測試資料已全部清除（共 '+formKeyList.length+' 份）');
   setTimeout(function(){
     if(typeof renderSidebar==='function') renderSidebar();
     if(typeof renderAdmin==='function') renderAdmin();
-  }, 200);
+  }, 500);
 }
 
-/* ── 清除指定學生的所有表單資料 ── */
-function clearAllStudentForms(){
+/* ── 清除指定學生的所有表單資料（本機 + 雲端） ── */
+async function clearAllStudentForms(){
   var sid = prompt('請輸入要清除表單資料的學號：\n\n（此操作只清除該學生的表單填寫，不會刪除帳號）');
   if(!sid) return;
   sid = sid.trim();
@@ -6077,24 +6147,49 @@ function clearAllStudentForms(){
     return;
   }
   var name = APP.students[sid].name;
-  if(!confirm('⚠ 確定要清除學生「'+name+'」（'+sid+'）的所有表單資料嗎？\n\n建議先「備份所有資料」。\n\n此操作會清除：\n• 該學生的所有表單填寫資料\n• 該學生的歷史紀錄\n\n不會清除：\n• 該學生的帳號\n• 雲端 Google Sheets 已上傳的資料')) return;
+  if(!confirm('⚠ 確定要清除學生「'+name+'」（'+sid+'）的所有表單資料嗎？\n\n此操作會清除：\n• ✅ 本機（瀏覽器）的填寫資料與歷史紀錄\n• ✅ 雲端 Google Sheets 對應資料\n\n不會清除：\n• ❌ 該學生的帳號\n\n💡 建議先「備份所有資料」。')) return;
   if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？')) return;
-  // 清除 APP.formData 中所有 sid 結尾的 key
-  var keysToDelete = Object.keys(APP.formData).filter(function(k){ return k.endsWith('_'+sid); });
-  keysToDelete.forEach(function(k){ delete APP.formData[k]; });
-  // 清除 historyLog
-  var logKeysToDelete = Object.keys(APP.historyLog).filter(function(k){ return k.endsWith('_'+sid); });
-  logKeysToDelete.forEach(function(k){ delete APP.historyLog[k]; });
-  // 清除 localStorage 草稿
+
+  // 蒐集該學生的所有 formKey（本機 + 預計雲端）
+  var formKeys = new Set();
+  Object.keys(APP.formData).forEach(function(k){ if(k.endsWith('_'+sid)) formKeys.add(k); });
+  Object.keys(APP.historyLog).forEach(function(k){ if(k.endsWith('_'+sid)) formKeys.add(k); });
   try{
     var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    Object.keys(drafts).forEach(function(k){ if(k.endsWith('_'+sid)) delete drafts[k]; });
-    localStorage.setItem('form_drafts', JSON.stringify(drafts));
+    Object.keys(drafts).forEach(function(k){ if(k.endsWith('_'+sid)) formKeys.add(k); });
     var hLogs = JSON.parse(localStorage.getItem('history_logs')||'{}');
-    Object.keys(hLogs).forEach(function(k){ if(k.endsWith('_'+sid)) delete hLogs[k]; });
-    localStorage.setItem('history_logs', JSON.stringify(hLogs));
+    Object.keys(hLogs).forEach(function(k){ if(k.endsWith('_'+sid)) formKeys.add(k); });
   }catch(e){}
-  toast('✓ 已清除 '+esc(name)+' 的本機表單資料（共 '+keysToDelete.length+' 份）');
+  // 加上所有可能的 formId_sid 組合（雲端可能有但本機沒記錄）
+  if(typeof FORMS!=='undefined'){
+    FORMS.forEach(function(f){ formKeys.add(f.id+'_'+sid); });
+  }
+
+  var formKeyList = Array.from(formKeys);
+  toast('⏳ 正在清除 '+esc(name)+' 的雲端資料...');
+
+  for(var i=0; i<formKeyList.length; i++){
+    await clearCloudFormData(formKeyList[i]);
+    if((i+1) % 5 === 0){
+      toast('⏳ 進度：'+(i+1)+' / '+formKeyList.length);
+    }
+  }
+
+  // 清本機
+  formKeyList.forEach(function(k){
+    delete APP.formData[k];
+    delete APP.historyLog[k];
+  });
+  try{
+    var drafts2 = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    formKeyList.forEach(function(k){ delete drafts2[k]; });
+    localStorage.setItem('form_drafts', JSON.stringify(drafts2));
+    var hLogs2 = JSON.parse(localStorage.getItem('history_logs')||'{}');
+    formKeyList.forEach(function(k){ delete hLogs2[k]; });
+    localStorage.setItem('history_logs', JSON.stringify(hLogs2));
+  }catch(e){}
+
+  toast('✓ 已清除 '+esc(name)+' 的所有資料（本機+雲端共 '+formKeyList.length+' 份）');
 }
 
 /* ── 備份所有資料為 JSON 檔 ── */
