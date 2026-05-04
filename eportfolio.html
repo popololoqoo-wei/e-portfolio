@@ -474,9 +474,11 @@ input[type="date"]{
         </div>
         <div id="student-change-panel" style="display:none;">
           <div style="font-size:13px;font-weight:600;margin-bottom:1rem;">修改密碼</div>
-          <div class="fg"><label>舊密碼</label><div class="pwd-wrap"><input id="cp-old" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-old',this)" title="顯示密碼">👁</button></div></div>
-          <div class="fg"><label>新密碼</label><div class="pwd-wrap"><input id="cp-new" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-new',this)" title="顯示密碼">👁</button></div></div>
-          <div class="fg"><label>確認新密碼</label><div class="pwd-wrap"><input id="cp-new2" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-new2',this)" title="顯示密碼">👁</button></div></div>
+          <div style="background:#FFF8E8;border:1px solid #F0C040;border-radius:6px;padding:8px 12px;font-size:11px;color:#8B6914;margin-bottom:12px;line-height:1.5;">⚠ 請輸入您的<b>學號</b>與<b>舊密碼</b>，系統才能正確更新您的密碼</div>
+          <div class="fg"><label>學號</label><input id="cp-sid" placeholder="請輸入您的學號" autocomplete="username"></div>
+          <div class="fg"><label>舊密碼</label><div class="pwd-wrap"><input id="cp-old" type="password" placeholder="目前的密碼"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-old',this)" title="顯示密碼">👁</button></div></div>
+          <div class="fg"><label>新密碼</label><div class="pwd-wrap"><input id="cp-new" type="password" placeholder="至少 6 碼"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-new',this)" title="顯示密碼">👁</button></div></div>
+          <div class="fg"><label>確認新密碼</label><div class="pwd-wrap"><input id="cp-new2" type="password" placeholder="再次輸入新密碼"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-new2',this)" title="顯示密碼">👁</button></div></div>
           <button class="btn-primary" onclick="changeStudentPwd()">儲存新密碼</button>
           <div class="login-err" id="cp-err">密碼修改失敗</div>
           <button class="btn-ghost" onclick="showPanel('student-login-panel')">← 返回</button>
@@ -838,18 +840,40 @@ function doRegister(){
   enterApp();
 }
 function changeStudentPwd(){
+  const sid=document.getElementById('cp-sid').value.trim();
   const old=document.getElementById('cp-old').value;
   const nw=document.getElementById('cp-new').value;
   const nw2=document.getElementById('cp-new2').value;
   const err=document.getElementById('cp-err');
-  const u=APP.currentUser;
-  if(!u||APP.students[u.sid]?.pwd!==old){err.textContent='舊密碼錯誤';err.style.display='block';return;}
-  if(nw.length<6){err.textContent='新密碼至少6碼';err.style.display='block';return;}
-  if(nw!==nw2){err.textContent='新密碼不一致';err.style.display='block';return;}
-  APP.students[u.sid].pwd=nw;
+  // 1. 學號必填
+  if(!sid){err.textContent='請輸入學號';err.style.display='block';return;}
+  // 2. 學號必須存在
+  const acc=APP.students[sid];
+  if(!acc){err.textContent='查無此學號，請聯繫管理員';err.style.display='block';return;}
+  // 3. 舊密碼必須正確
+  if(acc.pwd!==old){err.textContent='舊密碼錯誤';err.style.display='block';return;}
+  // 4. 新密碼長度
+  if(nw.length<6){err.textContent='新密碼至少 6 碼';err.style.display='block';return;}
+  // 5. 兩次輸入需一致
+  if(nw!==nw2){err.textContent='新密碼兩次輸入不一致';err.style.display='block';return;}
+  // 6. 新舊密碼不可相同
+  if(nw===old){err.textContent='新密碼不可與舊密碼相同';err.style.display='block';return;}
+  // 通過驗證 → 寫入並同步雲端
+  APP.students[sid].pwd=nw;
+  try{ saveConfigToSheets(); }catch(e){console.warn('同步密碼失敗',e);}
   err.style.display='none';
-  toast('密碼已更新');
+  // 清空表單
+  document.getElementById('cp-sid').value='';
+  document.getElementById('cp-old').value='';
+  document.getElementById('cp-new').value='';
+  document.getElementById('cp-new2').value='';
+  toast('✓ '+acc.name+' 的密碼已更新，請以新密碼登入');
+  // 自動帶回登入畫面並預填學號
   showPanel('student-login-panel');
+  setTimeout(function(){
+    var sidInput=document.getElementById('s-sid');
+    if(sidInput) sidInput.value=sid;
+  },50);
 }
 function doLogout(){
   APP.currentRole=null;APP.currentUser=null;APP.teacherUnlocked=false;APP.currentFormId=null;
