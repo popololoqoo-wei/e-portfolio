@@ -54,6 +54,10 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .divider-text{font-size:11px;color:var(--ink3);}
 .strength-bar{height:3px;border-radius:3px;background:var(--border2);margin-top:5px;overflow:hidden;}
 .strength-fill{height:100%;border-radius:3px;transition:width .3s,background .3s;width:0;}
+.pwd-wrap{position:relative;}
+.pwd-wrap input{padding-right:38px !important;}
+.pwd-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:4px 8px;color:var(--ink3);user-select:none;line-height:1;}
+.pwd-eye:hover{color:var(--gold);}
 
 /* ─── MAIN APP ─── */
 #app-screen{min-height:100vh;}
@@ -400,7 +404,7 @@ input[type="date"]{
       <div id="panel-student">
         <div id="student-login-panel">
           <div class="fg"><label>學號</label><input id="s-sid" placeholder="請輸入學號"></div>
-          <div class="fg"><label>密碼</label><input id="s-pwd" type="password" placeholder="預設密碼：123"></div>
+          <div class="fg"><label>密碼</label><div class="pwd-wrap"><input id="s-pwd" type="password" placeholder="預設密碼：123"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('s-pwd',this)" title="顯示密碼">👁</button></div></div>
           <button class="btn-primary" onclick="doLogin('student')">登入</button>
           <div class="login-err" id="s-err">學號或密碼錯誤</div>
           <div style="text-align:right;margin-top:6px;"><a href="javascript:void(0)" onclick="showForgotPwd()" style="font-size:11px;color:var(--ink3);text-decoration:none;border-bottom:1px dashed var(--ink3);">忘記密碼？</a></div>
@@ -411,17 +415,17 @@ input[type="date"]{
           <div class="fg"><label>學號</label><input id="r-sid" placeholder="請輸入學號"></div>
           <div class="fg"><label>姓名</label><input id="r-name" placeholder="請輸入姓名"></div>
           <div class="fg"><label>實習學校</label><input id="r-school" placeholder="例：長庚科技大學"></div>
-          <div class="fg"><label>設定密碼（至少6碼）</label><input id="r-pwd" type="password" oninput="checkPwdStrength(this.value)"><div class="strength-bar"><div class="strength-fill" id="r-strength"></div></div></div>
-          <div class="fg"><label>確認密碼</label><input id="r-pwd2" type="password"></div>
+          <div class="fg"><label>設定密碼（至少6碼）</label><div class="pwd-wrap"><input id="r-pwd" type="password" oninput="checkPwdStrength(this.value)"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('r-pwd',this)" title="顯示密碼">👁</button></div><div class="strength-bar"><div class="strength-fill" id="r-strength"></div></div></div>
+          <div class="fg"><label>確認密碼</label><div class="pwd-wrap"><input id="r-pwd2" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('r-pwd2',this)" title="顯示密碼">👁</button></div></div>
           <button class="btn-primary" onclick="doRegister()">建立帳號並登入</button>
           <div class="login-err" id="r-err">請確認所有欄位</div>
           <button class="btn-ghost" onclick="showPanel('student-login-panel')">← 返回登入</button>
         </div>
         <div id="student-change-panel" style="display:none;">
           <div style="font-size:13px;font-weight:600;margin-bottom:1rem;">修改密碼</div>
-          <div class="fg"><label>舊密碼</label><input id="cp-old" type="password"></div>
-          <div class="fg"><label>新密碼</label><input id="cp-new" type="password"></div>
-          <div class="fg"><label>確認新密碼</label><input id="cp-new2" type="password"></div>
+          <div class="fg"><label>舊密碼</label><div class="pwd-wrap"><input id="cp-old" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-old',this)" title="顯示密碼">👁</button></div></div>
+          <div class="fg"><label>新密碼</label><div class="pwd-wrap"><input id="cp-new" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-new',this)" title="顯示密碼">👁</button></div></div>
+          <div class="fg"><label>確認新密碼</label><div class="pwd-wrap"><input id="cp-new2" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('cp-new2',this)" title="顯示密碼">👁</button></div></div>
           <button class="btn-primary" onclick="changeStudentPwd()">儲存新密碼</button>
           <div class="login-err" id="cp-err">密碼修改失敗</div>
           <button class="btn-ghost" onclick="showPanel('student-login-panel')">← 返回</button>
@@ -431,7 +435,7 @@ input[type="date"]{
       <!-- TEACHER -->
       <div id="panel-teacher" style="display:none;">
         <div class="fg"><label>教師卡號</label><input id="t-card" placeholder="請輸入卡號"></div>
-        <div class="fg"><label>密碼</label><input id="t-pwd" type="password" placeholder="預設：000"></div>
+        <div class="fg"><label>密碼</label><div class="pwd-wrap"><input id="t-pwd" type="password" placeholder="預設：000"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('t-pwd',this)" title="顯示密碼">👁</button></div></div>
         <button class="btn-primary" onclick="doLogin('teacher')">登入</button>
         <div class="login-err" id="t-err">卡號或密碼錯誤</div>
       </div>
@@ -439,7 +443,7 @@ input[type="date"]{
       <!-- ADMIN -->
       <div id="panel-admin" style="display:none;">
         <div class="fg"><label>管理員帳號</label><input id="a-id" placeholder="popololoqoo@gmail.com"></div>
-        <div class="fg"><label>管理員密碼</label><input id="a-pwd" type="password"></div>
+        <div class="fg"><label>管理員密碼</label><div class="pwd-wrap"><input id="a-pwd" type="password"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('a-pwd',this)" title="顯示密碼">👁</button></div></div>
         <button class="btn-primary" onclick="doLogin('admin')">登入</button>
         <div class="login-err" id="a-err">帳號或密碼錯誤</div>
       </div>
@@ -659,6 +663,20 @@ function toast(msg,ok=true){
   t.textContent=msg;t.style.background=ok?'#2D5A27':'#8B2020';
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
 }
+function togglePwdVisibility(inputId, btn){
+  var inp = document.getElementById(inputId);
+  if(!inp) return;
+  if(inp.type === 'password'){
+    inp.type = 'text';
+    btn.textContent = '🙈';
+    btn.title = '隱藏密碼';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁';
+    btn.title = '顯示密碼';
+  }
+}
+
 function showPanel(id){
   ['student-login-panel','student-reg-panel','student-change-panel'].forEach(p=>{
     const el=document.getElementById(p);if(el)el.style.display='none';
@@ -697,12 +715,15 @@ function showForgotPwd(){
     '<div style="font-size:32px;text-align:center;margin-bottom:.5rem;">🔐</div>'+
     '<div style="font-family:var(--ff-serif);font-size:16px;font-weight:600;text-align:center;margin-bottom:1rem;color:var(--ink);">忘記密碼？</div>'+
     '<div style="font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:1.25rem;">請聯繫系統管理員協助重設您的密碼：</div>'+
-    '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center;margin-bottom:1.25rem;">'+
-      '<div style="font-size:11px;color:var(--ink3);margin-bottom:5px;letter-spacing:.5px;">管理員 EMAIL</div>'+
-      '<div style="font-size:14px;font-weight:600;color:var(--gold);font-family:monospace;word-break:break-all;">popololoqoo@gmail.com</div>'+
-    '</div>'+
-    '<div style="font-size:11px;color:var(--ink3);line-height:1.6;margin-bottom:1rem;">📧 寄信時請提供您的 <b>學號</b> 與 <b>姓名</b>，管理員將協助重設密碼。</div>'+
-    '<button onclick="closeForgotPwd()" style="width:100%;padding:10px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;">我知道了</button>'+
+    '<a href="mailto:popololoqoo@gmail.com?subject=' + encodeURIComponent('e-Portfolio 密碼重設申請') + '&body=' + encodeURIComponent('您好管理員，\n\n我忘記密碼，麻煩協助重設：\n\n學號：\n姓名：\n\n感謝您！') + '" style="text-decoration:none;display:block;">'+
+      '<div style="background:linear-gradient(135deg,#FFF8E8,#FFF3CD);border:1px solid var(--gold);border-radius:var(--r);padding:14px;text-align:center;margin-bottom:1rem;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform=\'scale(1.02)\'" onmouseout="this.style.transform=\'scale(1)\'">'+
+        '<div style="font-size:11px;color:var(--ink3);margin-bottom:5px;letter-spacing:.5px;">📧 點擊開啟郵件 APP 寄信</div>'+
+        '<div style="font-size:14px;font-weight:600;color:var(--gold);font-family:monospace;word-break:break-all;">popololoqoo@gmail.com</div>'+
+        '<div style="font-size:10px;color:var(--ink3);margin-top:6px;">▸ 自動帶入主旨與內容範本</div>'+
+      '</div>'+
+    '</a>'+
+    '<div style="font-size:11px;color:var(--ink3);line-height:1.6;margin-bottom:1rem;">💡 寄信時請務必填寫您的 <b>學號</b> 與 <b>姓名</b>，管理員將儘速協助重設密碼。</div>'+
+    '<button onclick="closeForgotPwd()" style="width:100%;padding:10px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;">關閉</button>'+
     '</div>';
   overlay.onclick = function(e){ if(e.target===overlay) closeForgotPwd(); };
   document.body.appendChild(overlay);
@@ -1355,13 +1376,10 @@ async function openForm(id){
     autoSaveDraft(APP.currentFormId);
   }
 
-  // 每次進入新表單，學生的老師解鎖狀態重置（防止竄改）
+  // ★★★ 每次進入新表單，學生的老師解鎖狀態強制重置（修正 PIN 解鎖切換表單續用 bug）★★★
   if(APP.currentRole==='student'){
-    if(APP._skipPinReset){
-      APP._skipPinReset=false; // 用完即清除
-    } else {
-      APP.teacherUnlocked=false;
-    }
+    APP.teacherUnlocked=false;
+    APP._skipPinReset=false; // 一併清除舊旗標
   }
 
   APP.currentFormId=id;
