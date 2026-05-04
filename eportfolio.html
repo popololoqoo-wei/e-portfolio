@@ -936,28 +936,10 @@ async function enterApp(){
       });
     }catch(e){}
   }
-  // 登入後強制合併：把所有不帶學號的 key 合併到帶學號的版本
+  // ★ 登入後執行一次性 migration：把裸 id 的殘留資料整理到 canonical formKey
   setTimeout(function(){
-    if(APP.currentUser&&APP.currentUser.sid){
-      var sid=APP.currentUser.sid;
-      Object.keys(APP.formData).forEach(function(k){
-        // 找出不帶學號的 key（如 'F01A'）
-        if(k.indexOf('_P')===-1&&k.indexOf('_'+sid)===-1){
-          var fullKey=k+'_'+sid;
-          if(!APP.formData[fullKey])APP.formData[fullKey]={};
-          // 把短 key 的資料合併到長 key
-          Object.assign(APP.formData[fullKey], APP.formData[k]);
-          // 也存到 localStorage
-          try{
-            var drafts2=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-            if(!drafts2[fullKey])drafts2[fullKey]={};
-            Object.assign(drafts2[fullKey],APP.formData[k]);
-            localStorage.setItem('form_drafts',JSON.stringify(drafts2));
-          }catch(e2){}
-        }
-      });
-      renderSidebar(); // 更新狀態圖示
-    }
+    try{ migrateBareKeysToFormKey(); }catch(e){console.warn('migration failed:',e);}
+    renderSidebar(); // 更新狀態圖示
   }, 100);
   renderSidebar();
   // 顯示快捷導覽列（非管理員）
@@ -1001,13 +983,124 @@ const FORMS=[
 function findForm(id){return FORMS.find(f=>f.id===id);}
 function getFormKey(id){
   // 每位學生有獨立的表單資料
-  if(APP.currentRole==='student' && APP.currentUser){
+  if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid){
     return id+'_'+APP.currentUser.sid;
   }
   if((APP.currentRole==='teacher'||APP.currentRole==='admin') && APP.currentStudentId){
     return id+'_'+APP.currentStudentId;
   }
-  return id; // fallback
+  return id; // fallback：登入流程未完成時暫用裸 id（會於 enterApp/openForm 時 migration）
+}
+
+/* ── 取得「應寫入的正規 key」── 寫入點統一呼叫此函式，永不寫入裸 id（除非真的沒有學生 context） */
+function getCanonicalKey(id){
+  // 若有任一學生 context，永遠回傳 formKey（含學號）
+  if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid){
+    return id+'_'+APP.currentUser.sid;
+  }
+  if(APP.currentStudentId){
+    return id+'_'+APP.currentStudentId;
+  }
+  // 真的沒有 context（極少見，例如尚未登入）→ 退回裸 id
+  return id;
+}
+
+/* ── 一次性 migration：把所有「裸 id」key 的資料搬到對應的「formKey」key ──
+   避免後續 getStatus / openForm 在多個 key 之間來回 merge 造成不穩定
+*/
+function migrateBareKeysToFormKey(){
+  if(!APP.formData) return;
+  // 確認有目標學號可搬
+  var sid=null;
+  if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid) sid=APP.currentUser.sid;
+  else if(APP.currentStudentId) sid=APP.currentStudentId;
+  if(!sid) return;
+  // 蒐集所有 FORMS 的裸 id
+  var formIds=(typeof FORMS!=='undefined'&&FORMS)?FORMS.map(function(f){return f.id;}):[];
+  formIds.forEach(function(fid){
+    var bare=APP.formData[fid];
+    if(!bare || Object.keys(bare).length===0) return;
+    var formKey=fid+'_'+sid;
+    if(!APP.formData[formKey]) APP.formData[formKey]={};
+    // 用「非空值優先」的方式合併，不讓裸 id 內的空字串覆蓋已存在的有效值
+    Object.keys(bare).forEach(function(k){
+      var v=bare[k];
+      if(v==='' || v===null || v===undefined) return;
+      // 若 formKey 已經有值，且裸 id 是空的，保留 formKey 的
+      if(APP.formData[formKey][k]==='' || APP.formData[formKey][k]===null || APP.formData[formKey][k]===undefined){
+        APP.formData[formKey][k]=v;
+      } else {
+        // 兩邊都有值 → 採用裸 id（可能是最新的 inline 寫入）
+        APP.formData[formKey][k]=v;
+      }
+    });
+    // 搬完後刪除裸 id 版本
+    delete APP.formData[fid];
+  });
+  // historyLog 也一併搬移
+  if(APP.historyLog){
+    formIds.forEach(function(fid){
+      var bare=APP.historyLog[fid];
+      if(!bare || bare.length===0) return;
+      var formKey=fid+'_'+sid;
+      if(!APP.historyLog[formKey]) APP.historyLog[formKey]=[];
+      bare.forEach(function(entry){
+        var exists=APP.historyLog[formKey].some(function(e){return e.ts===entry.ts;});
+        if(!exists) APP.historyLog[formKey].push(entry);
+      });
+      APP.historyLog[formKey].sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
+      delete APP.historyLog[fid];
+    });
+  }
+  // localStorage 草稿也搬
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    var changed=false;
+    formIds.forEach(function(fid){
+      if(!drafts[fid] || Object.keys(drafts[fid]).length===0) return;
+      var formKey=fid+'_'+sid;
+      if(!drafts[formKey]) drafts[formKey]={};
+      Object.keys(drafts[fid]).forEach(function(k){
+        var v=drafts[fid][k];
+        if(v==='' || v===null || v===undefined) return;
+        drafts[formKey][k]=v;
+      });
+      delete drafts[fid];
+      changed=true;
+    });
+    if(changed) localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
+  // localStorage history 也搬
+  try{
+    var hLogs=JSON.parse(localStorage.getItem('history_logs')||'{}');
+    var hChanged=false;
+    formIds.forEach(function(fid){
+      if(!hLogs[fid] || hLogs[fid].length===0) return;
+      var formKey=fid+'_'+sid;
+      if(!hLogs[formKey]) hLogs[formKey]=[];
+      hLogs[fid].forEach(function(entry){
+        var exists=hLogs[formKey].some(function(e){return e.ts===entry.ts;});
+        if(!exists) hLogs[formKey].push(entry);
+      });
+      delete hLogs[fid];
+      hChanged=true;
+    });
+    if(hChanged) localStorage.setItem('history_logs',JSON.stringify(hLogs));
+  }catch(e){}
+}
+
+/* ── 全域寫入 helper：所有 inline onchange 改呼叫此函式，永遠寫到 canonical formKey ── */
+function writeField(fid, key, val){
+  var bareId = (typeof fid==='string' && fid.indexOf('_')>=0) ? fid.split('_')[0] : fid;
+  var targetKey = getCanonicalKey(bareId);
+  if(!APP.formData[targetKey]) APP.formData[targetKey] = {};
+  APP.formData[targetKey][key] = val;
+  try{
+    var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!drafts[targetKey]) drafts[targetKey] = {};
+    drafts[targetKey][key] = val;
+    localStorage.setItem('form_drafts', JSON.stringify(drafts));
+  }catch(e){}
 }
 
 /* 各表單學生必填欄位定義 */
@@ -1106,33 +1199,46 @@ function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 function getStatus(id){
   const formKey=getFormKey(id);
 
-  // 讀取資料：合併所有可能的 key
-  const dByKey=APP.formData[formKey]||{};
-  const dById=APP.formData[id]||{};
-  var dFromDraft={};
+  // ★ 讀取資料：以 formKey 為主，但仍向下相容讀取裸 id（避免 migration 還沒跑時誤判）
+  // 用「非空值優先」合併，避免空字串覆蓋有效值
+  function mergeReadOnly(dest, src){
+    if(!src) return;
+    Object.keys(src).forEach(function(k){
+      var v=src[k];
+      if(v===''||v===null||v===undefined||v===false) return;
+      if(dest[k]===''||dest[k]===null||dest[k]===undefined||dest[k]===false){
+        dest[k]=v;
+      }
+    });
+  }
+  const d={};
+  // 1) 先填 formKey 的值（最新最權威）
+  mergeReadOnly(d, APP.formData[formKey]||{});
+  // 2) 再從草稿補空缺
   try{
     var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    Object.keys(allDrafts).forEach(function(k){
-      if(k===id||k===formKey||k.startsWith(id+'_')) Object.assign(dFromDraft,allDrafts[k]);
-    });
+    mergeReadOnly(d, allDrafts[formKey]||{});
+    // 向下相容：若還有裸 id 殘留草稿，補空缺
+    if(formKey!==id) mergeReadOnly(d, allDrafts[id]||{});
   }catch(e){}
-  const d=Object.assign({},dFromDraft,dById,dByKey);
+  // 3) 向下相容：若 APP.formData[id] 還有殘留（migration 失敗時的安全網），補空缺
+  if(formKey!==id) mergeReadOnly(d, APP.formData[id]||{});
 
-  // historyLog：找所有可能的 key
+  // historyLog：以 formKey 為主，向下相容讀裸 id
   var allLogs=[];
   var logSeen={};
-  [formKey,id].forEach(function(k){
-    (APP.historyLog[k]||[]).forEach(function(l){
+  function pushLogs(arr){
+    if(!arr) return;
+    arr.forEach(function(l){
       if(!logSeen[l.ts]){logSeen[l.ts]=true;allLogs.push(l);}
     });
-  });
+  }
+  pushLogs(APP.historyLog[formKey]);
+  if(formKey!==id) pushLogs(APP.historyLog[id]);
   try{
     var savedLogs=JSON.parse(localStorage.getItem('history_logs')||'{}');
-    [formKey,id].forEach(function(k){
-      (savedLogs[k]||[]).forEach(function(l){
-        if(!logSeen[l.ts]){logSeen[l.ts]=true;allLogs.push(l);}
-      });
-    });
+    pushLogs(savedLogs[formKey]);
+    if(formKey!==id) pushLogs(savedLogs[id]);
   }catch(e){}
   const hasRecord=allLogs.length>0;
   function hasRealVal(v){
@@ -1329,6 +1435,8 @@ async function switchStudent(sid, formId){
   if(!sid) return;
   APP.currentStudentId = sid;
   APP.teacherUnlocked = true;
+  // ★ 切換學生後執行 migration：把裸 id 的資料併到 formKey
+  try{ migrateBareKeysToFormKey(); }catch(e){console.warn('migration failed:',e);}
   renderSidebar();
   // Reload the same form with the new student's data
   await openForm(formId);
@@ -1339,6 +1447,8 @@ function selectStudent(sid){
   APP.currentStudentId = sid;
   APP.currentFormId = null;
   APP.teacherUnlocked = true;
+  // ★ 選定學生後執行 migration
+  try{ migrateBareKeysToFormKey(); }catch(e){console.warn('migration failed:',e);}
   renderSidebar();
   // Show student overview
   const mc = document.getElementById('main-content');
@@ -1492,34 +1602,44 @@ async function openForm(id){
   // 合併所有可能 key 的資料到 formKey
   function mergeAllKeys(){
     if(!APP.formData[formKey])APP.formData[formKey]={};
-    // 合併所有相關 key（id, formKey, 及任何包含 id 的 key）
+    // 合併目標：永遠是 formKey
+    // 來源 keys（除 formKey 自己外）：裸 id、其他可能殘留的 key
     var keysToMerge=[id, formKey];
-    // 也找 APP.formData 裡所有以 id 開頭的 key
     Object.keys(APP.formData).forEach(function(k){
       if(k===id||k.startsWith(id+'_')||k===formKey) keysToMerge.push(k);
     });
-    // 去重複
     keysToMerge=keysToMerge.filter(function(v,i,a){return a.indexOf(v)===i;});
-    // 全部合併到 formKey
+
+    // ★ 改用「非空值優先」合併：來源的空字串/null/undefined 不能覆蓋 formKey 已有的有效值
+    function mergeNonEmpty(target, source){
+      if(!source) return;
+      Object.keys(source).forEach(function(k){
+        var v=source[k];
+        if(v===''||v===null||v===undefined||v===false) return;
+        // 只在 target 該 key 為空時填入；若 target 已有有效值，保留 target
+        var tv=target[k];
+        if(tv===''||tv===null||tv===undefined||tv===false){
+          target[k]=v;
+        }
+        // 若兩邊都有 → 保留 target（formKey 是正規來源），不覆蓋
+      });
+    }
+
     keysToMerge.forEach(function(k){
-      if(k!==formKey&&APP.formData[k]&&Object.keys(APP.formData[k]).length>0){
-        Object.assign(APP.formData[formKey], APP.formData[k]);
+      if(k!==formKey && APP.formData[k] && Object.keys(APP.formData[k]).length>0){
+        mergeNonEmpty(APP.formData[formKey], APP.formData[k]);
       }
     });
-    // 載入草稿（所有相關 key）
+    // 載入草稿（同樣非空值優先）
     try{
       var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
       keysToMerge.forEach(function(k){
         if(drafts[k]){
-          Object.keys(drafts[k]).forEach(function(dk){
-            if(drafts[k][dk]!==''&&drafts[k][dk]!==null&&drafts[k][dk]!==undefined){
-              APP.formData[formKey][dk]=drafts[k][dk];
-            }
-          });
+          mergeNonEmpty(APP.formData[formKey], drafts[k]);
         }
       });
     }catch(e){}
-    // 合併 historyLog
+    // 合併 historyLog（這個沒有「空值覆蓋」問題，照舊去重合併即可）
     if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
     keysToMerge.forEach(function(k){
       if(k!==formKey&&APP.historyLog[k]&&APP.historyLog[k].length>0){
@@ -1530,6 +1650,21 @@ async function openForm(id){
         APP.historyLog[formKey].sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
       }
     });
+    // ★ 合併完後，把裸 id 的殘留資料清掉，避免下次又被掃進來
+    if(id!==formKey && APP.formData[id]){
+      delete APP.formData[id];
+    }
+    // 同步清掉 localStorage 內的裸 id 草稿
+    try{
+      var drafts2=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      if(drafts2[id] && id!==formKey){
+        // 確認 formKey 草稿存在後才清
+        if(drafts2[formKey]){
+          delete drafts2[id];
+          localStorage.setItem('form_drafts',JSON.stringify(drafts2));
+        }
+      }
+    }catch(e){}
   }
   
   mergeAllKeys();
@@ -3594,21 +3729,16 @@ function rBtn(fid,key,v,role,disabled){
   return`<button class="r-btn ${selC}" ${dis} onclick="setRating('${fid}','${key}',${vStr},'${role}',this)">${v}</button>`;
 }
 function setRating(fid,key,val,role,btn){
-  var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
-  // 同時存到 realFid（含學號）和 fid（裸 id）兩個 key
-  [realFid, fid].forEach(function(k){
-    if(!k)return;
-    if(!APP.formData[k])APP.formData[k]={};
-    APP.formData[k][key]=val;
-  });
-  // 同時存到 localStorage
+  // ★ 統一寫入 canonical formKey，不再雙寫
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var targetKey = getCanonicalKey(bareId);
+  if(!APP.formData[targetKey])APP.formData[targetKey]={};
+  APP.formData[targetKey][key]=val;
+  // localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    [realFid, fid].forEach(function(k){
-      if(!k)return;
-      if(!drafts[k])drafts[k]={};
-      drafts[k][key]=val;
-    });
+    if(!drafts[targetKey])drafts[targetKey]={};
+    drafts[targetKey][key]=val;
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
   // Update button visuals
@@ -3848,27 +3978,22 @@ function signDateWithTimestamp(fid,key,disabled,isTeacher){
 }
 
 function saveDraftField(fid, key, val){
-  // 立即存到 APP.formData（所有可能的 key）
-  if(!APP.formData[fid])APP.formData[fid]={};
-  APP.formData[fid][key]=val;
-  // 同步到 formKey 版本
-  if(APP.currentFormId){
-    var fk=getFormKey(APP.currentFormId);
-    if(!APP.formData[fk])APP.formData[fk]={};
-    APP.formData[fk][key]=val;
+  // ★ 統一寫入：永遠寫到 canonical formKey，避免裸 id 與 formKey 兩邊不一致
+  var canonical = getCanonicalKey(fid.split('_')[0] === fid ? fid : fid.split('_')[0]);
+  // 若 fid 本身已經是 formKey（含底線+學號），直接用 fid；否則用 canonical
+  var targetKey = fid;
+  if(fid.indexOf('_')<0){
+    // fid 是裸 id（例如 'F01B'）→ 改寫到 canonical formKey
+    targetKey = canonical;
   }
-  // 立即存 localStorage
+  if(!APP.formData[targetKey]) APP.formData[targetKey] = {};
+  APP.formData[targetKey][key] = val;
+  // 立即存 localStorage（同樣只寫 targetKey）
   try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    if(!drafts[fid])drafts[fid]={};
-    drafts[fid][key]=val;
-    // 也存到 formKey
-    if(APP.currentFormId){
-      var fk2=getFormKey(APP.currentFormId);
-      if(!drafts[fk2])drafts[fk2]={};
-      drafts[fk2][key]=val;
-    }
-    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+    var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!drafts[targetKey]) drafts[targetKey] = {};
+    drafts[targetKey][key] = val;
+    localStorage.setItem('form_drafts', JSON.stringify(drafts));
   }catch(e){}
 }
 
@@ -4950,9 +5075,18 @@ function setDOPS(fid,key,val,btn){
     existing.style.display='block';
     setTimeout(function(){if(existing)existing.style.display='none';},4000);
   }
-  if(!APP.formData[fid])APP.formData[fid]={};
-  APP.formData[fid][key]=val;
-  APP.formData[fid][key]=val;
+  // ★ 統一寫入 canonical formKey
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var targetKey = getCanonicalKey(bareId);
+  if(!APP.formData[targetKey])APP.formData[targetKey]={};
+  APP.formData[targetKey][key]=val;
+  // localStorage 同步
+  try{
+    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    if(!drafts[targetKey])drafts[targetKey]={};
+    drafts[targetKey][key]=val;
+    localStorage.setItem('form_drafts',JSON.stringify(drafts));
+  }catch(e){}
   const row=btn.closest('tr');
   row.querySelectorAll('.d-btn').forEach(b=>{
     const v=b.dataset.rval;
@@ -5052,16 +5186,15 @@ function buildEPA(f,d,canT,fkey,canS){
 }
 
 function setEPA(fid,lv,fid2){
-  var realFid=fid2||getFormKey(APP.currentFormId||'')||fid;
-  [fid,realFid].forEach(function(k){
-    if(!k)return;
-    if(!APP.formData[k])APP.formData[k]={};
-    APP.formData[k]['epa_level']=lv;
-  });
+  // ★ 統一寫入 canonical formKey
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var targetKey = getCanonicalKey(bareId);
+  if(!APP.formData[targetKey])APP.formData[targetKey]={};
+  APP.formData[targetKey]['epa_level']=lv;
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    drafts[realFid]=drafts[realFid]||{};
-    drafts[realFid]['epa_level']=lv;
+    if(!drafts[targetKey])drafts[targetKey]={};
+    drafts[targetKey]['epa_level']=lv;
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
   // 更新所有 epa-level div 的視覺狀態
