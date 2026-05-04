@@ -459,6 +459,7 @@ input[type="date"]{
       <span id="topbar-user" class="user-badge"></span>
       <span id="topbar-role" class="role-chip"></span>
       <button id="btn-home" onclick="APP.currentRole==='teacher'?renderTeacherHome():renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
+      <button id="btn-sync" onclick="manualSync()" style="padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="從雲端重新載入最新資料">🔄 同步</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -754,7 +755,7 @@ function doLogout(){
   document.getElementById('login-screen').classList.add('active');
   document.getElementById('app-screen').classList.remove('active');
 }
-function enterApp(){
+async function enterApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='block';
   document.getElementById('login-screen').classList.remove('active');
@@ -767,14 +768,47 @@ function enterApp(){
   rc.textContent=roleLabel;rc.className='role-chip '+roleClass;
   const homeBtn=document.getElementById('btn-home');
   if(homeBtn) homeBtn.style.display=(APP.currentRole==='teacher'||APP.currentRole==='admin')?'inline-block':'none';
-  // 登入時載入所有草稿資料到 APP.formData
-  try{
-    var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
-    Object.keys(drafts).forEach(function(fkey){
-      if(!APP.formData[fkey])APP.formData[fkey]={};
-      Object.assign(APP.formData[fkey],drafts[fkey]);
-    });
-  }catch(e){}
+
+  // ★★★ 跨裝置同步：清空本地殘留，從 GAS 重新載入 ★★★
+  APP.formData = {};
+  APP.historyLog = {};
+
+  // 顯示載入提示
+  var mc0 = document.getElementById('main-content');
+  if(mc0){
+    mc0.innerHTML = '<div style="padding:3rem;text-align:center;color:var(--ink3);">'+
+      '<div style="font-size:32px;margin-bottom:10px;">☁</div>'+
+      '<div style="font-size:14px;font-weight:600;">正在從雲端同步資料...</div>'+
+      '<div style="font-size:12px;margin-top:6px;color:var(--ink3);">確保所有裝置看到相同內容</div>'+
+      '</div>';
+  }
+
+  // 學生 / 已選擇學生的老師才需要拉表單
+  if(APP.currentRole==='student' || (APP.currentRole==='teacher' && APP.currentStudentId)){
+    try{
+      await loadAllFormsFromSheets();
+    }catch(e){
+      console.warn('批次載入失敗，改用本機備份:', e);
+      try{
+        var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+        Object.keys(drafts).forEach(function(fkey){
+          if(!APP.formData[fkey])APP.formData[fkey]={};
+          Object.assign(APP.formData[fkey],drafts[fkey]);
+        });
+        var hlogs=JSON.parse(localStorage.getItem('history_logs')||'{}');
+        Object.assign(APP.historyLog, hlogs);
+      }catch(e2){}
+    }
+  } else {
+    // 管理員、未選學生的老師：照原本載入草稿
+    try{
+      var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      Object.keys(drafts).forEach(function(fkey){
+        if(!APP.formData[fkey])APP.formData[fkey]={};
+        Object.assign(APP.formData[fkey],drafts[fkey]);
+      });
+    }catch(e){}
+  }
   // 登入後強制合併：把所有不帶學號的 key 合併到帶學號的版本
   setTimeout(function(){
     if(APP.currentUser&&APP.currentUser.sid){
@@ -1834,6 +1868,20 @@ function saveForm(id){
   } else {
     toast('表單已儲存 ✓');
   }
+
+  // ★★★ 跨裝置同步：3 秒後從雲端重新拉取，確認資料已同步 ★★★
+  setTimeout(async function(){
+    try{
+      await loadFormFromSheets(id);
+      var hw=document.getElementById('history-wrap');
+      if(hw && APP.currentFormId===id){
+        hw.innerHTML=buildHistoryItems(getFormKey(id));
+      }
+      renderSidebar();
+      updateQuickNav();
+    }catch(e){console.warn('儲存後同步確認失敗:',e);}
+  }, 3000);
+
   // 更新進度條
   renderSidebar();
   updateQuickNav();
@@ -1896,22 +1944,17 @@ async function loadFormFromSheets(id){
     if(data.formData){
       try{
         const loaded=JSON.parse(data.formData);
-        // 存到 formKey（含學號）
-        if(!APP.formData[formKey])APP.formData[formKey]={};
-        APP.formData[formKey]=Object.assign({},loaded,APP.formData[formKey]);
-        // 同步到 id（無學號）作為備份
-        if(!APP.formData[id])APP.formData[id]={};
-        APP.formData[id]=Object.assign({},loaded,APP.formData[id]);
+        // ★★★ 跨裝置同步：遠端資料完全取代本地（遠端優先） ★★★
+        APP.formData[formKey] = loaded;
+        APP.formData[id] = Object.assign({}, APP.formData[id]||{}, loaded);
       }catch(e2){console.warn('formData parse:',e2);}
     }
     if(data.history){
       try{
         const remoteLog=JSON.parse(data.history);
-        // 同時存到 formKey 和 id
-        const localLog=APP.historyLog[formKey]||[];
-        APP.historyLog[formKey]=localLog.length>=remoteLog.length?localLog:remoteLog;
-        const localLogId=APP.historyLog[id]||[];
-        APP.historyLog[id]=localLogId.length>=remoteLog.length?localLogId:remoteLog;
+        // ★★★ 跨裝置同步：遠端歷史紀錄優先 ★★★
+        APP.historyLog[formKey] = remoteLog;
+        APP.historyLog[id] = remoteLog;
       }catch(e2){}
     }
   }catch(e){
@@ -1924,6 +1967,81 @@ async function loadFormFromSheets(id){
       if(cid==='F07M'||cid==='F07S') calc360Score(getFormKey(cid));
       if(cid==='F15') calcF15Score(getFormKey(cid));
     },200);
+  }
+}
+
+/* ── 登入時批次從 GAS 拉取該使用者所有表單（跨裝置同步用）── */
+async function loadAllFormsFromSheets(){
+  if(!APP.currentUser) return;
+  var sid = APP.currentRole==='student' ? APP.currentUser.sid 
+          : (APP.currentStudentId || null);
+  if(!sid) return;
+
+  var allFormIds = FORMS.map(function(f){ return f.id; });
+  var loadPromises = [];
+
+  allFormIds.forEach(function(fid){
+    var formKey = fid + '_' + sid;
+    loadPromises.push(
+      (async function(fk, baseId){
+        try{
+          var controller = new AbortController();
+          var tid = setTimeout(function(){controller.abort();}, 6000);
+          var url = GAS_URL + '?action=loadForm&formId=' + encodeURIComponent(fk) + '&t=' + Date.now();
+          var resp = await fetch(url, {cache:'no-cache', signal:controller.signal});
+          clearTimeout(tid);
+          if(!resp.ok) return;
+          var data = await resp.json();
+          if(data.formData){
+            try{
+              var loaded = JSON.parse(data.formData);
+              APP.formData[fk] = loaded;
+              APP.formData[baseId] = Object.assign({}, APP.formData[baseId]||{}, loaded);
+            }catch(e){}
+          }
+          if(data.history){
+            try{
+              var remoteLog = JSON.parse(data.history);
+              APP.historyLog[fk] = remoteLog;
+              APP.historyLog[baseId] = remoteLog;
+            }catch(e){}
+          }
+        }catch(e){}
+      })(formKey, fid)
+    );
+  });
+
+  await Promise.all(loadPromises);
+
+  try{
+    localStorage.setItem('form_drafts', JSON.stringify(APP.formData));
+    localStorage.setItem('history_logs', JSON.stringify(APP.historyLog));
+  }catch(e){}
+}
+
+/* ── 手動同步按鈕 ── */
+async function manualSync(){
+  if(!APP.currentUser){ toast('請先登入'); return; }
+  var btn = document.getElementById('btn-sync');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ 同步中...'; }
+  try{
+    await loadAllFormsFromSheets();
+    toast('✓ 已從雲端載入最新資料');
+    if(APP.currentFormId && !APP.currentFormId.startsWith('__')){
+      openForm(APP.currentFormId);
+    } else if(APP.currentRole==='admin'){
+      renderAdmin();
+    } else if(APP.currentRole==='teacher'){
+      renderTeacherHome();
+    } else {
+      renderFormList();
+    }
+    renderSidebar();
+    updateQuickNav();
+  }catch(e){
+    toast('同步失敗，請檢查網路', false);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='🔄 同步'; }
   }
 }
 
