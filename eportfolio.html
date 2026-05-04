@@ -151,7 +151,9 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .dot-done{background:var(--green);}
 
 .dot-partial{background:#F59E0B;}
+.dot-draft{background:#0EA5E9;animation:draftPulse 2s ease-in-out infinite;}
 .dot-new{background:var(--ink4);}
+@keyframes draftPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
 .main-content{flex:1;overflow-y:auto;}
 
 /* ─── FORM LIST (dashboard) ─── */
@@ -370,6 +372,9 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .qnav-overview:hover{background:var(--primary-soft);}
 .qnav-new{border:1px solid var(--border);color:var(--ink3);}
 .qnav-new:hover{border-color:var(--ink3);color:var(--ink2);}
+.qnav-draft{border:1px solid #BAE6FD;color:#075985;background:#F0F9FF;font-weight:600;}
+.qnav-draft:hover{background:#E0F2FE;}
+.qnav-draft b{color:#0C4A6E;}
 .qnav-partial{border:1px solid #FCD34D;color:#92400E;background:#FFFBEB;}
 .qnav-partial:hover{background:#FEF3C7;}
 .qnav-done{border:1px solid var(--green-line);color:var(--green);font-weight:600;background:var(--green-soft);}
@@ -608,6 +613,7 @@ input[type="date"]{
   <div id="quick-nav" style="display:none;background:linear-gradient(180deg,#F8FAFE 0%,#EFF4FB 100%);border-bottom:1px solid var(--border);padding:8px 1rem;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:56px;z-index:150;box-shadow:0 1px 3px rgba(15,23,42,.04);">
     <button onclick="renderFormList()" class="qnav-btn qnav-overview">📋 總覽</button>
     <button onclick="renderStatusSection('new')" class="qnav-btn qnav-new">⭕ 未填 <b id="qnav-new-cnt">-</b> 份</button>
+    <button onclick="renderStatusSection('draft')" class="qnav-btn qnav-draft">✏️ 草稿中 <b id="qnav-draft-cnt">-</b> 份</button>
     <button onclick="renderStatusSection('partial')" class="qnav-btn qnav-partial">📝 進行中 <b id="qnav-partial-cnt">-</b> 份</button>
 
     <button onclick="renderStatusSection('done')" class="qnav-btn qnav-done">✅ 已完成 <b id="qnav-done-cnt">-</b> 份</button>
@@ -1399,6 +1405,84 @@ function writeField(fid, key, val){
     drafts[targetKey][key] = val;
     localStorage.setItem('form_drafts', JSON.stringify(drafts));
   }catch(e){}
+  // ★ 觸發自動儲存
+  scheduleAutoSave(bareId);
+}
+
+/* ════════════════════════════════════════════════
+   自動儲存機制（Auto-Save）
+   每次資料變動 → 等待 5 秒（debounce）→ 自動觸發儲存
+   避免使用者忘記按儲存而資料判定錯誤
+   ════════════════════════════════════════════════ */
+const AUTO_SAVE_DEBOUNCE_MS = 5000; // 停止輸入 5 秒後自動存
+let _autoSaveTimers = {};            // 每張表單獨立計時器
+let _autoSaveInFlight = {};          // 避免重複觸發
+
+function scheduleAutoSave(bareId){
+  // 必須有登入身分才自動儲存
+  if(!APP.currentRole || !APP.currentUser) return;
+  // 學生：只能自動儲存自己的表單
+  if(APP.currentRole==='student' && !APP.currentUser.sid) return;
+  // 老師：必須選定學生
+  if(APP.currentRole==='teacher' && !APP.currentStudentId) return;
+  // 管理員：跳過自動儲存（管理員多半在管理帳號，不該觸發表單儲存）
+  if(APP.currentRole==='admin') return;
+
+  // 取消舊計時器，重設 debounce
+  if(_autoSaveTimers[bareId]) clearTimeout(_autoSaveTimers[bareId]);
+  // 顯示「未儲存」指示
+  showAutoSaveIndicator('pending');
+  _autoSaveTimers[bareId] = setTimeout(function(){
+    runAutoSave(bareId);
+  }, AUTO_SAVE_DEBOUNCE_MS);
+}
+
+function runAutoSave(bareId){
+  if(_autoSaveInFlight[bareId]) return;
+  _autoSaveInFlight[bareId] = true;
+  showAutoSaveIndicator('saving');
+  try{
+    // 直接呼叫 saveForm，與「按儲存按鈕」效果完全相同
+    // 這會建立 historyLog 紀錄，讓狀態判定能正確運作
+    if(typeof saveForm === 'function'){
+      saveForm(bareId);
+      showAutoSaveIndicator('saved');
+    }
+  }catch(e){
+    console.warn('autoSave failed:', e);
+    showAutoSaveIndicator('error');
+  }finally{
+    setTimeout(function(){ _autoSaveInFlight[bareId] = false; }, 1000);
+  }
+}
+
+/* ── 自動儲存狀態指示器（右下角小提示） ── */
+function showAutoSaveIndicator(state){
+  let el = document.getElementById('auto-save-indicator');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'auto-save-indicator';
+    el.style.cssText = 'position:fixed;bottom:1.2rem;left:1.2rem;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;z-index:9998;transition:all .3s;pointer-events:none;box-shadow:0 2px 8px rgba(15,23,42,.12);opacity:0;';
+    document.body.appendChild(el);
+  }
+  const conf = {
+    pending: { txt:'✏️ 編輯中…將自動儲存', bg:'#FEF3C7', color:'#78350F', border:'#F59E0B' },
+    saving:  { txt:'⏳ 自動儲存中…',         bg:'#DBEAFE', color:'#1E40AF', border:'#2563EB' },
+    saved:   { txt:'☁ 已自動儲存',           bg:'#D1FAE5', color:'#065F46', border:'#059669' },
+    error:   { txt:'⚠ 自動儲存失敗',         bg:'#FEE2E2', color:'#991B1B', border:'#DC2626' }
+  }[state] || null;
+  if(!conf){ el.style.opacity='0'; return; }
+  el.textContent = conf.txt;
+  el.style.background = conf.bg;
+  el.style.color = conf.color;
+  el.style.border = '1px solid '+conf.border;
+  el.style.opacity = '1';
+  // 「已儲存」狀態 3 秒後自動淡出
+  if(state === 'saved' || state === 'error'){
+    setTimeout(function(){
+      if(el.textContent === conf.txt) el.style.opacity = '0';
+    }, 3000);
+  }
 }
 
 /* 各表單學生必填欄位定義 */
@@ -1607,8 +1691,8 @@ function getStatus(id){
   });
   if(!hasAnyData) return 'new';
 
-  // ── 層級2：有資料但無儲存紀錄 → 仍視為未填
-  if(!hasRecord) return 'new';
+  // ── 層級2：有資料但無儲存紀錄 → 'draft'（草稿中，提醒使用者尚未儲存） ──
+  if(!hasRecord) return 'draft';
 
   // ── F04 床邊教學：特殊必填清單 ──
   if(id==='F04M'||id==='F04S'){
@@ -1652,13 +1736,14 @@ function getStatusSummary(){
   return{
     done:statuses.filter(s=>s==='done').length,
     partial:statuses.filter(s=>s==='partial').length,
+    draft:statuses.filter(s=>s==='draft').length,
     newF:statuses.filter(s=>s==='new').length,
     total:FORMS.length
   };
 }
 
 function getUnfilledForms(){
-  return FORMS.filter(f=>['new','partial'].includes(getStatus(f.id)));
+  return FORMS.filter(f=>['new','draft','partial'].includes(getStatus(f.id)));
 }
 
 /* ═══════════ SIDEBAR ═══════════ */
@@ -1692,7 +1777,7 @@ function renderSidebar(){
         const f=findForm(id);if(!f)return;
         const shortName=f.name.length>13?f.name.slice(0,13)+'…':f.name;
         const st2=APP.currentStudentId?getStudentFormStatus(id,APP.currentStudentId):getStatus(id);
-        const dot2=st2==='done'?'dot-done':st2==='wait'?'dot-partial':st2==='partial'?'dot-partial':'dot-new';
+        const dot2=st2==='done'?'dot-done':st2==='draft'?'dot-draft':st2==='wait'?'dot-partial':st2==='partial'?'dot-partial':'dot-new';
         thtml+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
           <span class="sidebar-dot ${dot2}"></span>${shortName}
         </div>`;
@@ -1719,7 +1804,7 @@ function renderSidebar(){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
-      const dotC=st==='done'?'dot-done':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
       const shortName=f.name.length>14?f.name.slice(0,14)+'…':f.name;
       html+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
         <span class="sidebar-dot ${dotC}"></span>${shortName}
@@ -1769,8 +1854,8 @@ function selectStudent(sid){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStudentFormStatus(id,sid);
-      const dotC=st==='done'?'dot-done':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未儲存）':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       html+=`<div class="form-card" onclick="openForm('${id}')">
         <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
@@ -1844,6 +1929,7 @@ function renderFormList(){
       </div>
       <div style="display:flex;gap:12px;margin-top:7px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--green);">✅ 已完成 ${sm.done} 份</span>
+        <span style="font-size:11px;color:#0EA5E9;">✏️ 草稿中 ${sm.draft||0} 份</span>
         <span style="font-size:11px;color:#5A8AAA;">📝 進行中 ${sm.partial} 份</span>
         <span style="font-size:11px;color:var(--ink3);">⭕ 未填寫 ${sm.newF} 份</span>
       </div>
@@ -1854,8 +1940,8 @@ function renderFormList(){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
-      const dotC=st==='done'?'dot-done':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未儲存）':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       const rolesTag=f.roles==='both'?`<span class="tag tag-both">學生＋老師</span>`:f.roles==='student'?`<span class="tag tag-student">學生填寫</span>`:`<span class="tag tag-teacher">老師填寫</span>`;
       html+=`<div class="form-card" onclick="openForm('${id}')">
@@ -1872,6 +1958,16 @@ function renderFormList(){
 
 /* ═══════════ OPEN FORM ═══════════ */
 async function openForm(id){
+  // ★ 切換表單前：強制觸發目前表單的待儲存草稿（若有未完成的 debounce 計時）
+  if(APP.currentFormId && APP.currentFormId !== id && !APP.currentFormId.startsWith('__')){
+    const oldBare = APP.currentFormId.indexOf('_')>=0 ? APP.currentFormId.split('_')[0] : APP.currentFormId;
+    if(_autoSaveTimers[oldBare]){
+      clearTimeout(_autoSaveTimers[oldBare]);
+      delete _autoSaveTimers[oldBare];
+      // 立即儲存而非等 5 秒
+      try{ runAutoSave(oldBare); }catch(e){console.warn('flush autoSave failed:',e);}
+    }
+  }
   // 自動暫存目前表單（如果有未儲存的資料）
   if(APP.currentFormId && APP.currentFormId !== id && 
      !APP.currentFormId.startsWith('__')){
@@ -2342,6 +2438,11 @@ async function reloadFormKeepUnlocked(id){}
 
 /* ═══════════ SAVE ═══════════ */
 function saveForm(id){
+  // ★ 取消 pending 的自動儲存計時器（避免重複儲存）
+  if(typeof _autoSaveTimers !== 'undefined' && _autoSaveTimers[id]){
+    clearTimeout(_autoSaveTimers[id]);
+    delete _autoSaveTimers[id];
+  }
   // 【安全】登入身分驗證：必須有有效的 currentRole
   if(!APP.currentRole){
     toast('⚠ 請先登入');
@@ -4140,6 +4241,8 @@ function setRating(fid,key,val,role,btn){
       b.classList.add(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s');
     }
   });
+  // ★ 觸發自動儲存
+  if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
 function rBtnTable(fid,key,v,role,disabled){
   // 同時查 fid 和 formKey
@@ -4375,7 +4478,8 @@ function saveDraftField(fid, key, val){
   // 安全：限制長度
   val = clipInput(val, MAX_FIELD_LENGTH);
   // ★ 統一寫入：永遠寫到 canonical formKey，避免裸 id 與 formKey 兩邊不一致
-  var canonical = getCanonicalKey(fid.split('_')[0] === fid ? fid : fid.split('_')[0]);
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var canonical = getCanonicalKey(bareId);
   // 若 fid 本身已經是 formKey（含底線+學號），直接用 fid；否則用 canonical
   var targetKey = fid;
   if(fid.indexOf('_')<0){
@@ -4391,6 +4495,8 @@ function saveDraftField(fid, key, val){
     drafts[targetKey][key] = val;
     localStorage.setItem('form_drafts', JSON.stringify(drafts));
   }catch(e){}
+  // ★ 觸發自動儲存
+  if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
 
 function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
@@ -5524,6 +5630,8 @@ function setDOPS(fid,key,val,btn){
     b.classList.toggle('sel',match);
     b.textContent=match?'●':'';
   });
+  // ★ 觸發自動儲存
+  if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
 
 /* ─── EPA ─── */
@@ -5648,6 +5756,8 @@ function setEPA(fid,lv,fid2){
     // 更新 class
     el.classList.toggle('sel',isSel);
   });
+  // ★ 觸發自動儲存
+  if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
 
 /* ─── F15 課程評值 ─── */
@@ -6711,12 +6821,12 @@ function updateQuickNav(){
   if(!APP.currentUser)return;
   var sm=getStatusSummary();
   var nd=document.getElementById('qnav-new-cnt');
+  var draftEl=document.getElementById('qnav-draft-cnt');
   var pd=document.getElementById('qnav-partial-cnt');
-  var wd=null; // wait removed
   var dd=document.getElementById('qnav-done-cnt');
   if(nd)nd.textContent=sm.newF;
+  if(draftEl)draftEl.textContent=sm.draft||0;
   if(pd)pd.textContent=sm.partial;
-
   if(dd)dd.textContent=sm.done;
 }
 
@@ -6911,8 +7021,8 @@ function renderStatusSection(filterStatus){
   APP.currentFormId='__status_'+filterStatus;
   renderSidebar();
   const mc=document.getElementById('main-content');
-  const labelMap={done:'✅ 已完成',partial:'📝 進行中',new:'⭕ 未填寫'};
-  const colorMap={done:'var(--green)',wait:'var(--gold)',partial:'#5A8AAA',new:'var(--red)'};
+  const labelMap={done:'✅ 已完成',draft:'✏️ 草稿中（未儲存）',partial:'📝 進行中',new:'⭕ 未填寫'};
+  const colorMap={done:'var(--green)',draft:'#0EA5E9',wait:'var(--gold)',partial:'#5A8AAA',new:'var(--red)'};
   const filtered=FORMS.filter(function(f){return getStatus(f.id)===filterStatus;});
   let html='<div class="form-list-view">';
   var batchBtn=filterStatus==='done'
@@ -6930,8 +7040,8 @@ function renderStatusSection(filterStatus){
     html+='<div class="form-grid">';
     filtered.forEach(function(f){
       const st=getStatus(f.id);
-      const dotC=st==='done'?'dot-done':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未儲存）':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
       const dlBtn=st==='done'
         ?`<button onclick="event.stopPropagation();checkAndDownloadPDF('${f.id}')" style="margin-top:8px;width:100%;padding:6px 0;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.3px;" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">⬇ 下載 PDF</button>`
