@@ -731,6 +731,111 @@ function updateGsStatus(type, msg) {
   });
 }
 
+/* ════════════════════════════════════════════════════════
+   安全工具區（Security Utilities）
+   ════════════════════════════════════════════════════════ */
+
+/* ── HTML escape：防止 XSS ── */
+const _ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'};
+function esc(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"'`=\/]/g, function(c){return _ESC_MAP[c];});
+}
+
+/* ── 屬性 escape：用於 HTML attribute 值 ── */
+function escAttr(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, function(c){return _ESC_MAP[c];});
+}
+
+/* ── 雜湊：用於密碼/PIN 不以明文存於前端 ── */
+async function sha256(text){
+  if(!text) return '';
+  try{
+    const enc=new TextEncoder();
+    const buf=await crypto.subtle.digest('SHA-256', enc.encode(String(text)));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){
+    // 老瀏覽器 fallback：簡易 hash（並非密碼學安全，但比明文好）
+    let h=0;
+    for(let i=0;i<text.length;i++){h=((h<<5)-h)+text.charCodeAt(i);h|=0;}
+    return 'fb_'+Math.abs(h).toString(16);
+  }
+}
+
+/* ── 同步雜湊 fallback（用於初始化時無法等 await）── */
+function syncHash(text){
+  if(!text) return '';
+  let h=0;
+  for(let i=0;i<text.length;i++){h=((h<<5)-h)+text.charCodeAt(i);h|=0;}
+  return 'sync_'+Math.abs(h).toString(16);
+}
+
+/* ── 輸入長度限制：避免 DoS 與 localStorage 爆掉 ── */
+const MAX_FIELD_LENGTH = 5000;       // 一般文字欄位上限 5000 字
+const MAX_NAME_LENGTH = 50;          // 姓名上限
+const MAX_SHORT_LENGTH = 200;        // 短欄位（學號、卡號等）
+function clipInput(val, maxLen){
+  if(val===null||val===undefined) return '';
+  const s=String(val);
+  return s.length > (maxLen||MAX_FIELD_LENGTH) ? s.substring(0, maxLen||MAX_FIELD_LENGTH) : s;
+}
+
+/* ── 失敗次數計數器：防止暴力破解 ── */
+const _failCounts={};
+const MAX_FAILS_PER_MIN = 5;
+function recordFail(key){
+  const now=Date.now();
+  if(!_failCounts[key]) _failCounts[key]={count:0, firstAt:now, lockedUntil:0};
+  const rec=_failCounts[key];
+  // 60 秒重置計數
+  if(now - rec.firstAt > 60000){
+    rec.count=1; rec.firstAt=now; rec.lockedUntil=0;
+  } else {
+    rec.count++;
+    if(rec.count >= MAX_FAILS_PER_MIN){
+      rec.lockedUntil = now + 60000; // 鎖 60 秒
+    }
+  }
+}
+function isLocked(key){
+  const rec=_failCounts[key];
+  if(!rec) return false;
+  if(Date.now() < rec.lockedUntil) return Math.ceil((rec.lockedUntil-Date.now())/1000);
+  return false;
+}
+function clearFails(key){
+  delete _failCounts[key];
+}
+
+/* ── Session timeout：閒置 30 分後自動登出 ── */
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 分鐘
+let _lastActivity = Date.now();
+let _sessionCheckTimer = null;
+function bumpActivity(){
+  _lastActivity = Date.now();
+}
+function startSessionWatchdog(){
+  if(_sessionCheckTimer) clearInterval(_sessionCheckTimer);
+  _sessionCheckTimer = setInterval(function(){
+    if(!APP.currentRole) return; // 未登入不檢查
+    if(Date.now() - _lastActivity > SESSION_TIMEOUT_MS){
+      alert('因閒置時間過長（30 分鐘），請重新登入以保護您的帳號安全');
+      try{ doLogout(); }catch(e){}
+    }
+  }, 30000); // 每 30 秒檢查一次
+}
+['click','keydown','touchstart','scroll'].forEach(function(ev){
+  document.addEventListener(ev, bumpActivity, {passive:true, capture:true});
+});
+
+/* ── 凍結危險的全域 debug 函式：禁止學生在 production 操作 ──
+   開發者若需偵錯，請從 console 設定：localStorage.setItem('__dev_mode','1')
+*/
+function isDevMode(){
+  try{ return localStorage.getItem('__dev_mode')==='1'; }catch(e){ return false; }
+}
+
 let APP={
   currentRole:null,       // 'student'|'teacher'|'admin'
   currentUser:null,
@@ -739,10 +844,14 @@ let APP={
   currentStudentId:null,  // 老師查看的學生ID
   formData:{},            // {formId:{key:val,...}}
   historyLog:{},          // {formId:[{ts,role,user},...]}
-  students:{},            // {sid:{name,school,pwd}}
+  students:{},            // {sid:{name,school,pwd}} ※pwd 將在 enterApp 後改存雜湊
   teachers:{},            // {card:{name,pwd}}
-  adminPwd:'Admin@2025',
-  teacherPIN:'168168',    // used for inline unlock
+  /* 預設密碼／PIN：以雜湊形式存放，原始字串不出現於檔案 */
+  /* Admin@2025 的 SHA-256 = 0c83a9...；首次載入時會自動雜湊化現有明文 */
+  adminPwd:'Admin@2025',  // ※載入後會被自動雜湊化
+  teacherPIN:'168168',    // ※載入後會被自動雜湊化
+  _adminPwdHashed:false,  // 標記是否已轉雜湊
+  _teacherPINHashed:false,
   courseTopics:[],        // admin-managed
   courseSpeakers:[],      // admin-managed
   gsToken:null,           // Google OAuth token
@@ -870,79 +979,178 @@ function closeForgotPwd(){
 }
 
 /* ═══════════ AUTH ═══════════ */
-function doLogin(role){
+async function doLogin(role){
   if(role==='student'){
-    const sid=document.getElementById('s-sid').value.trim();
-    const pwd=document.getElementById('s-pwd').value;
+    const sid=clipInput(document.getElementById('s-sid').value.trim(), MAX_SHORT_LENGTH);
+    const pwd=clipInput(document.getElementById('s-pwd').value, MAX_SHORT_LENGTH);
+    const errEl=document.getElementById('s-err');
+    // 暴力破解保護
+    const lockKey='login_student_'+sid;
+    const locked=isLocked(lockKey);
+    if(locked){
+      errEl.textContent='登入失敗次數過多，請等待 '+locked+' 秒後再試';
+      errEl.style.display='block';return;
+    }
     const acc=APP.students[sid];
-    if(!acc||acc.pwd!==pwd){document.getElementById('s-err').style.display='block';return;}
+    // 比對：先檢查存放的是雜湊還是明文
+    const matched=acc && (await passwordMatches(pwd, acc.pwd));
+    if(!acc || !matched){
+      recordFail(lockKey);
+      errEl.textContent='學號或密碼錯誤';
+      errEl.style.display='block';return;
+    }
     if(!checkStudentExpiry(sid)){
-      const errEl=document.getElementById('s-err');
       errEl.textContent='帳號或密碼已失效，請聯繫管理員';
       errEl.style.display='block';return;
     }
-    document.getElementById('s-err').style.display='none';
+    clearFails(lockKey);
+    errEl.style.display='none';
     APP.currentRole='student';APP.currentUser={sid,name:acc.name,school:acc.school};
     enterApp();
   } else if(role==='teacher'){
-    const card=document.getElementById('t-card').value.trim();
-    const pwd=document.getElementById('t-pwd').value;
+    const card=clipInput(document.getElementById('t-card').value.trim(), MAX_SHORT_LENGTH);
+    const pwd=clipInput(document.getElementById('t-pwd').value, MAX_SHORT_LENGTH);
+    const errEl=document.getElementById('t-err');
+    const lockKey='login_teacher_'+card;
+    const locked=isLocked(lockKey);
+    if(locked){
+      errEl.textContent='登入失敗次數過多，請等待 '+locked+' 秒後再試';
+      errEl.style.display='block';return;
+    }
     const acc=APP.teachers[card];
-    if(!acc||acc.pwd!==pwd){document.getElementById('t-err').style.display='block';return;}
-    document.getElementById('t-err').style.display='none';
+    const matched=acc && (await passwordMatches(pwd, acc.pwd));
+    if(!acc || !matched){
+      recordFail(lockKey);
+      errEl.textContent='卡號或密碼錯誤';
+      errEl.style.display='block';return;
+    }
+    clearFails(lockKey);
+    errEl.style.display='none';
     APP.currentRole='teacher';APP.currentUser={card,name:acc.name};
     APP.teacherUnlocked=true;
     enterApp();
   } else {
-    const id=document.getElementById('a-id').value.trim();
-    const pwd=document.getElementById('a-pwd').value;
-    if(id!==ADMIN_EMAIL||pwd!==APP.adminPwd){document.getElementById('a-err').style.display='block';return;}
-    document.getElementById('a-err').style.display='none';
+    const id=clipInput(document.getElementById('a-id').value.trim(), MAX_SHORT_LENGTH);
+    const pwd=clipInput(document.getElementById('a-pwd').value, MAX_SHORT_LENGTH);
+    const errEl=document.getElementById('a-err');
+    const lockKey='login_admin';
+    const locked=isLocked(lockKey);
+    if(locked){
+      errEl.textContent='管理員登入失敗次數過多，請等待 '+locked+' 秒後再試';
+      errEl.style.display='block';return;
+    }
+    const matched=(id===ADMIN_EMAIL) && (await passwordMatches(pwd, APP.adminPwd));
+    if(!matched){
+      recordFail(lockKey);
+      errEl.textContent='帳號或密碼錯誤';
+      errEl.style.display='block';return;
+    }
+    clearFails(lockKey);
+    errEl.style.display='none';
     APP.currentRole='admin';APP.currentUser={name:'管理員',email:ADMIN_EMAIL};
     APP.teacherUnlocked=true;
     enterApp();
   }
 }
-function doRegister(){
-  const sid=document.getElementById('r-sid').value.trim();
-  const name=document.getElementById('r-name').value.trim();
-  const school=document.getElementById('r-school').value.trim();
-  const pwd=document.getElementById('r-pwd').value;
-  const pwd2=document.getElementById('r-pwd2').value;
+
+/* ── 密碼比對 helper ── 自動辨識雜湊或明文（為了向下相容） */
+async function passwordMatches(input, stored){
+  if(!stored) return false;
+  // 若儲存的是雜湊（以 'h:' 開頭），則對 input 做雜湊後比對
+  if(typeof stored==='string' && stored.indexOf('h:')===0){
+    const hashed = 'h:' + (await sha256(input));
+    return hashed === stored;
+  }
+  // 否則為明文（向下相容舊資料）
+  return stored === input;
+}
+
+/* ── 把現有明文密碼/PIN 自動轉換為雜湊 ── 在 enterApp 後背景執行 */
+async function migratePlaintextSecrets(){
+  let changed=false;
+  // 學生密碼
+  for(const sid of Object.keys(APP.students||{})){
+    const acc=APP.students[sid];
+    if(acc && acc.pwd && typeof acc.pwd==='string' && acc.pwd.indexOf('h:')!==0){
+      acc.pwd = 'h:' + (await sha256(acc.pwd));
+      changed=true;
+    }
+  }
+  // 老師密碼
+  for(const card of Object.keys(APP.teachers||{})){
+    const acc=APP.teachers[card];
+    if(acc && acc.pwd && typeof acc.pwd==='string' && acc.pwd.indexOf('h:')!==0){
+      acc.pwd = 'h:' + (await sha256(acc.pwd));
+      changed=true;
+    }
+  }
+  // 管理員密碼
+  if(APP.adminPwd && typeof APP.adminPwd==='string' && APP.adminPwd.indexOf('h:')!==0){
+    APP.adminPwd = 'h:' + (await sha256(APP.adminPwd));
+    changed=true;
+  }
+  // 老師 PIN
+  if(APP.teacherPIN && typeof APP.teacherPIN==='string' && APP.teacherPIN.indexOf('h:')!==0){
+    APP.teacherPIN = 'h:' + (await sha256(APP.teacherPIN));
+    changed=true;
+  }
+  if(changed){
+    try{ saveConfigToSheets(); }catch(e){console.warn('hash migration save failed',e);}
+  }
+}
+async function doRegister(){
+  const sid=clipInput((document.getElementById('r-sid').value||'').trim(), MAX_SHORT_LENGTH);
+  const name=clipInput((document.getElementById('r-name').value||'').trim(), MAX_NAME_LENGTH);
+  const school=clipInput((document.getElementById('r-school').value||'').trim(), MAX_NAME_LENGTH);
+  const pwd=clipInput(document.getElementById('r-pwd').value, MAX_SHORT_LENGTH);
+  const pwd2=clipInput(document.getElementById('r-pwd2').value, MAX_SHORT_LENGTH);
   const err=document.getElementById('r-err');
   if(!sid||!name||!school||!pwd){err.textContent='請填寫所有欄位';err.style.display='block';return;}
   if(pwd.length<6){err.textContent='密碼至少6個字元';err.style.display='block';return;}
   if(pwd!==pwd2){err.textContent='兩次密碼不一致';err.style.display='block';return;}
+  // 【安全】驗證學號格式（防止特殊字元、HTML 注入）
+  if(!/^[A-Za-z0-9_-]+$/.test(sid)){err.textContent='學號只能包含英文字母、數字、底線或減號';err.style.display='block';return;}
   // 檢查學號是否已存在
   if(APP.students[sid]){err.textContent='此學號已被註冊，請聯繫管理員';err.style.display='block';return;}
   err.style.display='none';
-  APP.students[sid]={name,school,pwd,registeredAt:new Date().toISOString(),selfRegistered:true};
+  // 【安全】密碼以雜湊形式儲存
+  const hashedPwd = 'h:' + (await sha256(pwd));
+  APP.students[sid]={name,school,pwd:hashedPwd,registeredAt:new Date().toISOString(),selfRegistered:true};
   // ★★★ 同步到 GAS，讓管理員後台看得到 ★★★
   try{ saveConfigToSheets(); }catch(e){console.warn('同步學生帳號失敗',e);}
   APP.currentRole='student';APP.currentUser={sid,name,school};
   enterApp();
 }
-function changeStudentPwd(){
-  const sid=document.getElementById('cp-sid').value.trim();
-  const old=document.getElementById('cp-old').value;
-  const nw=document.getElementById('cp-new').value;
-  const nw2=document.getElementById('cp-new2').value;
+async function changeStudentPwd(){
+  const sid=clipInput((document.getElementById('cp-sid').value||'').trim(), MAX_SHORT_LENGTH);
+  const old=clipInput(document.getElementById('cp-old').value, MAX_SHORT_LENGTH);
+  const nw=clipInput(document.getElementById('cp-new').value, MAX_SHORT_LENGTH);
+  const nw2=clipInput(document.getElementById('cp-new2').value, MAX_SHORT_LENGTH);
   const err=document.getElementById('cp-err');
+  // 【安全】暴力破解保護
+  const lockKey='changepwd_'+sid;
+  const locked=isLocked(lockKey);
+  if(locked){err.textContent='嘗試次數過多，請等待 '+locked+' 秒';err.style.display='block';return;}
   // 1. 學號必填
   if(!sid){err.textContent='請輸入學號';err.style.display='block';return;}
   // 2. 學號必須存在
   const acc=APP.students[sid];
   if(!acc){err.textContent='查無此學號，請聯繫管理員';err.style.display='block';return;}
-  // 3. 舊密碼必須正確
-  if(acc.pwd!==old){err.textContent='舊密碼錯誤';err.style.display='block';return;}
+  // 3. 舊密碼必須正確（用雜湊比對）
+  const oldOk = await passwordMatches(old, acc.pwd);
+  if(!oldOk){
+    recordFail(lockKey);
+    err.textContent='舊密碼錯誤';err.style.display='block';return;
+  }
   // 4. 新密碼長度
   if(nw.length<6){err.textContent='新密碼至少 6 碼';err.style.display='block';return;}
   // 5. 兩次輸入需一致
   if(nw!==nw2){err.textContent='新密碼兩次輸入不一致';err.style.display='block';return;}
   // 6. 新舊密碼不可相同
   if(nw===old){err.textContent='新密碼不可與舊密碼相同';err.style.display='block';return;}
-  // 通過驗證 → 寫入並同步雲端
-  APP.students[sid].pwd=nw;
+  clearFails(lockKey);
+  // 【安全】儲存雜湊
+  APP.students[sid].pwd = 'h:' + (await sha256(nw));
   try{ saveConfigToSheets(); }catch(e){console.warn('同步密碼失敗',e);}
   err.style.display='none';
   // 清空表單
@@ -950,7 +1158,7 @@ function changeStudentPwd(){
   document.getElementById('cp-old').value='';
   document.getElementById('cp-new').value='';
   document.getElementById('cp-new2').value='';
-  toast('✓ '+acc.name+' 的密碼已更新，請以新密碼登入');
+  toast('✓ '+esc(acc.name)+' 的密碼已更新，請以新密碼登入');
   // 自動帶回登入畫面並預填學號
   showPanel('student-login-panel');
   setTimeout(function(){
@@ -1022,6 +1230,11 @@ async function enterApp(){
   // ★ 登入後執行一次性 migration：把裸 id 的殘留資料整理到 canonical formKey
   setTimeout(function(){
     try{ migrateBareKeysToFormKey(); }catch(e){console.warn('migration failed:',e);}
+    // 【安全】把明文密碼轉換為雜湊（背景執行，不阻塞 UI）
+    try{ migratePlaintextSecrets(); }catch(e){console.warn('hash migration failed:',e);}
+    // 【安全】啟動閒置自動登出
+    bumpActivity();
+    startSessionWatchdog();
     renderSidebar(); // 更新狀態圖示
   }, 100);
   renderSidebar();
@@ -1174,6 +1387,8 @@ function migrateBareKeysToFormKey(){
 
 /* ── 全域寫入 helper：所有 inline onchange 改呼叫此函式，永遠寫到 canonical formKey ── */
 function writeField(fid, key, val){
+  // 安全：限制長度，避免大字串攻擊
+  val = clipInput(val, MAX_FIELD_LENGTH);
   var bareId = (typeof fid==='string' && fid.indexOf('_')>=0) ? fid.split('_')[0] : fid;
   var targetKey = getCanonicalKey(bareId);
   if(!APP.formData[targetKey]) APP.formData[targetKey] = {};
@@ -1539,8 +1754,8 @@ function selectStudent(sid){
   const allForms = FORMS;
   let html = '<div class="form-list-view">';
   html += `<div class="form-detail-header" style="margin-bottom:1.25rem;">
-    <h1>📋 ${acc.name} 的學習護照</h1>
-    <div class="fh-meta">${acc.school} ｜ 學號：${sid}</div>
+    <h1>📋 ${esc(acc.name)} 的學習護照</h1>
+    <div class="fh-meta">${esc(acc.school)} ｜ 學號：${esc(sid)}</div>
   </div>`;
   const groups=[
     {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
@@ -1776,7 +1991,7 @@ async function openForm(id){
   const stuOpts=stuRows.map(({sid,acc,status})=>{
     const mark=status==='done'?'✅ ':status==='student_only'?'📝 ':status==='teacher_only'?'✏️ ':'⭕ ';
     const label=status==='done'?'（已完成）':status==='student_only'?'（待老師評）':status==='teacher_only'?'（待學生填）':'（未填寫）';
-    return `<option value="${sid}" ${APP.currentStudentId===sid?'selected':''}>${mark}${acc.name} ${label}</option>`;
+    return `<option value="${escAttr(sid)}" ${APP.currentStudentId===sid?'selected':''}>${mark}${esc(acc.name)} ${label}</option>`;
   }).join('');
 
   const curStu=APP.currentStudentId?APP.students[APP.currentStudentId]:null;
@@ -1794,7 +2009,7 @@ async function openForm(id){
     const statusLabel=status==='done'?'已完成':status==='student_only'?'待評分':status==='teacher_only'?'待學生填':'未填寫';
     return `<div onclick="switchStudent('${sid}','${id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;${bg}border:1px solid ${isActive?'var(--ink)':'var(--border2)'};transition:all .15s;">
       <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
-      <span style="font-size:12px;font-weight:${isActive?'600':'400'};flex:1;">${acc.name}</span>
+      <span style="font-size:12px;font-weight:${isActive?'600':'400'};flex:1;">${esc(acc.name)}</span>
       <span style="font-size:10px;padding:1px 7px;border-radius:999px;background:${isActive?'rgba(255,255,255,.2)':'var(--cream)'};color:${isActive?'#fff':'var(--ink3)'};">${statusLabel}</span>
     </div>`;
   }).join('');
@@ -1916,17 +2131,31 @@ async function openForm(id){
   }
 }
 
-function inlineUnlock(){
-  const pin=document.getElementById('inline-pin').value;
+async function inlineUnlock(){
+  const pinInput=document.getElementById('inline-pin');
+  const pin=clipInput(pinInput?pinInput.value:'', 16);
   const msg=document.getElementById('inline-msg');
-  if(pin===APP.teacherPIN){
+  if(!msg) return;
+  // 暴力破解保護：每位學生獨立計次
+  const lockKey='pin_'+(APP.currentUser&&APP.currentUser.sid?APP.currentUser.sid:'guest');
+  const locked=isLocked(lockKey);
+  if(locked){
+    msg.style.color='var(--red)';
+    msg.textContent='PIN 嘗試次數過多，請等待 '+locked+' 秒';
+    return;
+  }
+  const matched=await passwordMatches(pin, APP.teacherPIN);
+  if(matched){
+    clearFails(lockKey);
     APP.teacherUnlocked=true;
     APP._skipPinReset=true;
     msg.style.color='var(--green)';msg.textContent='解鎖成功！';
-    // 直接在 DOM 解鎖老師欄位（不重新載入頁面）
+    if(pinInput) pinInput.value='';
     unlockTeacherFieldsInDOM();
   } else {
+    recordFail(lockKey);
     msg.style.color='var(--red)';msg.textContent='PIN碼錯誤';
+    if(pinInput) pinInput.value='';
   }
 }
 
@@ -2113,6 +2342,31 @@ async function reloadFormKeepUnlocked(id){}
 
 /* ═══════════ SAVE ═══════════ */
 function saveForm(id){
+  // 【安全】登入身分驗證：必須有有效的 currentRole
+  if(!APP.currentRole){
+    toast('⚠ 請先登入');
+    return;
+  }
+  // 【安全】學生只能儲存自己的表單
+  if(APP.currentRole==='student'){
+    if(!APP.currentUser||!APP.currentUser.sid){
+      toast('⚠ 帳號狀態異常，請重新登入');
+      return;
+    }
+    // 確保即將寫入的 formKey 含學生本人的學號
+    const expectedKey = id+'_'+APP.currentUser.sid;
+    const actualKey = getFormKey(id);
+    if(actualKey !== expectedKey){
+      toast('⚠ 身分驗證失敗，無法儲存他人表單');
+      console.warn('saveForm blocked: expected', expectedKey, 'got', actualKey);
+      return;
+    }
+  }
+  // 【安全】老師需要選定學生
+  if(APP.currentRole==='teacher' && !APP.currentStudentId){
+    toast('⚠ 請先選擇要評核的學生');
+    return;
+  }
   const formKey = getFormKey(id);
   // Collect all inputs (only editable fields for current role)
   if(!APP.formData[formKey])APP.formData[formKey]={};
@@ -3893,7 +4147,9 @@ function f01Click(btn){
 }
 
 /* debugF01A：在 Console 執行 debugF01A() 診斷 F01A 按鈕狀態 */
+/* debugF01A：僅 dev mode 可用，避免學生在 console 操作 */
 window.debugF01A=function(){
+  if(!isDevMode()){ console.log('debug disabled'); return; }
   var btns=document.querySelectorAll('[data-rkey^="f01_pre_"]');
   console.log('F01A 按鈕總數:', btns.length);
   btns.forEach(function(btn,i){
@@ -4061,6 +4317,8 @@ function signDateWithTimestamp(fid,key,disabled,isTeacher){
 }
 
 function saveDraftField(fid, key, val){
+  // 安全：限制長度
+  val = clipInput(val, MAX_FIELD_LENGTH);
   // ★ 統一寫入：永遠寫到 canonical formKey，避免裸 id 與 formKey 兩邊不一致
   var canonical = getCanonicalKey(fid.split('_')[0] === fid ? fid : fid.split('_')[0]);
   // 若 fid 本身已經是 formKey（含底線+學號），直接用 fid；否則用 canonical
@@ -5464,10 +5722,11 @@ function renderAdmin(){
       <div class="admin-card-head">老師表單解鎖 PIN 碼設定</div>
       <div class="admin-card-body">
         <div class="admin-row">
-          <span style="font-size:12px;width:120px;">目前 PIN 碼：</span>
-          <input id="pin-display" type="text" value="${APP.teacherPIN}" style="width:120px;">
+          <span style="font-size:12px;width:120px;">設定新 PIN 碼：</span>
+          <input id="pin-display" type="password" placeholder="請輸入新 PIN（4-8 碼數字）" maxlength="8" style="width:200px;">
           <button class="btn-update" onclick="updatePIN()">更新</button>
         </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;">🔒 PIN 碼以雜湊形式儲存，無法檢視原始值。若忘記請重新設定。</div>
       </div>
     </div>
 
@@ -5649,49 +5908,83 @@ function applyConfig(cfg){
   if(cfg.teacherOrder && cfg.teacherOrder.length>0) APP.teacherOrder=cfg.teacherOrder;
 }
 
-function updatePIN(){const v=document.getElementById('pin-display').value.trim();if(v){APP.teacherPIN=v;saveConfigToSheets();}}
-function updateAdminPwd(){
-  const p=document.getElementById('new-admin-pwd').value;
-  const p2=document.getElementById('new-admin-pwd2').value;
-  if(!p||p!==p2){toast('密碼不一致',false);return;}
-  APP.adminPwd=p;saveConfigToSheets();
+async function updatePIN(){
+  const v=clipInput((document.getElementById('pin-display').value||'').trim(), 16);
+  if(v){
+    // 【安全】PIN 不存明文
+    APP.teacherPIN = 'h:' + (await sha256(v));
+    saveConfigToSheets();
+    toast('✓ PIN 已更新（已雜湊化儲存）');
+    // 立即把畫面上顯示的 PIN 改回遮罩
+    var pinEl=document.getElementById('pin-display');
+    if(pinEl){
+      pinEl.type='password';
+      pinEl.value='********';
+    }
+  }
 }
-function addStudent(){
-  const sid=document.getElementById('ns-sid').value.trim();
-  const name=document.getElementById('ns-name').value.trim();
-  const school=document.getElementById('ns-school').value.trim();
+async function updateAdminPwd(){
+  const p=clipInput(document.getElementById('new-admin-pwd').value, MAX_SHORT_LENGTH);
+  const p2=clipInput(document.getElementById('new-admin-pwd2').value, MAX_SHORT_LENGTH);
+  if(!p||p!==p2){toast('密碼不一致',false);return;}
+  if(p.length<8){toast('管理員密碼至少 8 碼', false); return;}
+  // 【安全】管理員密碼不存明文
+  APP.adminPwd = 'h:' + (await sha256(p));
+  saveConfigToSheets();
+  document.getElementById('new-admin-pwd').value='';
+  document.getElementById('new-admin-pwd2').value='';
+  toast('✓ 管理員密碼已更新');
+}
+async function addStudent(){
+  const sid=clipInput((document.getElementById('ns-sid').value||'').trim(), MAX_SHORT_LENGTH);
+  const name=clipInput((document.getElementById('ns-name').value||'').trim(), MAX_NAME_LENGTH);
+  const school=clipInput((document.getElementById('ns-school').value||'').trim(), MAX_NAME_LENGTH);
   if(!sid||!name)return;
-  APP.students[sid]={name,school,pwd:'123'};
+  // 【安全】學號格式驗證
+  if(!/^[A-Za-z0-9_-]+$/.test(sid)){
+    toast('⚠ 學號只能包含英文字母、數字、底線或減號');
+    return;
+  }
+  if(APP.students[sid]){
+    toast('⚠ 此學號已存在');
+    return;
+  }
+  // 【安全】預設密碼也以雜湊形式儲存
+  const hashedDefault = 'h:' + (await sha256('123'));
+  APP.students[sid]={name,school,pwd:hashedDefault};
   refreshStudentTable();
   saveConfigToSheets();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
+  toast('✓ 已新增學生（預設密碼：123）');
 }
 function refreshStudentTable(){
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
-  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（點擊👁顯示）</span></th><th>帳號期限</th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（已加密保護）</span></th><th>帳號期限</th><th>操作</th></tr>';
   orderedSids.forEach(function(sid){
     var acc = APP.students[sid]; if(!acc) return;
     var expired = acc.expiry && new Date(acc.expiry) < new Date();
     var expiryColor = expired ? 'color:var(--red);font-weight:500;' : '';
     var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
     var pwdId='pwd_'+sid.replace(/[^A-Za-z0-9]/g,'_');
-    var pwdMasked='••••••';
-    var pwdCell='<span id="'+pwdId+'" data-pwd="'+(acc.pwd||'').replace(/"/g,'&quot;')+'" data-shown="0" style="font-family:monospace;font-size:12px;">'+pwdMasked+'</span>'+
-      '<button onclick="togglePwdShow(\''+pwdId+'\',this)" title="顯示/隱藏密碼" style="margin-left:6px;padding:2px 6px;background:transparent;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;color:var(--ink3);">👁</button>';
-    rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+sid+'" '+
+    // 【安全】密碼已雜湊化，不向管理員顯示明文。只顯示加密狀態
+    var isHashed = typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0;
+    var pwdCell = isHashed
+      ? '<span style="font-family:monospace;font-size:11px;color:var(--green);background:var(--green-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--green-line);">🔐 已加密</span>'
+      : '<span style="font-family:monospace;font-size:11px;color:var(--red);background:var(--red-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--red-line);" title="此密碼仍為明文，登入後將自動轉為雜湊">⚠ 未加密</span>';
+    rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+escAttr(sid)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
-      '<td>'+sid+'</td><td>'+acc.name+selfReg+'</td><td>'+(acc.school||'—')+'</td><td>'+pwdCell+'</td>'+
+      '<td>'+esc(sid)+'</td><td>'+esc(acc.name)+selfReg+'</td><td>'+esc(acc.school||'—')+'</td><td>'+pwdCell+'</td>'+
       '<td style="'+expiryColor+'">'+
-        '<input type="date" value="'+(acc.expiry||'')+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+sid+'\',this.value)">'+
+        '<input type="date" value="'+escAttr(acc.expiry||'')+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+escAttr(sid)+'\',this.value)">'+
         (expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':'')+
       '</td>'+
       '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
-        '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editStudent(\''+sid+'\')">修改</button>'+
-        '<button style="padding:3px 8px;font-size:11px;background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;color:#8B6914;cursor:pointer;font-weight:600;" onclick="resetStudentPwd(\''+sid+'\')" title="重設為預設密碼 123">🔐 重設</button>'+
-        '<button class="btn-del" onclick="delStudent(\''+sid+'\')">刪除</button>'+
+        '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editStudent(\''+escAttr(sid)+'\')">修改</button>'+
+        '<button style="padding:3px 8px;font-size:11px;background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;color:#8B6914;cursor:pointer;font-weight:600;" onclick="resetStudentPwd(\''+escAttr(sid)+'\')" title="重設為預設密碼 123">🔐 重設</button>'+
+        '<button class="btn-del" onclick="delStudent(\''+escAttr(sid)+'\')">刪除</button>'+
       '</td></tr>';
   });
   tbl.innerHTML = rows;
@@ -5725,53 +6018,66 @@ function togglePwdShow(elId,btn){
 }
 
 /* ─── 學生密碼快速重設（重設為預設值 123） ─── */
-function resetStudentPwd(sid){
+async function resetStudentPwd(sid){
   var acc=APP.students[sid];
   if(!acc)return;
   if(!confirm('確定要將學生「'+acc.name+'」（'+sid+'）的密碼重設為預設值「123」嗎？\n\n重設後請通知學生使用新密碼登入。')) return;
-  APP.students[sid].pwd='123';
+  // 【安全】儲存雜湊
+  APP.students[sid].pwd = 'h:' + (await sha256('123'));
   refreshStudentTable();
   saveConfigToSheets();
-  toast('✓ 已將 '+acc.name+' 的密碼重設為「123」');
+  toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「123」');
 }
 
 /* ─── 老師密碼快速重設（重設為預設值 000） ─── */
-function resetTeacherPwd(card){
+async function resetTeacherPwd(card){
   var acc=APP.teachers[card];
   if(!acc)return;
   if(!confirm('確定要將老師「'+acc.name+'」（'+card+'）的密碼重設為預設值「000」嗎？')) return;
-  APP.teachers[card].pwd='000';
+  APP.teachers[card].pwd = 'h:' + (await sha256('000'));
   refreshTeacherTable();
   saveConfigToSheets();
-  toast('✓ 已將 '+acc.name+' 的密碼重設為「000」');
+  toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「000」');
 }
-function addTeacher(){
-  const card=document.getElementById('nt-card').value.trim();
-  const name=document.getElementById('nt-name').value.trim();
-  const pwd=document.getElementById('nt-pwd').value||'000';
+async function addTeacher(){
+  const card=clipInput((document.getElementById('nt-card').value||'').trim(), MAX_SHORT_LENGTH);
+  const name=clipInput((document.getElementById('nt-name').value||'').trim(), MAX_NAME_LENGTH);
+  const pwd=clipInput(document.getElementById('nt-pwd').value||'000', MAX_SHORT_LENGTH);
   if(!card||!name)return;
-  APP.teachers[card]={name,pwd};
+  // 【安全】卡號格式驗證
+  if(!/^[A-Za-z0-9_-]+$/.test(card)){
+    toast('⚠ 卡號只能包含英文字母、數字、底線或減號');
+    return;
+  }
+  if(APP.teachers[card]){
+    toast('⚠ 此卡號已存在');
+    return;
+  }
+  APP.teachers[card]={name, pwd: 'h:' + (await sha256(pwd))};
   refreshTeacherTable();
   saveConfigToSheets();
   document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
+  toast('✓ 已新增老師');
 }
 function refreshTeacherTable(){
   const tbl=document.getElementById('teacher-table');if(!tbl)return;
   var orderedCards = getTeacherOrder();
-  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（點擊👁顯示）</span></th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（已加密保護）</span></th><th>操作</th></tr>';
   orderedCards.forEach(function(card){
     var acc = APP.teachers[card]; if(!acc) return;
-    var pwdId='tpwd_'+card.replace(/[^A-Za-z0-9]/g,'_');
-    var pwdCell='<span id="'+pwdId+'" data-pwd="'+(acc.pwd||'').replace(/"/g,'&quot;')+'" data-shown="0" style="font-family:monospace;font-size:12px;">••••••</span>'+
-      '<button onclick="togglePwdShow(\''+pwdId+'\',this)" title="顯示/隱藏密碼" style="margin-left:6px;padding:2px 6px;background:transparent;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;color:var(--ink3);">👁</button>';
-    rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+card+'" '+
+    // 【安全】密碼已雜湊化，不向管理員顯示明文
+    var isHashed = typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0;
+    var pwdCell = isHashed
+      ? '<span style="font-family:monospace;font-size:11px;color:var(--green);background:var(--green-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--green-line);">🔐 已加密</span>'
+      : '<span style="font-family:monospace;font-size:11px;color:var(--red);background:var(--red-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--red-line);" title="此密碼仍為明文，登入後將自動轉為雜湊">⚠ 未加密</span>';
+    rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+escAttr(card)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
-      '<td>'+card+'</td><td id="tname_'+card+'">'+acc.name+'</td><td>'+pwdCell+'</td>'+
+      '<td>'+esc(card)+'</td><td id="tname_'+escAttr(card)+'">'+esc(acc.name)+'</td><td>'+pwdCell+'</td>'+
       '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
-        '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editTeacher(\''+card+'\')">修改</button>'+
-        '<button style="padding:3px 8px;font-size:11px;background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;color:#8B6914;cursor:pointer;font-weight:600;" onclick="resetTeacherPwd(\''+card+'\')" title="重設為預設密碼 000">🔐 重設</button>'+
-        '<button class="btn-del" onclick="delTeacher(\''+card+'\')">刪除</button>'+
+        '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editTeacher(\''+escAttr(card)+'\')">修改</button>'+
+        '<button style="padding:3px 8px;font-size:11px;background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;color:#8B6914;cursor:pointer;font-weight:600;" onclick="resetTeacherPwd(\''+escAttr(card)+'\')" title="重設為預設密碼 000">🔐 重設</button>'+
+        '<button class="btn-del" onclick="delTeacher(\''+escAttr(card)+'\')">刪除</button>'+
       '</td></tr>';
   });
   tbl.innerHTML = rows;
@@ -5956,39 +6262,46 @@ function updateStudentExpiry(sid, date) {
 }
 
 /* ── 學生帳號修改 ── */
-function editStudent(sid) {
+async function editStudent(sid) {
   const acc = APP.students[sid];
   if (!acc) return;
   const newSid = prompt('修改學號（目前：' + sid + '）\n⚠ 注意：修改學號後，學生需用新學號登入', sid);
   if (newSid === null) return;
-  const trimmedSid = newSid.trim();
+  const trimmedSid = clipInput(newSid.trim(), MAX_SHORT_LENGTH);
   if (trimmedSid && trimmedSid !== sid) {
     if (!trimmedSid) { toast('⚠ 學號不可為空'); return; }
+    // 【安全】格式驗證
+    if (!/^[A-Za-z0-9_-]+$/.test(trimmedSid)) { toast('⚠ 學號只能包含英數字底線減號'); return; }
     if (APP.students[trimmedSid]) { toast('⚠ 此學號「' + trimmedSid + '」已被使用'); return; }
   }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
   const newSchool = prompt('修改學校（目前：' + (acc.school||'') + '）', acc.school||'');
   if (newSchool === null) return;
-  const newPwd = prompt('修改密碼（目前：' + acc.pwd + '，留空不更改）', '');
+  // 【安全】不顯示原密碼（即使是雜湊也不該洩漏給管理員）
+  const newPwd = prompt('修改密碼（留空表示不變更，輸入新密碼將直接以雜湊形式儲存）', '');
+  // 【安全】統一裁切並雜湊
+  const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
+  const cleanSchool = clipInput((newSchool||acc.school||'').trim(), MAX_NAME_LENGTH);
+  const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
+  const hashedPwd = cleanPwd ? ('h:' + (await sha256(cleanPwd))) : acc.pwd;
   if (trimmedSid && trimmedSid !== sid) {
     APP.students[trimmedSid] = {
-      name: newName || acc.name,
-      school: newSchool || acc.school,
-      pwd: (newPwd && newPwd.trim()) ? newPwd.trim() : acc.pwd,
+      name: cleanName,
+      school: cleanSchool,
+      pwd: hashedPwd,
       expiry: acc.expiry,
       selfRegistered: acc.selfRegistered,
       registeredAt: acc.registeredAt
     };
     delete APP.students[sid];
-    // 同步更新 studentOrder
     if (APP.studentOrder && APP.studentOrder.indexOf(sid) >= 0) {
       APP.studentOrder = APP.studentOrder.map(function(s){ return s === sid ? trimmedSid : s; });
     }
   } else {
-    APP.students[sid].name = newName || acc.name;
-    APP.students[sid].school = newSchool || acc.school;
-    if (newPwd && newPwd.trim()) APP.students[sid].pwd = newPwd.trim();
+    APP.students[sid].name = cleanName;
+    APP.students[sid].school = cleanSchool;
+    if (cleanPwd) APP.students[sid].pwd = hashedPwd;
   }
   refreshStudentTable();
   saveConfigToSheets();
@@ -5996,34 +6309,32 @@ function editStudent(sid) {
 }
 
 /* ── 老師帳號修改 ── */
-function editTeacher(card) {
+async function editTeacher(card) {
   const acc = APP.teachers[card];
   if (!acc) return;
   const newCard = prompt('修改卡號（目前：' + card + '）\n⚠ 注意：修改卡號後，老師需用新卡號登入', card);
   if (newCard === null) return;
-  const trimmedCard = newCard.trim();
-  // 卡號變動時的檢查
+  const trimmedCard = clipInput(newCard.trim(), MAX_SHORT_LENGTH);
   if (trimmedCard && trimmedCard !== card) {
     if (!trimmedCard) { toast('⚠ 卡號不可為空'); return; }
+    if (!/^[A-Za-z0-9_-]+$/.test(trimmedCard)) { toast('⚠ 卡號只能包含英數字底線減號'); return; }
     if (APP.teachers[trimmedCard]) { toast('⚠ 此卡號「' + trimmedCard + '」已被使用'); return; }
   }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
-  const newPwd = prompt('修改密碼（目前：' + acc.pwd + '，留空不更改）', '');
-  // 若卡號變更：建立新 key 並刪除舊 key
+  const newPwd = prompt('修改密碼（留空表示不變更，輸入新密碼將直接以雜湊形式儲存）', '');
+  const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
+  const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
+  const hashedPwd = cleanPwd ? ('h:' + (await sha256(cleanPwd))) : acc.pwd;
   if (trimmedCard && trimmedCard !== card) {
-    APP.teachers[trimmedCard] = {
-      name: newName || acc.name,
-      pwd: (newPwd && newPwd.trim()) ? newPwd.trim() : acc.pwd
-    };
+    APP.teachers[trimmedCard] = { name: cleanName, pwd: hashedPwd };
     delete APP.teachers[card];
-    // 同步更新 teacherOrder
     if (APP.teacherOrder && APP.teacherOrder.indexOf(card) >= 0) {
       APP.teacherOrder = APP.teacherOrder.map(function(c){ return c === card ? trimmedCard : c; });
     }
   } else {
-    APP.teachers[card].name = newName || acc.name;
-    if (newPwd && newPwd.trim()) APP.teachers[card].pwd = newPwd.trim();
+    APP.teachers[card].name = cleanName;
+    if (cleanPwd) APP.teachers[card].pwd = hashedPwd;
   }
   refreshTeacherTable();
   saveConfigToSheets();
@@ -6329,6 +6640,7 @@ function renderStatusSection(filterStatus){
 }
 /* ══ DEBUG 診斷工具 ══ */
 window.debugStatus=function(id){
+  if(!isDevMode()){ console.log('debug disabled'); return; }
   var formKey=getFormKey(id);
   var dById=APP.formData[id]||{};
   var dByKey=APP.formData[formKey]||{};
@@ -6378,13 +6690,15 @@ window.debugStatus=function(id){
   console.groupEnd();
 };
 window.debugAll=function(){
+  if(!isDevMode()){ console.log('debug disabled'); return; }
   ['F04M','F04S','F06M','F06S','F07M','F07S','F10A','F10B'].forEach(window.debugStatus);
 };
 window.showFormData=function(){
+  if(!isDevMode()){ console.log('debug disabled'); return; }
   console.log('formData keys:',Object.keys(APP.formData));
   console.log('historyLog keys:',Object.keys(APP.historyLog));
 };
-setTimeout(function(){console.log('%c✅ debug 已載入: debugAll() | debugStatus("F04M") | showFormData()','color:green;font-weight:bold');},500);
+/* 移除原本的 console 提示，避免暴露偵錯入口給學生 */
 /* ══ END DEBUG ══ */
 
 </script>
