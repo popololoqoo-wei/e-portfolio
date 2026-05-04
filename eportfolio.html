@@ -403,6 +403,7 @@ input[type="date"]{
           <div class="fg"><label>密碼</label><input id="s-pwd" type="password" placeholder="預設密碼：123"></div>
           <button class="btn-primary" onclick="doLogin('student')">登入</button>
           <div class="login-err" id="s-err">學號或密碼錯誤</div>
+          <div style="text-align:right;margin-top:6px;"><a href="javascript:void(0)" onclick="showForgotPwd()" style="font-size:11px;color:var(--ink3);text-decoration:none;border-bottom:1px dashed var(--ink3);">忘記密碼？</a></div>
           <div class="divider"><div class="divider-line"></div><div class="divider-text">首次登入</div><div class="divider-line"></div></div>
           <button class="btn-ghost" onclick="showPanel('student-reg-panel')">建立帳號</button>
         </div>
@@ -685,6 +686,32 @@ function setLoginRole(role){
 document.getElementById('panel-teacher').style.display='none';
 document.getElementById('panel-admin').style.display='none';
 
+/* ═══════════ FORGOT PASSWORD ═══════════ */
+function showForgotPwd(){
+  var existing = document.getElementById('forgot-pwd-overlay');
+  if(existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'forgot-pwd-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = '<div style="background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);padding:1.75rem;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.25);">'+
+    '<div style="font-size:32px;text-align:center;margin-bottom:.5rem;">🔐</div>'+
+    '<div style="font-family:var(--ff-serif);font-size:16px;font-weight:600;text-align:center;margin-bottom:1rem;color:var(--ink);">忘記密碼？</div>'+
+    '<div style="font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:1.25rem;">請聯繫系統管理員協助重設您的密碼：</div>'+
+    '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center;margin-bottom:1.25rem;">'+
+      '<div style="font-size:11px;color:var(--ink3);margin-bottom:5px;letter-spacing:.5px;">管理員 EMAIL</div>'+
+      '<div style="font-size:14px;font-weight:600;color:var(--gold);font-family:monospace;word-break:break-all;">popololoqoo@gmail.com</div>'+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--ink3);line-height:1.6;margin-bottom:1rem;">📧 寄信時請提供您的 <b>學號</b> 與 <b>姓名</b>，管理員將協助重設密碼。</div>'+
+    '<button onclick="closeForgotPwd()" style="width:100%;padding:10px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;">我知道了</button>'+
+    '</div>';
+  overlay.onclick = function(e){ if(e.target===overlay) closeForgotPwd(); };
+  document.body.appendChild(overlay);
+}
+function closeForgotPwd(){
+  var el = document.getElementById('forgot-pwd-overlay');
+  if(el) el.remove();
+}
+
 /* ═══════════ AUTH ═══════════ */
 function doLogin(role){
   if(role==='student'){
@@ -729,8 +756,12 @@ function doRegister(){
   if(!sid||!name||!school||!pwd){err.textContent='請填寫所有欄位';err.style.display='block';return;}
   if(pwd.length<6){err.textContent='密碼至少6個字元';err.style.display='block';return;}
   if(pwd!==pwd2){err.textContent='兩次密碼不一致';err.style.display='block';return;}
+  // 檢查學號是否已存在
+  if(APP.students[sid]){err.textContent='此學號已被註冊，請聯繫管理員';err.style.display='block';return;}
   err.style.display='none';
-  APP.students[sid]={name,school,pwd};
+  APP.students[sid]={name,school,pwd,registeredAt:new Date().toISOString(),selfRegistered:true};
+  // ★★★ 同步到 GAS，讓管理員後台看得到 ★★★
+  try{ saveConfigToSheets(); }catch(e){console.warn('同步學生帳號失敗',e);}
   APP.currentRole='student';APP.currentUser={sid,name,school};
   enterApp();
 }
@@ -5129,6 +5160,7 @@ function renderAdmin(){
           <input id="ns-school" placeholder="學校">
           <button class="btn-add" onclick="addStudent()">＋ 新增</button>
         </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號</div>
         <table class="accounts-table" id="student-table"></table>
       </div>
     </div>
@@ -5143,6 +5175,7 @@ function renderAdmin(){
           <input id="nt-pwd" type="password" placeholder="密碼（預設000）">
           <button class="btn-add" onclick="addTeacher()">＋ 新增</button>
         </div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序老師清單</div>
         <table class="accounts-table" id="teacher-table"></table>
       </div>
     </div>
@@ -5152,6 +5185,7 @@ function renderAdmin(){
       <div class="admin-card-head">課程主題管理（課程滿意度下拉選項）</div>
       <div class="admin-card-body">
         <div class="admin-row"><input id="new-topic" placeholder="新增課程主題"><button class="btn-add" onclick="addTopic()">＋ 新增</button></div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 可拖曳 ⋮⋮ 圖示自由排序，按「修改」可編輯名稱</div>
         <div id="topic-list"></div>
       </div>
     </div>
@@ -5159,6 +5193,7 @@ function renderAdmin(){
       <div class="admin-card-head">演講者管理</div>
       <div class="admin-card-body">
         <div class="admin-row"><input id="new-speaker" placeholder="新增演講者姓名"><button class="btn-add" onclick="addSpeaker()">＋ 新增</button></div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 可拖曳 ⋮⋮ 圖示自由排序，按「修改」可編輯名稱</div>
         <div id="speaker-list"></div>
       </div>
     </div>
@@ -5206,7 +5241,7 @@ window.addEventListener('load', () => {
 const CONFIG_SHEET='_系統設定';
 
 async function saveConfigToSheets(){
-  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers};
+  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
   const configStr = JSON.stringify(config);
   localStorage.setItem('app_config', configStr);
 
@@ -5277,6 +5312,8 @@ function applyConfig(cfg){
   if(cfg.teacherPIN) APP.teacherPIN=cfg.teacherPIN;
   if(cfg.courseTopics?.length>0) APP.courseTopics=cfg.courseTopics;
   if(cfg.courseSpeakers?.length>0) APP.courseSpeakers=cfg.courseSpeakers;
+  if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
+  if(cfg.teacherOrder && cfg.teacherOrder.length>0) APP.teacherOrder=cfg.teacherOrder;
 }
 
 function updatePIN(){const v=document.getElementById('pin-display').value.trim();if(v){APP.teacherPIN=v;saveConfigToSheets();}}
@@ -5298,23 +5335,38 @@ function addStudent(){
 }
 function refreshStudentTable(){
   const tbl=document.getElementById('student-table');if(!tbl)return;
-  tbl.innerHTML=`<tr><th>學號</th><th>姓名</th><th>學校</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>`+
-    Object.entries(APP.students).map(([sid,acc])=>{
-      const expired = acc.expiry && new Date(acc.expiry) < new Date();
-      const expiryColor = expired ? 'color:var(--red);font-weight:500;' : '';
-      return `<tr>
-        <td>${sid}</td><td>${acc.name}</td><td>${acc.school||'—'}</td><td>${acc.pwd}</td>
-        <td style="${expiryColor}">
-          <input type="date" value="${acc.expiry||''}" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;"
-            onchange="updateStudentExpiry('${sid}',this.value)">
-          ${expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':''}
-        </td>
-        <td style="display:flex;gap:4px;flex-wrap:wrap;">
-          <button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editStudent('${sid}')">修改</button>
-          <button class="btn-del" onclick="delStudent('${sid}')">刪除</button>
-        </td>
-      </tr>`;
-    }).join('');
+  // 取得排序後的學號順序
+  var orderedSids = getStudentOrder();
+  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
+  orderedSids.forEach(function(sid){
+    var acc = APP.students[sid]; if(!acc) return;
+    var expired = acc.expiry && new Date(acc.expiry) < new Date();
+    var expiryColor = expired ? 'color:var(--red);font-weight:500;' : '';
+    var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
+    rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+sid+'" '+
+      'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
+      '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
+      '<td>'+sid+'</td><td>'+acc.name+selfReg+'</td><td>'+(acc.school||'—')+'</td><td>'+acc.pwd+'</td>'+
+      '<td style="'+expiryColor+'">'+
+        '<input type="date" value="'+(acc.expiry||'')+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+sid+'\',this.value)">'+
+        (expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':'')+
+      '</td>'+
+      '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
+        '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editStudent(\''+sid+'\')">修改</button>'+
+        '<button class="btn-del" onclick="delStudent(\''+sid+'\')">刪除</button>'+
+      '</td></tr>';
+  });
+  tbl.innerHTML = rows;
+}
+function getStudentOrder(){
+  if(!APP.studentOrder) APP.studentOrder = [];
+  // 確保 studentOrder 與 APP.students 同步
+  Object.keys(APP.students).forEach(function(sid){
+    if(APP.studentOrder.indexOf(sid)<0) APP.studentOrder.push(sid);
+  });
+  // 移除已不存在的 sid
+  APP.studentOrder = APP.studentOrder.filter(function(sid){ return APP.students[sid]; });
+  return APP.studentOrder;
 }
 function delStudent(sid){delete APP.students[sid];refreshStudentTable();saveConfigToSheets();}
 function addTeacher(){
@@ -5329,13 +5381,28 @@ function addTeacher(){
 }
 function refreshTeacherTable(){
   const tbl=document.getElementById('teacher-table');if(!tbl)return;
-  tbl.innerHTML=`<tr><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>`+
-    Object.entries(APP.teachers).map(([card,acc])=>
-      `<tr><td>${card}</td><td id="tname_${card}">${acc.name}</td><td>${acc.pwd}</td><td style="display:flex;gap:4px;flex-wrap:wrap;">
-        <button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editTeacher('${card}')">修改</button>
-        <button class="btn-del" onclick="delTeacher('${card}')">刪除</button>
-      </td></tr>`
-    ).join('');
+  var orderedCards = getTeacherOrder();
+  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>';
+  orderedCards.forEach(function(card){
+    var acc = APP.teachers[card]; if(!acc) return;
+    rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+card+'" '+
+      'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
+      '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
+      '<td>'+card+'</td><td id="tname_'+card+'">'+acc.name+'</td><td>'+acc.pwd+'</td>'+
+      '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
+        '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editTeacher(\''+card+'\')">修改</button>'+
+        '<button class="btn-del" onclick="delTeacher(\''+card+'\')">刪除</button>'+
+      '</td></tr>';
+  });
+  tbl.innerHTML = rows;
+}
+function getTeacherOrder(){
+  if(!APP.teacherOrder) APP.teacherOrder = [];
+  Object.keys(APP.teachers).forEach(function(card){
+    if(APP.teacherOrder.indexOf(card)<0) APP.teacherOrder.push(card);
+  });
+  APP.teacherOrder = APP.teacherOrder.filter(function(card){ return APP.teachers[card]; });
+  return APP.teacherOrder;
 }
 function delTeacher(card){delete APP.teachers[card];refreshTeacherTable();saveConfigToSheets();}
 function updateTeacherPwd(card){
@@ -5347,13 +5414,142 @@ function addTopic(){const v=document.getElementById('new-topic').value.trim();if
 function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();saveConfigToSheets();}
 function refreshTopicList(){
   const el=document.getElementById('topic-list');if(!el)return;
-  el.innerHTML=APP.courseTopics.map((t,i)=>`<div class="admin-row"><span style="font-size:12px;flex:1;">${t}</span><button class="btn-del" onclick="delTopic(${i})">刪除</button></div>`).join('')||'<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
+  if(APP.courseTopics.length===0){
+    el.innerHTML='<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
+    return;
+  }
+  el.innerHTML=APP.courseTopics.map(function(t,i){
+    return '<div class="drag-row" draggable="true" data-list="topics" data-idx="'+i+'" '+
+      'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" '+
+      'style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;cursor:move;transition:all .15s;">'+
+      '<span style="color:var(--ink3);font-size:14px;cursor:grab;user-select:none;" title="拖曳排序">⋮⋮</span>'+
+      '<span style="font-size:12px;flex:1;color:var(--ink);">'+t+'</span>'+
+      '<button class="btn-update" style="padding:3px 9px;font-size:11px;" onclick="editTopic('+i+')">修改</button>'+
+      '<button class="btn-del" onclick="delTopic('+i+')">刪除</button>'+
+      '</div>';
+  }).join('');
+}
+function editTopic(i){
+  var oldVal=APP.courseTopics[i];
+  var newVal=prompt('修改課程主題（目前：'+oldVal+'）',oldVal);
+  if(newVal===null) return;
+  newVal=newVal.trim();
+  if(!newVal){toast('名稱不可為空',false);return;}
+  if(APP.courseTopics.indexOf(newVal)>=0 && APP.courseTopics[i]!==newVal){toast('此主題已存在',false);return;}
+  APP.courseTopics[i]=newVal;
+  refreshTopicList();
+  saveConfigToSheets();
+  toast('已更新');
 }
 function addSpeaker(){const v=document.getElementById('new-speaker').value.trim();if(v&&!APP.courseSpeakers.includes(v)){APP.courseSpeakers.push(v);refreshSpeakerList();saveConfigToSheets();document.getElementById('new-speaker').value='';}}
 function delSpeaker(i){APP.courseSpeakers.splice(i,1);refreshSpeakerList();saveConfigToSheets();}
 function refreshSpeakerList(){
   const el=document.getElementById('speaker-list');if(!el)return;
-  el.innerHTML=APP.courseSpeakers.map((s,i)=>`<div class="admin-row"><span style="font-size:12px;flex:1;">${s}</span><button class="btn-del" onclick="delSpeaker(${i})">刪除</button></div>`).join('')||'<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
+  if(APP.courseSpeakers.length===0){
+    el.innerHTML='<div style="font-size:12px;color:var(--ink3);">尚無項目</div>';
+    return;
+  }
+  el.innerHTML=APP.courseSpeakers.map(function(s,i){
+    return '<div class="drag-row" draggable="true" data-list="speakers" data-idx="'+i+'" '+
+      'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" '+
+      'style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:5px;cursor:move;transition:all .15s;">'+
+      '<span style="color:var(--ink3);font-size:14px;cursor:grab;user-select:none;" title="拖曳排序">⋮⋮</span>'+
+      '<span style="font-size:12px;flex:1;color:var(--ink);">'+s+'</span>'+
+      '<button class="btn-update" style="padding:3px 9px;font-size:11px;" onclick="editSpeaker('+i+')">修改</button>'+
+      '<button class="btn-del" onclick="delSpeaker('+i+')">刪除</button>'+
+      '</div>';
+  }).join('');
+}
+function editSpeaker(i){
+  var oldVal=APP.courseSpeakers[i];
+  var newVal=prompt('修改演講者（目前：'+oldVal+'）',oldVal);
+  if(newVal===null) return;
+  newVal=newVal.trim();
+  if(!newVal){toast('名稱不可為空',false);return;}
+  if(APP.courseSpeakers.indexOf(newVal)>=0 && APP.courseSpeakers[i]!==newVal){toast('此演講者已存在',false);return;}
+  APP.courseSpeakers[i]=newVal;
+  refreshSpeakerList();
+  saveConfigToSheets();
+  toast('已更新');
+}
+
+/* ═══════════ DRAG & DROP 排序 ═══════════ */
+var _dragSrc = null;
+
+function dragStart(e){
+  _dragSrc = e.currentTarget;
+  e.currentTarget.style.opacity = '0.4';
+  e.currentTarget.style.background = '#FFF8E8';
+  if(e.dataTransfer){
+    e.dataTransfer.effectAllowed = 'move';
+    try{ e.dataTransfer.setData('text/plain', e.currentTarget.dataset.idx); }catch(err){}
+  }
+}
+
+function dragOver(e){
+  if(e.preventDefault) e.preventDefault();
+  if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  // 視覺提示
+  var tgt = e.currentTarget;
+  if(tgt && tgt !== _dragSrc){
+    tgt.style.borderTop = '3px solid var(--gold)';
+  }
+  return false;
+}
+
+function dragLeave(e){
+  if(e.currentTarget) e.currentTarget.style.borderTop = '';
+}
+
+function dragDrop(e){
+  if(e.stopPropagation) e.stopPropagation();
+  if(e.preventDefault) e.preventDefault();
+  var tgt = e.currentTarget;
+  if(!_dragSrc || _dragSrc === tgt) return false;
+  var listType = _dragSrc.dataset.list;
+  var srcIdx = _dragSrc.dataset.idx;
+  var dstIdx = tgt.dataset.idx;
+  if(listType === 'topics' || listType === 'speakers'){
+    // 數字索引（陣列）
+    var arr = (listType==='topics') ? APP.courseTopics : APP.courseSpeakers;
+    var sI = parseInt(srcIdx), dI = parseInt(dstIdx);
+    var moved = arr.splice(sI, 1)[0];
+    arr.splice(dI, 0, moved);
+    if(listType==='topics') refreshTopicList(); else refreshSpeakerList();
+  } else if(listType === 'students'){
+    // 字串 sid（順序陣列）
+    if(!APP.studentOrder) getStudentOrder();
+    var sIdx = APP.studentOrder.indexOf(srcIdx);
+    var dIdx = APP.studentOrder.indexOf(dstIdx);
+    if(sIdx >= 0 && dIdx >= 0){
+      var s = APP.studentOrder.splice(sIdx, 1)[0];
+      APP.studentOrder.splice(dIdx, 0, s);
+      refreshStudentTable();
+    }
+  } else if(listType === 'teachers'){
+    if(!APP.teacherOrder) getTeacherOrder();
+    var sI2 = APP.teacherOrder.indexOf(srcIdx);
+    var dI2 = APP.teacherOrder.indexOf(dstIdx);
+    if(sI2 >= 0 && dI2 >= 0){
+      var t = APP.teacherOrder.splice(sI2, 1)[0];
+      APP.teacherOrder.splice(dI2, 0, t);
+      refreshTeacherTable();
+    }
+  }
+  saveConfigToSheets();
+  return false;
+}
+
+function dragEnd(e){
+  if(e.currentTarget){
+    e.currentTarget.style.opacity = '';
+    e.currentTarget.style.background = '';
+  }
+  // 清除所有拖曳邊框
+  document.querySelectorAll('.drag-row').forEach(function(el){
+    el.style.borderTop = '';
+  });
+  _dragSrc = null;
 }
 
 function connectGoogleSheets(){
