@@ -2833,14 +2833,30 @@ function downloadPDF(id){
   
   html+='</body></html>';
   
-  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download=(f.num+'_'+f.name+(studentName?'_'+studentName:'')+'.html').replace(/[/\\:*?"<>|]/g,'_');
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('PDF 已產生，請在瀏覽器中選擇「列印→另存PDF」');
+  // ★ 改為「一鍵列印另存 PDF」流程：開新分頁顯示內容，自動觸發瀏覽器列印對話框
+  // 使用者在對話框中選擇「另存為 PDF」即可得到真正的 PDF 檔
+  // 此方式優點：
+  //   1. 不需載入外部字型檔（中文完美顯示）
+  //   2. 排版與畫面一致
+  //   3. 既可列印實體紙本，也可存 PDF
+  var pdfFileName = (f.num+'_'+f.name+(studentName?'_'+studentName:'')).replace(/[/\\:*?"<>|]/g,'_');
+  var pdfWin = window.open('', '_blank');
+  if(!pdfWin){
+    toast('⚠ 瀏覽器阻擋了彈出視窗，請允許彈出後再試');
+    return;
+  }
+  // 在 HTML 中內嵌自動列印腳本
+  var autoPrintScript = '<scr'+'ipt>window.addEventListener("load",function(){'+
+    'setTimeout(function(){'+
+      'document.title='+JSON.stringify(pdfFileName)+';'+
+      'window.print();'+
+    '},300);'+
+  '});</scr'+'ipt>';
+  html = html.replace('</body>', autoPrintScript+'</body>');
+  pdfWin.document.open();
+  pdfWin.document.write(html);
+  pdfWin.document.close();
+  toast('✓ 列印對話框即將開啟，請選擇「另存為 PDF」');
 }
 
 
@@ -5816,6 +5832,28 @@ function renderAdmin(){
       </div>
     </div>
 
+    <!-- 測試資料清除工具 -->
+    <div class="admin-card" style="border-color:#FCA5A5;">
+      <div class="admin-card-head" style="background:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);">⚠ 測試資料清除工具</div>
+      <div class="admin-card-body">
+        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#7F1D1D;line-height:1.7;">
+          <b>⚠ 此工具僅在系統正式上線前清除測試階段資料使用。</b><br>
+          • 只清除「表單填寫資料」與「歷史紀錄」<br>
+          • <b>不會</b>刪除學生/老師帳號、密碼、PIN 等設定<br>
+          • 雲端 Google Sheets 的資料需另外手動清除<br>
+          • 操作前會要求二次確認，請謹慎使用
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="clearLocalTestData()" style="padding:8px 16px;background:#F59E0B;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🧹 清除本機測試資料</button>
+          <button onclick="clearAllStudentForms()" style="padding:8px 16px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🗑 清除指定學生所有表單</button>
+          <button onclick="exportBackup()" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">💾 備份所有資料</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px;line-height:1.6;">
+          💡 建議流程：先「備份」→「清除本機測試資料」→ 重新登入確認 → 再到 Google Sheets 手動清空試算表。
+        </div>
+      </div>
+    </div>
+
     <!-- Student Accounts -->
     <div class="admin-card">
       <div class="admin-card-head">學生帳號管理</div>
@@ -6009,6 +6047,91 @@ async function updateAdminPwd(){
   document.getElementById('new-admin-pwd2').value='';
   toast('✓ 管理員密碼已更新');
 }
+
+/* ── 清除本機測試資料：清空 APP.formData、APP.historyLog、localStorage 草稿 ── */
+function clearLocalTestData(){
+  if(!confirm('⚠ 確定要清除本機所有「表單填寫資料」與「歷史紀錄」嗎？\n\n（此操作不會刪除帳號、密碼、PIN 等設定）\n\n建議先點「備份所有資料」保留一份。')) return;
+  if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？')) return;
+  // 清空記憶體
+  APP.formData = {};
+  APP.historyLog = {};
+  // 清空 localStorage（僅清除表單相關）
+  try{
+    localStorage.removeItem('form_drafts');
+    localStorage.removeItem('history_logs');
+  }catch(e){}
+  toast('✓ 本機測試資料已清除（雲端資料需另外處理）');
+  setTimeout(function(){
+    if(typeof renderSidebar==='function') renderSidebar();
+    if(typeof renderAdmin==='function') renderAdmin();
+  }, 200);
+}
+
+/* ── 清除指定學生的所有表單資料 ── */
+function clearAllStudentForms(){
+  var sid = prompt('請輸入要清除表單資料的學號：\n\n（此操作只清除該學生的表單填寫，不會刪除帳號）');
+  if(!sid) return;
+  sid = sid.trim();
+  if(!APP.students[sid]){
+    toast('⚠ 查無此學號');
+    return;
+  }
+  var name = APP.students[sid].name;
+  if(!confirm('⚠ 確定要清除學生「'+name+'」（'+sid+'）的所有表單資料嗎？\n\n建議先「備份所有資料」。\n\n此操作會清除：\n• 該學生的所有表單填寫資料\n• 該學生的歷史紀錄\n\n不會清除：\n• 該學生的帳號\n• 雲端 Google Sheets 已上傳的資料')) return;
+  if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？')) return;
+  // 清除 APP.formData 中所有 sid 結尾的 key
+  var keysToDelete = Object.keys(APP.formData).filter(function(k){ return k.endsWith('_'+sid); });
+  keysToDelete.forEach(function(k){ delete APP.formData[k]; });
+  // 清除 historyLog
+  var logKeysToDelete = Object.keys(APP.historyLog).filter(function(k){ return k.endsWith('_'+sid); });
+  logKeysToDelete.forEach(function(k){ delete APP.historyLog[k]; });
+  // 清除 localStorage 草稿
+  try{
+    var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    Object.keys(drafts).forEach(function(k){ if(k.endsWith('_'+sid)) delete drafts[k]; });
+    localStorage.setItem('form_drafts', JSON.stringify(drafts));
+    var hLogs = JSON.parse(localStorage.getItem('history_logs')||'{}');
+    Object.keys(hLogs).forEach(function(k){ if(k.endsWith('_'+sid)) delete hLogs[k]; });
+    localStorage.setItem('history_logs', JSON.stringify(hLogs));
+  }catch(e){}
+  toast('✓ 已清除 '+esc(name)+' 的本機表單資料（共 '+keysToDelete.length+' 份）');
+}
+
+/* ── 備份所有資料為 JSON 檔 ── */
+function exportBackup(){
+  try{
+    var backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      formData: APP.formData,
+      historyLog: APP.historyLog,
+      students: APP.students,
+      teachers: APP.teachers,
+      teacherPIN: APP.teacherPIN,
+      adminPwd: APP.adminPwd,
+      courseTopics: APP.courseTopics,
+      courseSpeakers: APP.courseSpeakers,
+      studentOrder: APP.studentOrder,
+      teacherOrder: APP.teacherOrder,
+      localStorage_drafts: (function(){ try{return JSON.parse(localStorage.getItem('form_drafts')||'{}');}catch(e){return {};} })(),
+      localStorage_history: (function(){ try{return JSON.parse(localStorage.getItem('history_logs')||'{}');}catch(e){return {};} })()
+    };
+    var json = JSON.stringify(backup, null, 2);
+    var blob = new Blob([json], {type:'application/json;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    a.download = 'eportfolio_backup_' + ts + '.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    toast('✓ 備份檔已下載：eportfolio_backup_'+ts+'.json');
+  }catch(e){
+    toast('⚠ 備份失敗：'+e.message);
+  }
+}
+
 async function addStudent(){
   const sid=clipInput((document.getElementById('ns-sid').value||'').trim(), MAX_SHORT_LENGTH);
   const name=clipInput((document.getElementById('ns-name').value||'').trim(), MAX_NAME_LENGTH);
@@ -6656,19 +6779,27 @@ function batchDownloadPDF(){
 
   allHtml+='</body></html>';
 
-  // 直接用 Blob + <a> 下載 HTML 檔案（不需彈出視窗）
-  var blob=new Blob([allHtml],{type:'text/html;charset=utf-8'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
+  // ★ 改為「一鍵列印另存 PDF」流程
   var now=new Date();
   var ts=now.getFullYear()+''+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
   var sn=studentName||'學生';
-  a.download='臺中榮總_ePortfolio_'+sn+'_已完成表單_'+ts+'.html';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
-  toast('✅ 已下載！請用瀏覽器開啟該檔案，再按 Ctrl+P 選「另存為PDF」');
+  var batchFileName='臺中榮總_ePortfolio_'+sn+'_已完成表單_'+ts;
+  var batchWin = window.open('', '_blank');
+  if(!batchWin){
+    toast('⚠ 瀏覽器阻擋了彈出視窗，請允許彈出後再試');
+    return;
+  }
+  var batchAutoPrint = '<scr'+'ipt>window.addEventListener("load",function(){'+
+    'setTimeout(function(){'+
+      'document.title='+JSON.stringify(batchFileName)+';'+
+      'window.print();'+
+    '},500);'+
+  '});</scr'+'ipt>';
+  allHtml = allHtml.replace('</body>', batchAutoPrint+'</body>');
+  batchWin.document.open();
+  batchWin.document.write(allHtml);
+  batchWin.document.close();
+  toast('✓ 列印對話框即將開啟，請選擇「另存為 PDF」');
 }
 
 function renderStatusSection(filterStatus){
