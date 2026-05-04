@@ -3017,17 +3017,29 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     // ── 二、呼吸問題確立 ──
     var indArr=[];try{indArr=JSON.parse(d['rt_ind']||'[]');}catch(e){}
     var allInd=['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'];
+    var indZhPdf={
+      'hypoxemia':'低血氧症',
+      'hypercapnia':'高二氧化碳血症',
+      'inadequate lung expansion':'肺擴張不全',
+      'inadequate muscle power':'肌力不足/無力',
+      'Excess work of breathing':'呼吸作功增加/呼吸費力',
+      'Impaired respiratory drive':'呼吸驅動力不足',
+      'Closed-head injury':'閉合性腦損傷',
+      'Prophylaxis mechanical ventilation':'預防性呼吸器使用',
+      'Fail chest':'連枷胸',
+      'COPD':'慢性阻塞性肺病'
+    };
     html+='<div class="section-head">二、呼吸問題確立 — Indications of mechanical ventilation</div>';
     html+='<table><tr>';
     allInd.forEach(function(ind,i){
       var checked=indArr.indexOf(ind)>=0;
       html+='<td style="border:1px solid #DDD;padding:4px 6px;font-size:9pt;white-space:nowrap;">';
-      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+ind+'</td>';
+      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+ind+'<span style="color:#888;font-size:8pt;"> ('+indZhPdf[ind]+')</span></td>';
       if(i===4){html+='</tr><tr>';}
     });
     html+='</tr>';
     if(val('rt_ind_others')){
-      html+='<tr><td colspan="5" style="border:1px solid #DDD;padding:4px 6px;font-size:9pt;">Others：'+val('rt_ind_others')+'</td></tr>';
+      html+='<tr><td colspan="5" style="border:1px solid #DDD;padding:4px 6px;font-size:9pt;">Others（其他）：'+val('rt_ind_others')+'</td></tr>';
     }
     html+='</table>';
 
@@ -4611,6 +4623,19 @@ function buildF04Bedside(f,d,canT,fkey,canS){
 
   // 呼吸問題確立（Indications of mechanical ventilation）
   var indications=['hypoxemia','hypercapnia','inadequate lung expansion','inadequate muscle power','Excess work of breathing','Impaired respiratory drive','Closed-head injury','Prophylaxis mechanical ventilation','Fail chest','COPD'];
+  // 中英對照表（顯示用，不影響儲存 key）
+  var indZh={
+    'hypoxemia':'低血氧症',
+    'hypercapnia':'高二氧化碳血症',
+    'inadequate lung expansion':'肺擴張不全',
+    'inadequate muscle power':'肌力不足/無力',
+    'Excess work of breathing':'呼吸作功增加/呼吸費力',
+    'Impaired respiratory drive':'呼吸驅動力不足',
+    'Closed-head injury':'閉合性腦損傷',
+    'Prophylaxis mechanical ventilation':'預防性呼吸器使用',
+    'Fail chest':'連枷胸',
+    'COPD':'慢性阻塞性肺病'
+  };
   var savedInd=[];
   try{savedInd=JSON.parse(d['rt_ind']||'[]');}catch(e){}
   var indHtml='';
@@ -4619,11 +4644,12 @@ function buildF04Bedside(f,d,canT,fkey,canS){
     var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['rt_ind']||'[]');}catch(e){}"+
       "if(this.checked){if(a.indexOf('"+ind+"')<0)a.push('"+ind+"');}else{a=a.filter(function(x){return x!=='"+ind+"';});}"+
       "APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_ind']=JSON.stringify(a);";
-    indHtml+='<label style="font-size:11px;margin-right:8px;margin-bottom:4px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+ind+'</label>';
+    var zhLabel=indZh[ind]?'<span style="color:var(--ink3);margin-left:3px;">（'+indZh[ind]+'）</span>':'';
+    indHtml+='<label style="font-size:11px;margin-right:8px;margin-bottom:4px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+ind+zhLabel+'</label>';
   });
   // Others 文字框
   var othersOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_ind_others']=this.value";
-  indHtml+='<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><span style="font-size:11px;">Others:</span><input type="text" value="'+(d['rt_ind_others']||'')+'" data-fid="'+fid+'" data-key="rt_ind_others" onchange="'+othersOC+'" style="width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"></div>';
+  indHtml+='<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><span style="font-size:11px;">Others<span style="color:var(--ink3);">（其他）</span>：</span><input type="text" value="'+(d['rt_ind_others']||'')+'" data-fid="'+fid+'" data-key="rt_ind_others" onchange="'+othersOC+'" style="width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"></div>';
 
   // 呼吸器機型（複選）
   var ventTypes=['PB840','Servo','Hamilton-G5','Drager','NKV-550'];
