@@ -4069,6 +4069,33 @@ function signRow(fid,sKey,tKey,canT,tLabel){
     '<div class="g2"><div class="field"><label>'+tLab+'<span class="t-badge">老師</span></label>'+tField+'</div><div class="field"><label>'+tDateLab+'<span class="t-badge">老師</span></label>'+tDate+'</div></div>';
 }
 
+/* ── 拆分版簽名 helper：讓學生簽名緊接學生填寫區、老師簽名緊接老師填寫區 ── */
+function studentSignRow(fid, sKey){
+  sKey = sKey || 's_sign';
+  var d=APP.formData[fid]||{};
+  var sDateKey=sKey+'_date';
+  // 學生自動帶入
+  if(APP.currentRole==='student'&&APP.currentUser&&!d[sKey]){
+    if(!APP.formData[fid])APP.formData[fid]={};
+    APP.formData[fid][sKey]=APP.currentUser.name;
+  }
+  var sStudents=getStudentList();
+  var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
+  var sDate=signDateWithTimestamp(fid,sDateKey,false);
+  return '<div class="g2"><div class="field"><label>學生簽名</label>'+sField+'</div><div class="field"><label>學生簽名日期</label>'+sDate+'</div></div>';
+}
+
+function teacherSignRow(fid, tKey, canT, tLabel){
+  tKey = tKey || 't_sign';
+  var tDateKey=tKey+'_date';
+  var sTeachers=getTeacherList();
+  var tField=makeDropdown(fid,tKey,sTeachers,!canT,tLabel?'請選擇'+tLabel.replace(/簽名$/,''):'請選擇老師',true);
+  var tDate=signDateWithTimestamp(fid,tDateKey,!canT,true);
+  var tLab=tLabel||'老師簽名';
+  var tDateLab=tLabel?tLabel+'日期':'老師簽名日期';
+  return '<div class="g2"><div class="field"><label>'+tLab+'<span class="t-badge">老師</span></label>'+tField+'</div><div class="field"><label>'+tDateLab+'<span class="t-badge">老師</span></label>'+tDate+'</div></div>';
+}
+
 /* Rating helpers */
 function rBtn(fid,key,v,role,disabled){
   const cur=(APP.formData[fid]||{})[key];
@@ -4487,7 +4514,16 @@ function buildF01B(f,d,canT,fkey,canS){
     h+='</tr>';
   });
   h+='</table></div></div>';
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+signRow(fid,'s_sign','t_sign',canT)+'</div></div>';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+
+    '<div style="background:#F8FAFE;border:1px solid var(--blue-line);border-radius:var(--r);padding:12px;margin-bottom:10px;">'+
+    '<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px;">📝 學生自評確認</div>'+
+    studentSignRow(fid,'s_sign')+
+    '</div>'+
+    '<div style="background:#FFF8F8;border:1px solid var(--red-line);border-radius:var(--r);padding:12px;">'+
+    '<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px;">✏️ 指導者評核確認</div>'+
+    teacherSignRow(fid,'t_sign',canT)+
+    '</div>'+
+    '</div></div>';
   return h;
 }
 
@@ -4509,8 +4545,9 @@ function buildF02(f,d,canT,fkey,canS){
   h+=`</table></div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">回饋</div></div><div class="card-body">
     <div class="field"><label>學生心得與建議</label>${ta(f.id,'s_comment',3,false)}</div>
+    ${studentSignRow(f.id,'s_sign')}
     <div class="field"><label>實習總指導教師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
+    ${teacherSignRow(f.id,'t_sign',canT)}
   </div></div>`;
   return h;
 }
@@ -4781,24 +4818,18 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   // 五、呼吸治療計畫
   h+='<div class="card"><div class="card-head"><div class="card-head-title">五、呼吸治療計畫</div></div><div class="card-body">';
   h+=area('rt_plan',3,false);
+  // 學生填寫完畢，緊接學生簽名
+  h+='<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2);">';
+  h+=studentSignRow(fid,'s_sign');
+  h+='</div>';
   h+='</div></div>';
 
-  // 臨床實習老師回饋
+  // 臨床實習老師回饋（含老師簽名）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">臨床實習老師回饋<span class="t-badge">老師</span></div></div><div class="card-body">';
   h+=area('t_fb',3,!canT);
-  h+='</div></div>';
-
-  // 簽名（老師 + 學生）
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">';
-  h+='<div class="g2">';
-  h+='<div class="field"><label>臨床實習老師簽名<span class="t-badge">老師</span></label>'+makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)+'</div>';
-  var tDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['t_sign_date']=this.value";
-  h+='<div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+(d['t_sign_date']||'')+'" data-fid="'+fid+'" data-key="t_sign_date" onchange="'+tDateOC+'"'+(canT?'':' disabled')+' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(canT?'#fff':'var(--cream)')+';font-size:13px;"></div>';
-  h+='</div>';
-  h+='<div class="g2" style="margin-top:8px;">';
-  h+='<div class="field"><label>學生簽名</label>'+makeDropdown(fid,'s_sign',getStudentList(),false,'請選擇學生')+'</div>';
-  var sDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_sign_date']=this.value";
-  h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+(d['s_sign_date']||'')+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+sDateOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;font-size:13px;"></div>';
+  // 老師回饋完畢，緊接老師簽名
+  h+='<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2);">';
+  h+=teacherSignRow(fid,'t_sign',canT,'臨床實習老師簽名');
   h+='</div>';
   h+='</div></div>';
   return h;
@@ -4873,15 +4904,20 @@ function buildCbD(f,d,canT,fkey,canS){
   h+='</table></div></div>';
   // 雙向回饋 - 無字數限制
   h+='<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">';
-  h+='<div class="g2">';
+  // 學生回饋區（含學生簽名）
+  h+='<div style="background:#F8FAFE;border:1px solid var(--blue-line);border-radius:var(--r);padding:12px;margin-bottom:12px;">';
+  h+='<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px;">📝 學生填寫</div>';
   h+='<div class="field"><label>學員學習心得（不限字數）</label>'+ta(fid,'s_feeling',5,false)+'</div>';
-  h+='<div class="field"><label>表現良好項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_good',5,!canT)+'</div>';
-  h+='</div>';
-  h+='<div class="g2">';
   h+='<div class="field"><label>自覺可再加強（不限字數）</label>'+ta(fid,'s_improve',5,false)+'</div>';
-  h+='<div class="field"><label>建議加強項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_improve',5,!canT)+'</div>';
+  h+=studentSignRow(fid,'s_sign');
   h+='</div>';
-  h+=signRow(fid,'s_sign','t_sign',canT);
+  // 老師回饋區（含老師簽名）
+  h+='<div style="background:#FFF8F8;border:1px solid var(--red-line);border-radius:var(--r);padding:12px;">';
+  h+='<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px;">✏️ 老師填寫</div>';
+  h+='<div class="field"><label>表現良好項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_good',5,!canT)+'</div>';
+  h+='<div class="field"><label>建議加強項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_improve',5,!canT)+'</div>';
+  h+=teacherSignRow(fid,'t_sign',canT);
+  h+='</div>';
   h+='</div></div>';
   return h;
 }
@@ -4982,8 +5018,9 @@ function build360(f,d,canT,fkey,canS){
   h+='</div>';
   // 實習指導教師
   h+='<div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>'+ta(fid,'director_fb',3,!canT)+'</div>';
+  h+=teacherSignRow(fid,'t_sign2',canT,'實習總指導教師簽名');
   h+='<div class="field"><label>學生回饋</label>'+ta(fid,'s_fb',3,false)+'</div>';
-  h+=signRow(fid,'s_sign','t_sign2',canT,'實習總指導教師簽名'); // student sign + 實習總指導教師簽名（獨立 key t_sign2，避免與上方「臨床老師簽名」(t_sign) 衝突）
+  h+=studentSignRow(fid,'s_sign');
   // 實習計畫主持人下拉（包含固定選項張維倫）
   var hostList=['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';}));
   var hostField=makeDropdown(fid,'host_sign',hostList,!canT,'請選擇主持人',true);
@@ -5018,8 +5055,9 @@ function buildF08(f,d,canT,fkey,canS){
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">學員心得與老師回饋</div></div><div class="card-body">
     <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
+    ${studentSignRow(f.id,'s_sign')}
     <div class="field"><label>臨床老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
+    ${teacherSignRow(f.id,'t_sign',canT)}
   </div></div>`;
   return h;
 }
@@ -5038,8 +5076,9 @@ function buildF09(f,d,canT,fkey,canS){
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">心得與回饋</div></div><div class="card-body">
     <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
+    ${studentSignRow(f.id,'s_sign')}
     <div class="field"><label>臨床實習老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
+    ${teacherSignRow(f.id,'t_sign',canT)}
   </div></div>`;
   return h;
 }
@@ -5112,10 +5151,11 @@ function buildF12(f,d,canT,fkey,canS){
     <div class="field"><label>工作單位環境與學習成效</label>${ta(f.id,'env_review',4,false)}</div>
     <div class="field"><label>臨床老師教學與互動</label>${ta(f.id,'teacher_review',4,false)}</div>
     <div class="field"><label>自我學習評估與感言</label>${ta(f.id,'self_review',4,false)}</div>
+    ${studentSignRow(f.id,'s_sign')}
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
     <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
-    ${signRow(f.id,'s_sign','t_sign',canT)}
+    ${teacherSignRow(f.id,'t_sign',canT)}
     <div class="g2">
       <div class="field"><label>計畫主持人簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'host_sign',getTeacherList(),!canT,'請選擇計畫主持人',true)}</div>
       <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
@@ -5149,9 +5189,12 @@ function buildF13(f,d,canT,fkey,canS){
       <div id="f13_total_${fid}" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / 100</span></div>
     </div>
   </div>`;
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學生繳交簽名</div></div><div class="card-body">
+    ${studentSignRow(fid,'s_sign')}
+  </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">綜合意見<span class="t-badge">老師</span></div></div><div class="card-body">
     <div class="field">${ta(fid,'t_comment',4,!canT)}</div>
-    ${signRow(fid,'s_sign','t_sign',canT)}
+    ${teacherSignRow(fid,'t_sign',canT)}
   </div></div>`;
 
   setTimeout(function(){calcF13Score(fid);},50);
@@ -5213,9 +5256,12 @@ function buildF14(f,d,canT,fkey,canS){
   h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">PPT 報告總分</div>';
   h+='<div id="f14_total_'+fid+'" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / '+totalMax+'</span></div>';
   h+='</div></div>';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生報告繳交簽名</div></div><div class="card-body">';
+  h+=studentSignRow(fid,'s_sign');
+  h+='</div></div>';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評語與回饋<span class="t-badge">老師</span></div></div><div class="card-body">';
   h+='<div class="field"><label>老師評語</label>'+ta(fid,'t_fb',3,!canT)+'</div>';
-  h+=signRow(fid,'s_sign','t_sign',canT);
+  h+=teacherSignRow(fid,'t_sign',canT);
   h+='</div></div>';
 
   setTimeout(function(){calcF14Score(fid);},50);
@@ -5423,8 +5469,9 @@ function buildDOPS(f,d,canT,fkey,canS){
     h+='</div></div>';
     h+='<div class="field"><label>學生自覺技術複雜度</label><div class="check-group">';['低','中','高'].forEach(function(v2){var c2=d['complexity']===v2?'checked':'';var o2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['complexity']='"+v2+"'";h+='<label class="check-item"><input type="radio" name="'+fid+'_cx" '+c2+' onchange="'+o2+'" style="accent-color:var(--gold);"> '+v2+'</label>';});h+='</div></div>';
     h+='<div class="field"><label>學生對此技術操作的心得感受</label>'+ta(fid,'s_feeling',3,false)+'</div>';
+    h+=studentSignRow(fid,'s_sign');
     h+='<div class="field"><label>老師回饋<span class="t-badge">老師</span></label>'+ta(fid,'t_fb',3,!canT)+'</div>';
-    h+=signRow(fid,'s_sign','t_sign',canT);
+    h+=teacherSignRow(fid,'t_sign',canT);
     h+='</div></div>';
   return h;
 }
@@ -5689,8 +5736,9 @@ function buildF15(f,d,canT,fkey,canS){
     </div>
     <div class="g2"><div class="field"><label>遲到（次）</label>${fi(fid,'late_cnt','number',false)}</div></div>
     <div class="field"><label>學生自我評語和建議</label>${ta(fid,'s_comment',3,false)}</div>
+    ${studentSignRow(fid,'s_sign')}
     <div class="field"><label>師生檢討與回饋<span class="t-badge">老師</span></label>${ta(fid,'t_fb',4,!canT)}</div>
-    ${signRow(fid,'s_sign','t_sign',canT,'實習總指導教師簽名')}
+    ${teacherSignRow(fid,'t_sign',canT,'實習總指導教師簽名')}
     <div class="g2">
       <div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'host_sign',['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';})),!canT,'請選擇主持人',true)}</div>
       <div class="field"><label>計畫主持人簽名時間<span class="t-badge">老師</span></label><input type="date" value="${d['host_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_sign_date" data-teacher="1" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
