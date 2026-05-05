@@ -3407,6 +3407,63 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // F09 跨領域團隊合作照護訓練紀錄表
+  // 對齊網頁填單內容；簽名順序：
+  //   學生心得 → 學生簽名 → 學生簽名日期；
+  //   老師回饋 → 老師簽名 → 老師簽名日期
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F09'){
+    var f09profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
+
+    // ── 基本資料（對齊網頁 basicInfoCard + 額外欄位）──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
+    html+=pdfR('主診斷',val('diagnosis')||'—',false);
+    html+='</table>';
+
+    // ── 參加職類（17 個 checkbox，對齊網頁 prof_<職類>）──
+    html+='<div class="section-head">參加職類</div>';
+    html+='<table><tr>';
+    f09profs.forEach(function(prof,i){
+      var checked=d['prof_'+prof]===true||d['prof_'+prof]==='true'||d['prof_'+prof]===1;
+      html+='<td style="border:1px solid #DDD;padding:4px 7px;font-size:9pt;white-space:nowrap;">';
+      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+prof+'</td>';
+      if(i===7||i===f09profs.length-1) html+='</tr><tr>';
+    });
+    html+='</tr></table>';
+
+    // ── 團隊照護需求討論（c1, c2, c3 — 與網頁問題文字完全一致）──
+    html+='<div class="section-head">團隊照護需求討論</div>';
+    html+='<table>';
+    html+=pdfR('1. 身為呼吸治療師，我的專業可以提供這個病人：',val('c1')||'—',false);
+    html+=pdfR('2. 我會請求＿師，協助我以下事項：',val('c2')||'—',false);
+    html+=pdfR('3. 我可以幫助其他專業成員的部分是：',val('c3')||'—',false);
+    html+='</table>';
+
+    // ── 學生填寫（學員學習心得 → 學生簽名 → 學生簽名日期）──
+    html+='<div class="section-head">學生填寫</div>';
+    html+='<table>';
+    html+=pdfR('學員學習心得',val('s_feeling')||'—',false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
+    html+='</table>';
+
+    // ── 老師填寫（臨床實習老師回饋 → 老師簽名 → 老師簽名日期）──
+    html+='<div class="section-head">老師填寫</div>';
+    html+='<table>';
+    html+=pdfR('臨床實習老師回饋',val('t_fb')||'—',true);
+    html+=pdfR('老師簽名',val('t_sign')||'—',true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
+    html+='</table>';
+
+    return html;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // F08 全人照護紀錄表
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if(id==='F08'){
@@ -7202,10 +7259,21 @@ function batchDownloadPDF(){
   allHtml+='</body></html>';
 
   // ★ 改為「一鍵列印另存 PDF」流程
-  var now=new Date();
-  var ts=now.getFullYear()+''+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
-  var sn=studentName||'學生';
-  var batchFileName='臺中榮總_ePortfolio_'+sn+'_已完成表單_'+ts;
+  // 一鍵下載檔名格式：實習學校-實習類別-學生姓名-學號-(全評核XX份表單)
+  // 實習類別從任一張完成的表單抓取（同個學生通常為同一類別）
+  var _batchInternCat='';
+  for(var _bi=0; _bi<doneForms.length; _bi++){
+    var _bk=getFormKey(doneForms[_bi].id);
+    var _bd=Object.assign({},allDraftsCache[doneForms[_bi].id]||{},allDraftsCache[_bk]||{},APP.formData[doneForms[_bi].id]||{},APP.formData[_bk]||{});
+    if(_bd.intern_cat){ _batchInternCat=_bd.intern_cat; break; }
+  }
+  var _batchParts=[];
+  if(studentSchool)   _batchParts.push(studentSchool);
+  if(_batchInternCat) _batchParts.push(_batchInternCat);
+  if(studentName)     _batchParts.push(studentName);
+  if(studentId)       _batchParts.push(studentId);
+  _batchParts.push('(全評核'+doneForms.length+'份表單)');
+  var batchFileName=_batchParts.join('-').replace(/[/\\:*?"<>|]/g,'_');
   var batchWin = window.open('', '_blank');
   if(!batchWin){
     toast('⚠ 瀏覽器阻擋了彈出視窗，請允許彈出後再試');
