@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v11-f14-sfb">
+<meta name="version" content="2026-05-05-v12-dops-grade">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -4065,8 +4065,6 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     if(dopsData&&dopsData.extra){
       html+='<div style="background:#FFF8E7;border:1px solid #E0CFA0;border-radius:4px;padding:6px 10px;margin:6px 0;font-size:10pt;color:#8B6914;">'+dopsData.extra+'</div>';
     }
-    // ── 評分說明 ──
-    html+='<div style="background:#EEF2F8;border-radius:4px;padding:5px 10px;margin:6px 0;font-size:10pt;color:#1A5276;"><strong>1-3 分 = 有待加強　　4-6 分 = 符合標準　　7-9 分 = 優良　　NA = 未評</strong>　 ⚠ 合格標準：任一項目 UGY ≥ 5 分</div>';
     // ── 評核項目（按 group 分） ──
     var dopsItemIdx=0;
     if(dopsData&&dopsData.groups){
@@ -4115,8 +4113,22 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+='<tr><td colspan="2" style="background:#FFF3CD;border:1px solid #F0C040;padding:5px 10px;font-size:10pt;font-weight:700;color:#8B6914;">★ UGY 分數需 ≥ 良：80-89 分</td></tr>';
     html+='</table>';
+    // 顯示所有評分等級選項，並 highlight 老師選擇的等級（與網頁版下拉選單對齊）
+    var dopsGradeOpts=['優：90-100分','良：80-89分','佳：70-79分','尚可：60-69分','差：≦59分'];
+    var dopsSelGrade=val('score_grade');
     html+='<table>';
-    html+=pdfR('評分等級',val('score_grade'),true);
+    html+='<tr><th colspan="2" style="background:#1A3A5C;color:#fff;padding:5px 10px;border:1px solid #DDD;font-size:10pt;text-align:left;">評分等級（老師勾選）</th></tr>';
+    dopsGradeOpts.forEach(function(g){
+      var isSel=(dopsSelGrade===g);
+      var bg=isSel?'#C0392B':'#FFF5F5';
+      var color=isSel?'#fff':'#666';
+      var weight=isSel?'700':'400';
+      var marker=isSel?'<span style="font-size:13pt;font-weight:700;">✓</span>':'<span style="color:#ccc;">○</span>';
+      html+='<tr>';
+      html+='<td style="width:8%;text-align:center;border:1px solid #DDD;padding:5px;background:'+bg+';color:'+color+';">'+marker+'</td>';
+      html+='<td style="border:1px solid #DDD;padding:5px 10px;background:'+bg+';color:'+color+';font-size:10pt;font-weight:'+weight+';">'+g+'</td>';
+      html+='</tr>';
+    });
     html+='</table>';
     // ── 評量結果 ──
     html+='<div class="section-head">評量結果</div>';
