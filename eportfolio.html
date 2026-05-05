@@ -7222,26 +7222,39 @@ function batchDownloadPDF(){
 
     // 各表單特定欄位（已包含基本資料）
     var noOuterBasic=['F01A','F01B','F02','F04M','F04S','F05','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12','F13','F14','D01','D02','D03','D04','E01','E02','E03','F15'];
-    allHtml+='<table>';
-    if(noOuterBasic.indexOf(f.id)<0){
-      allHtml+=sec('基本資料');
-      allHtml+=row('學生姓名',val('s_name'),false);
-      allHtml+=row('實習學校',val('school'),false);
-      allHtml+=row('實習日期',val('s_date'),false);
-      allHtml+=row('實習類別',val('intern_cat'),false);
+    // F09：buildPDFContent 內已自帶完整版型（含 section-head/table/簽名），
+    //     批次下載不再額外包 <table> 殼，也不重複附加簽名區，避免：
+    //     (1) 巢狀 <table> 導致瀏覽器重排版面
+    //     (2) 簽名重複出現兩次
+    var skipOuterTable=['F09'];
+    var skipExtraSignBlock=['F09'];
+    if(skipOuterTable.indexOf(f.id)<0){
+      allHtml+='<table>';
+      if(noOuterBasic.indexOf(f.id)<0){
+        allHtml+=sec('基本資料');
+        allHtml+=row('學生姓名',val('s_name'),false);
+        allHtml+=row('實習學校',val('school'),false);
+        allHtml+=row('實習日期',val('s_date'),false);
+        allHtml+=row('實習類別',val('intern_cat'),false);
+      }
+      allHtml+=buildPDFContent(f.id,f,d,val,row,sec,sName,sSchool,chk);
+      allHtml+='</table>';
+    } else {
+      // F09：直接輸出 buildPDFContent 內容，不另加殼
+      allHtml+=buildPDFContent(f.id,f,d,val,row,sec,sName,sSchool,chk);
     }
-    allHtml+=buildPDFContent(f.id,f,d,val,row,sec,sName,sSchool,chk);
-    allHtml+='</table>';
 
-    // 簽名區
-    allHtml+='<table><tr class="sec"><td colspan="4" class="sec">簽名區</td></tr>';
-    allHtml+='<tr>';
-    allHtml+='<td style="width:25%;font-weight:600;">學生簽名</td><td>'+(val('s_sign')||'—')+'</td>';
-    allHtml+='<td style="width:25%;font-weight:600;">學生簽名日期</td><td>'+formatSignTs(val('s_sign_date'))+'</td>';
-    allHtml+='</tr><tr class="t-row">';
-    allHtml+='<td style="font-weight:600;">老師/指導老師簽名</td><td>'+(val('t_sign')||'—')+'</td>';
-    allHtml+='<td style="font-weight:600;">老師簽名日期</td><td>'+formatSignTs(val('t_sign_date'))+'</td>';
-    allHtml+='</tr></table>';
+    // 簽名區（F09 已在 buildPDFContent 內處理完，不再重複）
+    if(skipExtraSignBlock.indexOf(f.id)<0){
+      allHtml+='<table><tr class="sec"><td colspan="4" class="sec">簽名區</td></tr>';
+      allHtml+='<tr>';
+      allHtml+='<td style="width:25%;font-weight:600;">學生簽名</td><td>'+(val('s_sign')||'—')+'</td>';
+      allHtml+='<td style="width:25%;font-weight:600;">學生簽名日期</td><td>'+formatSignTs(val('s_sign_date'))+'</td>';
+      allHtml+='</tr><tr class="t-row">';
+      allHtml+='<td style="font-weight:600;">老師/指導老師簽名</td><td>'+(val('t_sign')||'—')+'</td>';
+      allHtml+='<td style="font-weight:600;">老師簽名日期</td><td>'+formatSignTs(val('t_sign_date'))+'</td>';
+      allHtml+='</tr></table>';
+    }
 
     // 填寫歷史紀錄
     if(uniqueLogs.length>0){
