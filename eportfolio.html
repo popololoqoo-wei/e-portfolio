@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v8-f11-pdf">
+<meta name="version" content="2026-05-05-v9-f14-pdf">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1425,11 +1425,11 @@ function writeField(fid, key, val){
 
 /* ════════════════════════════════════════════════
    自動儲存機制（Auto-Save）
-   每次資料變動 → 等待 10 秒（debounce）→ 自動觸發儲存
-   全程 10 秒倒數提示 + 顏色閃爍，作為視覺緩衝
+   每次資料變動 → 等待 20 秒（debounce）→ 自動觸發儲存
+   進入儲存前 10 秒切換為倒數提示 + 顏色閃爍，作為視覺緩衝
    ════════════════════════════════════════════════ */
-const AUTO_SAVE_DEBOUNCE_MS = 10000;            // 停止輸入 10 秒後自動存
-const AUTO_SAVE_COUNTDOWN_MS = 10000;           // 全程顯示倒數提示（與 debounce 相同 = 整段時間都倒數）
+const AUTO_SAVE_DEBOUNCE_MS = 20000;            // 停止輸入 20 秒後自動存
+const AUTO_SAVE_COUNTDOWN_MS = 10000;           // 儲存前 10 秒進入倒數提示
 let _autoSaveTimers = {};            // 每張表單獨立計時器
 let _autoSaveCountdownTimers = {};   // 每張表單的倒數提示計時器
 let _autoSaveCountdownInterval = null; // 全域倒數刷新 interval
@@ -1454,12 +1454,12 @@ function scheduleAutoSave(bareId){
   // 顯示「未儲存」指示
   showAutoSaveIndicator('pending');
 
-  // 主計時器：10 秒後觸發儲存
+  // 主計時器：20 秒後觸發儲存
   _autoSaveTimers[bareId] = setTimeout(function(){
     runAutoSave(bareId);
   }, AUTO_SAVE_DEBOUNCE_MS);
 
-  // 倒數提示計時器：因 COUNTDOWN_MS === DEBOUNCE_MS，整段時間都會顯示倒數
+  // 倒數提示計時器：在儲存前 10 秒切換為倒數狀態
   _autoSaveCountdownEnd = Date.now() + AUTO_SAVE_DEBOUNCE_MS;
   _autoSaveCountdownTimers[bareId] = setTimeout(function(){
     // 進入倒數狀態時，立即顯示完整剩餘秒數，避免第一秒沒有數字
@@ -1516,7 +1516,7 @@ function showAutoSaveIndicator(state, countdownSec){
   }
   var cdSec = (typeof countdownSec==='number') ? countdownSec : null;
   const conf = {
-    pending:   { txt:'✏️ 編輯中…10 秒後自動儲存', bg:'#FEF3C7', color:'#78350F', border:'#F59E0B', flash:false },
+    pending:   { txt:'✏️ 編輯中…20 秒後自動儲存', bg:'#FEF3C7', color:'#78350F', border:'#F59E0B', flash:false },
     countdown: { txt:'⏳ 即將自動儲存…' + (cdSec!==null?(' '+cdSec+' 秒'):''), bg:'#FFEDD5', color:'#9A3412', border:'#F97316', flash:true },
     saving:    { txt:'⏳ 自動儲存中…',           bg:'#DBEAFE', color:'#1E40AF', border:'#2563EB', flash:false },
     saved:     { txt:'☁ 已自動儲存',             bg:'#D1FAE5', color:'#065F46', border:'#059669', flash:false },
@@ -4014,16 +4014,18 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=' &nbsp;<span style="font-size:11pt;font-weight:600;color:'+(f14pass?'#27AE60':'#C0392B')+';">'+(f14pass?'✓ 合格':'✗ 未達 60 分')+'</span>';
     html+='</td></tr>';
     html+='</table>';
-    // ── 評語與回饋 ──
-    html+='<div class="section-head">評語與回饋</div>';
+    // ── 學生填寫（學生簽名 → 學生簽名日期）──
+    // 註：網頁版 F14 並無「學生心得」欄位，故僅呈現實際存在的學生欄位（簽名 + 日期）
+    html+='<div class="section-head">學生填寫</div>';
     html+='<table>';
-    html+=pdfR('老師評語',val('t_fb'),true);
-    html+='</table>';
-    html+='<div class="section-head">簽名</div>';
-    html+='<table>';
-    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
     html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
-    html+=pdfR('老師簽名',val('t_sign'),true);
+    html+='</table>';
+    // ── 老師填寫（老師回饋 → 老師簽名 → 老師簽名日期）──
+    html+='<div class="section-head">老師填寫</div>';
+    html+='<table>';
+    html+=pdfR('老師回饋',val('t_fb')||'—',true);
+    html+=pdfR('老師簽名',val('t_sign')||'—',true);
     html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
