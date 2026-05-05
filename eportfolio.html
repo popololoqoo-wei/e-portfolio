@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v7-radio-fix">
+<meta name="version" content="2026-05-05-v8-f11-pdf">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -3518,6 +3518,45 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // F11 個人化學習計畫 ILPs
+  // 完全對齊網頁 buildF11 的欄位、順序、標籤
+  // 不增加、不減少任何欄位
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F11'){
+    // ── 基本資料（對齊網頁 basicInfoCard）──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
+    html+='</table>';
+
+    // ── 個人化學習計畫（學生填寫）──
+    // 欄位順序與網頁完全一致：goal → motivation → strategy → difficulty → criteria → timeline
+    html+='<div class="section-head">個人化學習計畫（學生填寫）</div>';
+    html+='<table>';
+    html+=pdfR('學習目標（你想學什麼？）',val('goal')||'—',false);
+    html+=pdfR('學習動機',val('motivation')||'—',false);
+    html+=pdfR('學習策略與資源',val('strategy')||'—',false);
+    html+=pdfR('可能遭遇的困難',val('difficulty')||'—',false);
+    html+=pdfR('評估內容與指標',val('criteria')||'—',false);
+    html+=pdfR('預計時程',val('timeline')||'—',false);
+    html+='</table>';
+
+    // ── 指導教師回饋（網頁順序：回饋 → 老師簽名 → 老師簽名日期 → 建議追蹤日期）──
+    html+='<div class="section-head">指導教師回饋</div>';
+    html+='<table>';
+    html+=pdfR('指導教師回饋',val('t_fb')||'—',true);
+    html+=pdfR('老師簽名',val('t_sign')||'—',true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
+    html+=pdfR('建議追蹤日期',formatSignTs(val('follow_date')),true);
+    html+='</table>';
+
+    return html;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // F08 全人照護紀錄表
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if(id==='F08'){
@@ -5578,9 +5617,9 @@ function buildF11(f,d,canT,fkey,canS){
     <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
     <div class="g2">
       <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)}</div>
-      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['t_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="saveDraftField('${fid}','t_sign_date',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
-    <div class="g2"><div class="field"><label>建議追蹤日期<span class="t-badge">老師</span></label><input data-teacher="1" type="date" value="${d['follow_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="follow_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['follow_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div><div></div></div>
+    <div class="g2"><div class="field"><label>建議追蹤日期<span class="t-badge">老師</span></label><input data-teacher="1" type="date" value="${d['follow_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="follow_date" onchange="saveDraftField('${fid}','follow_date',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div><div></div></div>
   </div></div>`;
   return h;
 }
