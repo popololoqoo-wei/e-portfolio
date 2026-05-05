@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v3-f09pdf">
+<meta name="version" content="2026-05-05-v4-f09pdf-fix">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -3413,8 +3413,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   // 對齊網頁填單內容；簽名順序：
   //   學生心得 → 學生簽名 → 學生簽名日期；
   //   老師回饋 → 老師簽名 → 老師簽名日期
+  // ★ 同時匹配 'F09' 和 'F09_<學號>' (formKey)，避免某些呼叫路徑傳入 formKey 時匹配失敗
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  if(id==='F09'){
+  if(id==='F09' || (typeof id==='string' && id.indexOf('F09_')===0)){
     var f09profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
 
     // ── 基本資料（對齊網頁 basicInfoCard + 額外欄位）──
