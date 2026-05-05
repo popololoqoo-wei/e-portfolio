@@ -196,6 +196,21 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .card-head{background:linear-gradient(180deg,#F8FAFC 0%,#F1F5F9 100%);border-bottom:1px solid var(--border2);padding:11px 1.2rem;display:flex;align-items:center;gap:8px;}
 .card-head-title{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.2px;}
 .card-body{padding:1.2rem;}
+/* 學生卡片（淡藍底）／老師卡片（淡紅底）／混合卡片（中性） */
+.card.s-card{background:#F5F9FF;border-color:var(--blue-line);}
+.card.s-card .card-head{background:linear-gradient(180deg,#EFF6FF 0%,#DBEAFE 100%);border-bottom-color:var(--blue-line);}
+.card.s-card .card-head-title{color:#1E40AF;}
+.card.t-card{background:#FFF7F7;border-color:var(--red-line);}
+.card.t-card .card-head{background:linear-gradient(180deg,#FEF2F2 0%,#FEE2E2 100%);border-bottom-color:var(--red-line);}
+.card.t-card .card-head-title{color:#991B1B;}
+.card.m-card{background:linear-gradient(180deg,#F5F9FF 0%,#FFF7F7 100%);}
+.card.m-card .card-head{background:linear-gradient(90deg,#DBEAFE 0%,#FEE2E2 100%);}
+.card.m-card .card-head-title{color:#1F2937;}
+/* 混合卡片內的學生／老師子區塊 */
+.s-block{background:#EFF6FF;border:1px solid var(--blue-line);border-radius:var(--r);padding:12px 14px;margin:10px 0;}
+.s-block-title{font-size:12px;font-weight:700;color:#1E40AF;margin-bottom:8px;letter-spacing:.2px;}
+.t-block{background:#FEF2F2;border:1px solid var(--red-line);border-radius:var(--r);padding:12px 14px;margin:10px 0;}
+.t-block-title{font-size:12px;font-weight:700;color:#991B1B;margin-bottom:8px;letter-spacing:.2px;}
 
 /* ─── FIELDS ─── */
 .field{margin-bottom:.95rem;}
@@ -613,8 +628,8 @@ input[type="date"]{
   <div id="quick-nav" style="display:none;background:linear-gradient(180deg,#F8FAFE 0%,#EFF4FB 100%);border-bottom:1px solid var(--border);padding:8px 1rem;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:56px;z-index:150;box-shadow:0 1px 3px rgba(15,23,42,.04);">
     <button onclick="renderFormList()" class="qnav-btn qnav-overview">📋 總覽</button>
     <button onclick="renderStatusSection('new')" class="qnav-btn qnav-new">⭕ 未填 <b id="qnav-new-cnt">-</b> 份</button>
-    <button onclick="renderStatusSection('draft')" class="qnav-btn qnav-draft">✏️ 草稿中 <b id="qnav-draft-cnt">-</b> 份</button>
-    <button onclick="renderStatusSection('partial')" class="qnav-btn qnav-partial">📝 進行中 <b id="qnav-partial-cnt">-</b> 份</button>
+    <button onclick="renderStatusSection('draft')" class="qnav-btn qnav-draft" title="有資料但尚未按下儲存的表單">✏️ 草稿中(未儲存) <b id="qnav-draft-cnt">-</b> 份</button>
+    <button onclick="renderStatusSection('partial')" class="qnav-btn qnav-partial" title="已儲存但必填欄位尚未完成的表單">📝 進行中 <b id="qnav-partial-cnt">-</b> 份</button>
 
     <button onclick="renderStatusSection('done')" class="qnav-btn qnav-done">✅ 已完成 <b id="qnav-done-cnt">-</b> 份</button>
   </div>
@@ -1929,8 +1944,8 @@ function renderFormList(){
       </div>
       <div style="display:flex;gap:12px;margin-top:7px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--green);">✅ 已完成 ${sm.done} 份</span>
-        <span style="font-size:11px;color:#0EA5E9;">✏️ 草稿中 ${sm.draft||0} 份</span>
-        <span style="font-size:11px;color:#5A8AAA;">📝 進行中 ${sm.partial} 份</span>
+        <span style="font-size:11px;color:#0EA5E9;" title="有資料但尚未按下儲存的表單">✏️ 草稿中(未儲存) ${sm.draft||0} 份</span>
+        <span style="font-size:11px;color:#5A8AAA;" title="已儲存但必填欄位尚未完成">📝 進行中 ${sm.partial} 份</span>
         <span style="font-size:11px;color:var(--ink3);">⭕ 未填寫 ${sm.newF} 份</span>
       </div>
     </div>
@@ -1974,10 +1989,18 @@ async function openForm(id){
     autoSaveDraft(APP.currentFormId);
   }
 
-  // ★★★ 每次進入新表單，學生的老師解鎖狀態強制重置（修正 PIN 解鎖切換表單續用 bug）★★★
+  // ★★★ 修正 PIN 重複鎖回 bug ★★★
+  // 只有「真的切到不同表單」才重置老師解鎖狀態；同表單重新渲染（雲端同步、刷新等）不應該強制鎖回。
+  // 並尊重 _skipPinReset 旗標：剛 PIN 解鎖完不立即被重置。
   if(APP.currentRole==='student'){
-    APP.teacherUnlocked=false;
-    APP._skipPinReset=false; // 一併清除舊旗標
+    var _isSwitchingForm = (APP.currentFormId && APP.currentFormId !== id);
+    if(_isSwitchingForm && !APP._skipPinReset){
+      APP.teacherUnlocked=false;
+    }
+    // 只有在真正切表單時才清旗標；同表單再次渲染保留旗標
+    if(_isSwitchingForm){
+      APP._skipPinReset=false;
+    }
   }
 
   APP.currentFormId=id;
@@ -2166,6 +2189,9 @@ async function openForm(id){
   html+='</div>';
   mc.innerHTML=html;
 
+  // 自動為每張 card 套上學生藍／老師紅／混合色
+  try{ applyCardColors(); }catch(e){console.warn('applyCardColors failed:',e);}
+
   // 360度評估表：初始化自動計算
   if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
   setTimeout(function(){
@@ -2253,6 +2279,87 @@ async function inlineUnlock(){
     msg.style.color='var(--red)';msg.textContent='PIN碼錯誤';
     if(pinInput) pinInput.value='';
   }
+}
+
+/* ── 自動為每張 card 套上學生藍／老師紅／混合色 ── */
+/* 規則：
+   1) card 內含 .t-badge 但沒有任何學生欄位（s_sign/s_fb/s_comment/s_feeling/s_improve/s_good/s-badge） → t-card（淡紅）
+   2) card 內有學生欄位（s_sign/s_name/s_comment/s_feeling…）但沒有 .t-badge 也沒有老師欄位（t_*） → s-card（淡藍）
+   3) card 內同時包含學生與老師欄位 → m-card（混合，不染整張，由內部子區塊處理）
+   4) 純資訊類 card（基本資料、病人資料、診斷、呼吸計畫…）視同學生卡（學生填寫）→ s-card
+*/
+function applyCardColors(){
+  var mc=document.getElementById('main-content');
+  if(!mc) return;
+  // 老師欄位 key 前綴清單
+  var T_KEYS=['t_sign','t_sign2','t_fb','t_good','t_improve','t_comment','t_title','t_note','t_date',
+    'director_fb','peer_good','peer_suggest','peer_sign','host_sign','host_date','host_note',
+    'result','score','score_grade','epa_level','follow_date',
+    'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+    'bonus','s1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h'];
+  // 學生欄位 key 清單（僅學生會填的）
+  var S_KEYS=['s_sign','s_sign_date','s_fb','s_comment','s_feeling','s_improve','s_good','s_name',
+    's_date','school','intern_cat','bed','pt_name','gender','birth_date','diagnosis','rt_ind',
+    'vent_type','medical_focus','rt_plan','goal','motivation','strategy','difficulty','criteria',
+    'timeline','env_review','teacher_review','self_review'];
+  
+  function hasTeacherContent(card){
+    if(card.querySelector('.t-badge')) return true;
+    var ts=card.querySelectorAll('[data-key]');
+    for(var i=0;i<ts.length;i++){
+      var k=ts[i].getAttribute('data-key')||'';
+      // 明確老師 key
+      if(T_KEYS.indexOf(k)>=0) return true;
+      // 老師評分欄位（f02/f05/f06/f07/f13/f14/f15）但 f02 是學生自評...實際看 data-teacher
+      if(ts[i].getAttribute('data-teacher')==='1') return true;
+      // 老師簽名相關
+      if(/^t_/.test(k) && k!=='team_good' && k!=='team_suggest' && k!=='team_sign' && k!=='team_title' && k!=='team_type_1' && k!=='team_care_1') return true;
+    }
+    // 老師按鈕
+    if(card.querySelector('button[data-teacher="1"]')) return true;
+    // EPA 信賴等級（老師評）
+    if(card.querySelector('.epa-level')) return true;
+    return false;
+  }
+  function hasStudentContent(card){
+    if(card.querySelector('.s-badge')) return true;
+    var sl=card.querySelectorAll('[data-key]');
+    for(var i=0;i<sl.length;i++){
+      var k=sl[i].getAttribute('data-key')||'';
+      if(S_KEYS.indexOf(k)>=0) return true;
+      // 學生評分欄位
+      if(sl[i].getAttribute('data-teacher')==='0') return true;
+      // F01 學前自評
+      if(/^f01_(pre|post)_/.test(k)) return true;
+    }
+    // 學生按鈕
+    if(card.querySelector('button[data-teacher="0"]')) return true;
+    return false;
+  }
+  
+  mc.querySelectorAll('.card').forEach(function(card){
+    // 移除前次套色
+    card.classList.remove('s-card','t-card','m-card');
+    var hasT=hasTeacherContent(card);
+    var hasS=hasStudentContent(card);
+    if(hasT && hasS){
+      card.classList.add('m-card');
+    } else if(hasT){
+      card.classList.add('t-card');
+    } else if(hasS){
+      card.classList.add('s-card');
+    } else {
+      // 沒有 data-key 也沒有 badge 的 card：視 card-head-title 文字判斷
+      var title=card.querySelector('.card-head-title');
+      var t=title?title.textContent:'';
+      if(/老師|教師|指導者|主持人|評分|查核|評核/.test(t) && !/學生|自評/.test(t)){
+        card.classList.add('t-card');
+      } else if(/學生|自評|心得|計畫|診斷|資料|建議/.test(t)){
+        card.classList.add('s-card');
+      }
+      // 完全中性的不染色
+    }
+  });
 }
 
 /* ── 鎖定老師欄位（儲存後呼叫）── */
@@ -3444,7 +3551,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<tr style="background:#F0F8FF;"><td style="border:1px solid #DDD;padding:6px 10px;font-weight:700;font-size:11pt;">總分（及格≥70）</td>';
     html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:16pt;font-weight:700;color:'+(totalOk?'#27AE60':'#E74C3C')+';">'+f07total+' 分 '+(totalOk?'✓ 通過':'✗ 未通過')+'</td></tr>';
     html+='</table>';
-    // ── 臨床老師評語 ──
+    // ── 臨床老師評語（老師：優點/建議/簽名/簽名日期/職稱）──
     html+='<div class="section-head">臨床老師評語</div>';
     html+='<table>';
     html+=pdfR('優點',val('peer_good'),true);
@@ -3461,19 +3568,23 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('其他團隊人員簽名',val('team_sign'),false);
     html+=pdfR('職稱',val('team_title'),false);
     html+='</table>';
-    // ── 實習指導教師綜合評語 ──
-    html+='<div class="section-head">實習總指導教師綜合評語</div>';
+    // ── 實習總指導教師區塊（老師：綜合評語 → 教師簽名 → 教師簽名日期）──
+    html+='<div class="section-head">實習總指導教師綜合評語與簽名</div>';
     html+='<table>';
     html+=pdfR('綜合評語',val('director_fb'),true);
-    html+=pdfR('學生回饋',val('s_fb'),false);
-    html+='</table>';
-    // ── 簽名 ──
-    html+='<div class="section-head">簽名</div>';
-    html+='<table>';
-    html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
     html+=pdfR('實習總指導教師簽名',val('t_sign2'),true);
     html+=pdfR('實習總指導教師簽名日期',val('t_sign2_date'),true);
+    html+='</table>';
+    // ── 學生回饋區塊（學生：回饋 → 學生簽名 → 學生簽名日期）──
+    html+='<div class="section-head">學生回饋與簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生回饋',val('s_fb'),false);
+    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+='</table>';
+    // ── 實習計畫主持人區塊（最後）──
+    html+='<div class="section-head">實習計畫主持人簽名</div>';
+    html+='<table>';
     html+=pdfR('實習計畫主持人簽名',val('host_sign'),true);
     html+=pdfR('主持人簽名日期',val('host_sign_date'),true);
     html+='</table>';
@@ -4637,12 +4748,12 @@ function buildF01B(f,d,canT,fkey,canS){
   });
   h+='</table></div></div>';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名</div></div><div class="card-body">'+
-    '<div style="background:#F8FAFE;border:1px solid var(--blue-line);border-radius:var(--r);padding:12px;margin-bottom:10px;">'+
-    '<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px;">📝 學生自評確認</div>'+
+    '<div class="s-block">'+
+    '<div class="s-block-title">📝 學生自評確認</div>'+
     studentSignRow(fid,'s_sign')+
     '</div>'+
-    '<div style="background:#FFF8F8;border:1px solid var(--red-line);border-radius:var(--r);padding:12px;">'+
-    '<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px;">✏️ 指導者評核確認</div>'+
+    '<div class="t-block">'+
+    '<div class="t-block-title">✏️ 指導者評核確認</div>'+
     teacherSignRow(fid,'t_sign',canT)+
     '</div>'+
     '</div></div>';
@@ -4666,10 +4777,16 @@ function buildF02(f,d,canT,fkey,canS){
   });
   h+=`</table></div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">回饋</div></div><div class="card-body">
-    <div class="field"><label>學生心得與建議</label>${ta(f.id,'s_comment',3,false)}</div>
-    ${studentSignRow(f.id,'s_sign')}
-    <div class="field"><label>實習總指導教師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-    ${teacherSignRow(f.id,'t_sign',canT)}
+    <div class="s-block">
+      <div class="s-block-title">📝 學生心得與簽名</div>
+      <div class="field"><label>學生心得與建議</label>${ta(f.id,'s_comment',3,false)}</div>
+      ${studentSignRow(f.id,'s_sign')}
+    </div>
+    <div class="t-block">
+      <div class="t-block-title">✏️ 實習總指導教師回饋與簽名</div>
+      <div class="field"><label>實習總指導教師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
+      ${teacherSignRow(f.id,'t_sign',canT)}
+    </div>
   </div></div>`;
   return h;
 }
@@ -5027,15 +5144,15 @@ function buildCbD(f,d,canT,fkey,canS){
   // 雙向回饋 - 無字數限制
   h+='<div class="card"><div class="card-head"><div class="card-head-title">雙向回饋</div></div><div class="card-body">';
   // 學生回饋區（含學生簽名）
-  h+='<div style="background:#F8FAFE;border:1px solid var(--blue-line);border-radius:var(--r);padding:12px;margin-bottom:12px;">';
-  h+='<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px;">📝 學生填寫</div>';
+  h+='<div class="s-block">';
+  h+='<div class="s-block-title">📝 學生填寫</div>';
   h+='<div class="field"><label>學員學習心得（不限字數）</label>'+ta(fid,'s_feeling',5,false)+'</div>';
   h+='<div class="field"><label>自覺可再加強（不限字數）</label>'+ta(fid,'s_improve',5,false)+'</div>';
   h+=studentSignRow(fid,'s_sign');
   h+='</div>';
   // 老師回饋區（含老師簽名）
-  h+='<div style="background:#FFF8F8;border:1px solid var(--red-line);border-radius:var(--r);padding:12px;">';
-  h+='<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px;">✏️ 老師填寫</div>';
+  h+='<div class="t-block">';
+  h+='<div class="t-block-title">✏️ 老師填寫</div>';
   h+='<div class="field"><label>表現良好項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_good',5,!canT)+'</div>';
   h+='<div class="field"><label>建議加強項目（不限字數）<span class="t-badge">老師</span></label>'+ta(fid,'t_improve',5,!canT)+'</div>';
   h+=teacherSignRow(fid,'t_sign',canT);
@@ -5116,8 +5233,8 @@ function build360(f,d,canT,fkey,canS){
   // 各方回饋
   h+='<div class="card"><div class="card-head"><div class="card-head-title">各方回饋</div></div><div class="card-body">';
   // 臨床老師
-  h+='<div style="background:#FFF5F5;border:1px solid #F0D0D0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
-  h+='<div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px;">臨床老師評語 <span class="t-badge">老師</span></div>';
+  h+='<div class="t-block">';
+  h+='<div class="t-block-title">✏️ 臨床老師評語 <span class="t-badge">老師</span></div>';
   h+='<div class="g2">';
   h+='<div class="field"><label>優點</label>'+ta(fid,'peer_good',2,!canT)+'</div>';
   h+='<div class="field"><label>建議</label>'+ta(fid,'peer_suggest',2,!canT)+'</div>';
@@ -5129,8 +5246,8 @@ function build360(f,d,canT,fkey,canS){
   h+='<div style="font-size:10px;color:var(--ink3);margin-top:4px;">※ 以上為臨床老師填寫欄位，需 PIN 碼解鎖</div>';
   h+='</div>';
   // 其他團隊人員 - 開放給所有人填寫（不鎖定）
-  h+='<div style="background:#F5F8FF;border:1px solid #D0D8F0;border-radius:var(--r);padding:10px 12px;margin-bottom:10px;">';
-  h+='<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;">其他團隊人員評語（所有人皆可填寫）</div>';
+  h+='<div class="s-block" style="background:#F5F8FF;">';
+  h+='<div class="s-block-title">👥 其他團隊人員評語（所有人皆可填寫）</div>';
   h+='<div class="g2">';
   h+='<div class="field"><label>優點</label>'+ta(fid,'team_good',2,false)+'</div>';
   h+='<div class="field"><label>建議</label>'+ta(fid,'team_suggest',2,false)+'</div>';
@@ -5138,11 +5255,21 @@ function build360(f,d,canT,fkey,canS){
   h+=fi(fid,'team_sign','text',false,'其他團隊人員簽名');
   h+=fi(fid,'team_title','text',false,'職稱');
   h+='</div>';
-  // 實習指導教師
+  // ── 實習總指導教師區塊（老師：綜合評語 + 教師簽名 + 教師簽名日期）──
+  h+='<div class="t-block">';
+  h+='<div class="t-block-title">✏️ 實習總指導教師綜合評語與簽名 <span class="t-badge">老師</span></div>';
   h+='<div class="field"><label>實習總指導教師綜合評語<span class="t-badge">老師</span></label>'+ta(fid,'director_fb',3,!canT)+'</div>';
   h+=teacherSignRow(fid,'t_sign2',canT,'實習總指導教師簽名');
+  h+='</div>';
+  // ── 學生回饋區塊（學生：回饋 + 學生簽名 + 簽名日期）──
+  h+='<div class="s-block">';
+  h+='<div class="s-block-title">📝 學生回饋與簽名</div>';
   h+='<div class="field"><label>學生回饋</label>'+ta(fid,'s_fb',3,false)+'</div>';
   h+=studentSignRow(fid,'s_sign');
+  h+='</div>';
+  // ── 實習計畫主持人區塊（最後）──
+  h+='<div class="t-block">';
+  h+='<div class="t-block-title">✏️ 實習計畫主持人簽名 <span class="t-badge">老師</span></div>';
   // 實習計畫主持人下拉（包含固定選項張維倫）
   var hostList=['張維倫'].concat(getTeacherList().filter(function(n){return n!=='張維倫';}));
   var hostField=makeDropdown(fid,'host_sign',hostList,!canT,'請選擇主持人',true);
@@ -5153,6 +5280,7 @@ function build360(f,d,canT,fkey,canS){
   var hsbg=!canT?'var(--cream)':'#fff';
   var hsdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['host_sign_date']=this.value";
   h+='<div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="'+hsd+'"'+hsdis+' data-fid="'+fid+'" data-key="host_sign_date" onchange="'+hsdOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+hsbg+';color:var(--ink);font-size:13px;"></div>';
+  h+='</div>';
   h+='</div>';
   h+='</div></div>';
   return h;
