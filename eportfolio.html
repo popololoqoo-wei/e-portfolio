@@ -1425,11 +1425,15 @@ function writeField(fid, key, val){
 
 /* ════════════════════════════════════════════════
    自動儲存機制（Auto-Save）
-   每次資料變動 → 等待 5 秒（debounce）→ 自動觸發儲存
-   避免使用者忘記按儲存而資料判定錯誤
+   每次資料變動 → 等待 30 秒（debounce）→ 自動觸發儲存
+   進入儲存前 10 秒，倒數提示 + 顏色閃爍提醒
    ════════════════════════════════════════════════ */
-const AUTO_SAVE_DEBOUNCE_MS = 5000; // 停止輸入 5 秒後自動存
+const AUTO_SAVE_DEBOUNCE_MS = 30000;            // 停止輸入 30 秒後自動存
+const AUTO_SAVE_COUNTDOWN_MS = 10000;           // 進入儲存前 10 秒開始倒數提示
 let _autoSaveTimers = {};            // 每張表單獨立計時器
+let _autoSaveCountdownTimers = {};   // 每張表單的倒數提示計時器
+let _autoSaveCountdownInterval = null; // 全域倒數刷新 interval
+let _autoSaveCountdownEnd = 0;       // 預定觸發儲存的絕對時間（ms）
 let _autoSaveInFlight = {};          // 避免重複觸發
 
 function scheduleAutoSave(bareId){
@@ -1444,16 +1448,38 @@ function scheduleAutoSave(bareId){
 
   // 取消舊計時器，重設 debounce
   if(_autoSaveTimers[bareId]) clearTimeout(_autoSaveTimers[bareId]);
+  if(_autoSaveCountdownTimers[bareId]) clearTimeout(_autoSaveCountdownTimers[bareId]);
+  if(_autoSaveCountdownInterval){ clearInterval(_autoSaveCountdownInterval); _autoSaveCountdownInterval=null; }
+
   // 顯示「未儲存」指示
   showAutoSaveIndicator('pending');
+
+  // 主計時器：30 秒後觸發儲存
   _autoSaveTimers[bareId] = setTimeout(function(){
     runAutoSave(bareId);
   }, AUTO_SAVE_DEBOUNCE_MS);
+
+  // 倒數提示計時器：在儲存前 10 秒切換為倒數狀態
+  _autoSaveCountdownEnd = Date.now() + AUTO_SAVE_DEBOUNCE_MS;
+  _autoSaveCountdownTimers[bareId] = setTimeout(function(){
+    showAutoSaveIndicator('countdown');
+    // 每秒刷新倒數秒數，產生「即將儲存」的視覺緩衝
+    _autoSaveCountdownInterval = setInterval(function(){
+      var remain = Math.max(0, Math.ceil((_autoSaveCountdownEnd - Date.now())/1000));
+      showAutoSaveIndicator('countdown', remain);
+      if(remain <= 0){
+        clearInterval(_autoSaveCountdownInterval);
+        _autoSaveCountdownInterval = null;
+      }
+    }, 1000);
+  }, AUTO_SAVE_DEBOUNCE_MS - AUTO_SAVE_COUNTDOWN_MS);
 }
 
 function runAutoSave(bareId){
   if(_autoSaveInFlight[bareId]) return;
   _autoSaveInFlight[bareId] = true;
+  // 停止倒數刷新
+  if(_autoSaveCountdownInterval){ clearInterval(_autoSaveCountdownInterval); _autoSaveCountdownInterval=null; }
   showAutoSaveIndicator('saving');
   try{
     // 直接呼叫 saveForm，與「按儲存按鈕」效果完全相同
@@ -1471,30 +1497,41 @@ function runAutoSave(bareId){
 }
 
 /* ── 自動儲存狀態指示器（右下角小提示） ── */
-function showAutoSaveIndicator(state){
+function showAutoSaveIndicator(state, countdownSec){
   let el = document.getElementById('auto-save-indicator');
   if(!el){
     el = document.createElement('div');
     el.id = 'auto-save-indicator';
-    el.style.cssText = 'position:fixed;bottom:1.2rem;left:1.2rem;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;z-index:9998;transition:all .3s;pointer-events:none;box-shadow:0 2px 8px rgba(15,23,42,.12);opacity:0;';
+    el.style.cssText = 'position:fixed;bottom:1.2rem;left:1.2rem;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;z-index:9998;transition:background .25s,color .25s,border-color .25s,opacity .3s;pointer-events:none;box-shadow:0 2px 8px rgba(15,23,42,.12);opacity:0;';
     document.body.appendChild(el);
   }
+  // 注入閃爍動畫樣式（只注入一次）
+  if(!document.getElementById('auto-save-indicator-style')){
+    var st = document.createElement('style');
+    st.id = 'auto-save-indicator-style';
+    st.textContent = '@keyframes autoSaveFlash{0%,100%{box-shadow:0 2px 8px rgba(15,23,42,.12),0 0 0 0 rgba(245,158,11,.55);}50%{box-shadow:0 2px 12px rgba(245,158,11,.45),0 0 0 6px rgba(245,158,11,0);}}';
+    document.head.appendChild(st);
+  }
+  var cdSec = (typeof countdownSec==='number') ? countdownSec : null;
   const conf = {
-    pending: { txt:'✏️ 編輯中…將自動儲存', bg:'#FEF3C7', color:'#78350F', border:'#F59E0B' },
-    saving:  { txt:'⏳ 自動儲存中…',         bg:'#DBEAFE', color:'#1E40AF', border:'#2563EB' },
-    saved:   { txt:'☁ 已自動儲存',           bg:'#D1FAE5', color:'#065F46', border:'#059669' },
-    error:   { txt:'⚠ 自動儲存失敗',         bg:'#FEE2E2', color:'#991B1B', border:'#DC2626' }
+    pending:   { txt:'✏️ 編輯中…30 秒後自動儲存', bg:'#FEF3C7', color:'#78350F', border:'#F59E0B', flash:false },
+    countdown: { txt:'⏳ 即將自動儲存…' + (cdSec!==null?(' '+cdSec+' 秒'):''), bg:'#FFEDD5', color:'#9A3412', border:'#F97316', flash:true },
+    saving:    { txt:'⏳ 自動儲存中…',           bg:'#DBEAFE', color:'#1E40AF', border:'#2563EB', flash:false },
+    saved:     { txt:'☁ 已自動儲存',             bg:'#D1FAE5', color:'#065F46', border:'#059669', flash:false },
+    error:     { txt:'⚠ 自動儲存失敗',           bg:'#FEE2E2', color:'#991B1B', border:'#DC2626', flash:false }
   }[state] || null;
-  if(!conf){ el.style.opacity='0'; return; }
+  if(!conf){ el.style.opacity='0'; el.style.animation=''; return; }
   el.textContent = conf.txt;
   el.style.background = conf.bg;
   el.style.color = conf.color;
   el.style.border = '1px solid '+conf.border;
   el.style.opacity = '1';
+  // 倒數狀態才啟用閃爍動畫，其他狀態移除
+  el.style.animation = conf.flash ? 'autoSaveFlash 1s ease-in-out infinite' : '';
   // 「已儲存」狀態 3 秒後自動淡出
   if(state === 'saved' || state === 'error'){
     setTimeout(function(){
-      if(el.textContent === conf.txt) el.style.opacity = '0';
+      if(el.textContent === conf.txt){ el.style.opacity = '0'; el.style.animation=''; }
     }, 3000);
   }
 }
@@ -3093,6 +3130,45 @@ const FIELD_LABELS={
   'env_review':'學習心得','note':'備注','s_note':'學生觀察紀錄',
 };
 
+/* ── 簽名日期/時間格式化（電子簽章感）──
+   原始儲存格式可能為：
+   1) "YYYY-MM-DD 2026/5/5 14:32:18"  ← 由 signDateWithTimestamp 產生：日期欄位值 + ' ' + toLocaleString
+   2) "YYYY-MM-DD"                    ← 早期資料只有日期
+   3) "YYYY/MM/DD" 或其他變體          ← 舊資料殘留
+   輸出統一格式：YYYY-MM-DD HH:MM（若有時間）/ YYYY-MM-DD（若無時間）
+   "—" 用於空值。
+*/
+function formatSignTs(v){
+  if(v===undefined||v===null) return '—';
+  var s=String(v).trim();
+  if(!s) return '—';
+  // 抓出第一段 YYYY-MM-DD 或 YYYY/MM/DD 作為日期
+  var dm=s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  var datePart='';
+  if(dm){
+    datePart=dm[1]+'-'+String(dm[2]).padStart(2,'0')+'-'+String(dm[3]).padStart(2,'0');
+  } else {
+    return s; // 無法解析就原樣回傳
+  }
+  // 抓時間：從整段字串裡找 HH:MM（取第一個出現的）
+  var tm=s.match(/(\d{1,2}):(\d{2})/);
+  if(tm){
+    var hh=String(tm[1]).padStart(2,'0');
+    var mm=tm[2];
+    // 處理「下午 1:32」這類 12 小時制（toLocaleString 在某些 locale 會出現）
+    var ampm=s.match(/(上午|下午|AM|PM|am|pm)/);
+    if(ampm){
+      var h=parseInt(hh,10);
+      var marker=ampm[1];
+      if((marker==='下午'||marker==='PM'||marker==='pm') && h<12) h+=12;
+      if((marker==='上午'||marker==='AM'||marker==='am') && h===12) h=0;
+      hh=String(h).padStart(2,'0');
+    }
+    return datePart+' '+hh+':'+mm;
+  }
+  return datePart;
+}
+
 function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   var html='';
 
@@ -3158,7 +3234,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
-    html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+='</table>';
     return html;
   }
@@ -3195,9 +3271,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
-    html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+=pdfR('老師簽名',val('t_sign')||'—',true);
-    html+=pdfR('老師簽名日期',val('t_sign_date')||'—',true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3322,9 +3398,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=f04row('臨床實習老師簽名',val('t_sign'),true);
-    html+=f04row('老師簽名日期',val('t_sign_date'),true);
+    html+=f04row('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+=f04row('學生簽名',val('s_sign'),false);
-    html+=f04row('學生簽名日期',val('s_sign_date'),false);
+    html+=f04row('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+='</table>';
 
     return html;
@@ -3398,9 +3474,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
-    html+=pdfR('學生簽名日期',val('s_sign_date')||'—',false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+=pdfR('老師簽名',val('t_sign')||'—',true);
-    html+=pdfR('老師簽名日期',val('t_sign_date')||'—',true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
 
     return html;
@@ -3427,13 +3503,13 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生心得',val('s_comment'),false);
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+='</table>';
     html+='<div class="section-head">老師回饋與簽名</div>';
     html+='<table>';
     html+=pdfR('老師回饋',val('t_fb'),true);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3470,7 +3546,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('學員學習心得',val('s_feeling'),false);
     html+=pdfR('自覺可再加強',val('s_improve'),false);
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+='</table>';
     // ── 老師填寫區（順序：表現良好 → 建議加強 → 老師簽名 → 老師簽名日期）──
     html+='<div class="section-head">老師填寫</div>';
@@ -3478,7 +3554,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('表現良好項目',val('t_good'),true);
     html+=pdfR('建議加強項目',val('t_improve'),true);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3562,7 +3638,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('優點',val('peer_good'),true);
     html+=pdfR('建議',val('peer_suggest'),true);
     html+=pdfR('臨床老師簽名',val('t_sign'),true);
-    html+=pdfR('臨床老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('臨床老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+=pdfR('職稱',val('t_title'),true);
     html+='</table>';
     // ── 其他團隊人員評語 ──
@@ -3578,20 +3654,20 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('綜合評語',val('director_fb'),true);
     html+=pdfR('實習總指導教師簽名',val('t_sign2'),true);
-    html+=pdfR('實習總指導教師簽名日期',val('t_sign2_date'),true);
+    html+=pdfR('實習總指導教師簽名日期',formatSignTs(val('t_sign2_date')),true);
     html+='</table>';
     // ── 學生回饋區塊（學生：回饋 → 學生簽名 → 學生簽名日期）──
     html+='<div class="section-head">學生回饋與簽名</div>';
     html+='<table>';
     html+=pdfR('學生回饋',val('s_fb'),false);
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+='</table>';
     // ── 實習計畫主持人區塊（最後）──
     html+='<div class="section-head">實習計畫主持人簽名</div>';
     html+='<table>';
     html+=pdfR('實習計畫主持人簽名',val('host_sign'),true);
-    html+=pdfR('主持人簽名日期',val('host_sign_date'),true);
+    html+=pdfR('主持人簽名日期',formatSignTs(val('host_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3637,7 +3713,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('輔導備註',val('t_note'),true);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     // ── 實習學生填寫 ──
     var sqs=[
@@ -3728,9 +3804,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3796,9 +3872,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3888,9 +3964,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -3976,7 +4052,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('老師回饋',val('t_fb'),true);
     html+=pdfR('老師簽名',val('t_sign'),true);
-    html+=pdfR('老師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('老師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -4079,11 +4155,11 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">簽名</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign'),false);
-    html+=pdfR('學生簽名日期',val('s_sign_date'),false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+=pdfR('實習總指導教師簽名',val('t_sign'),true);
-    html+=pdfR('實習總指導教師簽名日期',val('t_sign_date'),true);
+    html+=pdfR('實習總指導教師簽名日期',formatSignTs(val('t_sign_date')),true);
     html+=pdfR('實習計畫主持人簽名',val('host_sign'),true);
-    html+=pdfR('計畫主持人簽名時間',val('host_sign_date'),true);
+    html+=pdfR('計畫主持人簽名時間',formatSignTs(val('host_sign_date')),true);
     html+='</table>';
     return html;
   }
@@ -7104,10 +7180,10 @@ function batchDownloadPDF(){
     allHtml+='<table><tr class="sec"><td colspan="4" class="sec">簽名區</td></tr>';
     allHtml+='<tr>';
     allHtml+='<td style="width:25%;font-weight:600;">學生簽名</td><td>'+(val('s_sign')||'—')+'</td>';
-    allHtml+='<td style="width:25%;font-weight:600;">學生簽名日期</td><td>'+(val('s_sign_date')||'—')+'</td>';
+    allHtml+='<td style="width:25%;font-weight:600;">學生簽名日期</td><td>'+formatSignTs(val('s_sign_date'))+'</td>';
     allHtml+='</tr><tr class="t-row">';
     allHtml+='<td style="font-weight:600;">老師/指導老師簽名</td><td>'+(val('t_sign')||'—')+'</td>';
-    allHtml+='<td style="font-weight:600;">老師簽名日期</td><td>'+(val('t_sign_date')||'—')+'</td>';
+    allHtml+='<td style="font-weight:600;">老師簽名日期</td><td>'+formatSignTs(val('t_sign_date'))+'</td>';
     allHtml+='</tr></table>';
 
     // 填寫歷史紀錄
