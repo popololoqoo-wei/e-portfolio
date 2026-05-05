@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v16-f15-bonus">
+<meta name="version" content="2026-05-05-v17-f16-learning-style">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1294,6 +1294,7 @@ const FORMS=[
   {id:'E02',num:'貳拾參(2)',name:'EPA (8)：呼吸器病人緊急處置',sub:'即時評量',roles:'both'},
   {id:'E03',num:'貳拾參(3)',name:'EPA (10)：侵襲性呼吸器脫離照護',sub:'即時評量',roles:'both'},
   {id:'F15',num:'貳拾伍',name:'實習課程評值表',sub:'學習態度+技能+溝通',roles:'both'},
+  {id:'F16',num:'貳拾陸',name:'Learning-Style 評估表',sub:'學習風格自我評估',roles:'student'},
 ];
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
@@ -1626,6 +1627,9 @@ const REQUIRED_STUDENT_FIELDS = {
     'f15_com_0','f15_com_1','f15_com_2','f15_com_3',
     'bonus','leave_pub','leave_sick','leave_priv','late_cnt','t_fb',
     's_sign','s_sign_date','t_sign','t_sign_date','host_sign','host_sign_date'],
+  // F16 Learning-Style 評估表（70 題自我評估 + 簽名）
+  F16: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date']
+    .concat(Array.from({length:70},function(_,i){return 'f16_q_'+(i+1);})),
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -1818,6 +1822,7 @@ function renderSidebar(){
       {label:'DOPS',ids:['D01','D02','D03','D04']},
       {label:'EPA',ids:['E01','E02','E03']},
       {label:'總評值',ids:['F15']},
+      {label:'學習風格',ids:['F16']},
     ];
     let thtml='';
     if(APP.currentStudentId){
@@ -1845,6 +1850,7 @@ function renderSidebar(){
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
     {label:'總評值',ids:['F15']},
+    {label:'學習風格',ids:['F16']},
   ];
   let html='';
   // 未填寫表單快捷區
@@ -1901,6 +1907,7 @@ function selectStudent(sid){
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
     {label:'實習課程總評值',ids:['F15']},
+    {label:'學習風格自我評估',ids:['F16']},
   ];
   groups.forEach(g=>{
     html+=`<div class="section-header"><h2>${g.label}</h2></div><div class="form-grid">`;
@@ -1964,6 +1971,7 @@ function renderFormList(){
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
     {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
     {label:'實習課程總評值',count:'1份',ids:['F15']},
+    {label:'學習風格自我評估',count:'1份',ids:['F16']},
   ];
   let html='<div class="form-list-view">';
   // progress
@@ -4367,7 +4375,99 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     return html;
   }
 
-  // 通用表單（F03-F15, DOPS, EPA）
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // F16 Learning-Style 評估表
+  // 70 題自我評估 → 7 種學習風格分數 → 雷達圖 + 主要風格
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F16'){
+    // 計算分數
+    var f16scores = (typeof calcF16Scores==='function') ? calcF16Scores(d) : null;
+    var f16top = f16scores ? getF16TopStyles(f16scores) : [];
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',val('s_name')||studentName||'—',false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+='</table>';
+    // ── 70 題作答 ──
+    html+='<div class="section-head">學習風格自我評估（共 70 題）</div>';
+    html+='<div style="background:#EEF2F8;border-radius:4px;padding:5px 10px;margin:6px 0;font-size:9pt;color:#1A5276;">'
+        + '<strong>0 分</strong> = 陳述不像你　　<strong>1 分</strong> = 有點像　　<strong>2 分</strong> = 很像</div>';
+    html+='<table style="font-size:9pt;">';
+    html+='<tr>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:6%;">#</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:left;">題目敘述</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:8%;">得分</th>';
+    html+='</tr>';
+    if(typeof F16_QUESTIONS!=='undefined'){
+      F16_QUESTIONS.forEach(function(qa, i){
+        var qnum = i+1;
+        var qtext = qa[0];
+        var sc = d['f16_q_'+qnum];
+        var displayed = (sc===0||sc==='0'||sc==='1'||sc===1||sc==='2'||sc===2) ? sc : '—';
+        var rowBg = (qnum%2===0) ? '#FAFBFF' : '#FFFFFF';
+        html+='<tr style="background:'+rowBg+';">';
+        html+='<td style="padding:3px 6px;border:1px solid #DDD;text-align:center;font-weight:700;color:#666;font-size:9pt;">'+qnum+'</td>';
+        html+='<td style="padding:3px 8px;border:1px solid #DDD;font-size:9pt;color:#1A2530;">'+qtext+'</td>';
+        var dispColor = (displayed==='—') ? '#ccc' : '#C0392B';
+        html+='<td style="padding:3px;border:1px solid #DDD;text-align:center;font-size:11pt;font-weight:700;color:'+dispColor+';background:#FFF5F5;">'+displayed+'</td>';
+        html+='</tr>';
+      });
+    }
+    html+='</table>';
+    // ── 各風格得分 ──
+    if(f16scores){
+      html+='<div class="section-head">各學習風格得分（每項滿分 20 分）</div>';
+      html+='<table>';
+      html+='<tr>';
+      html+='<th style="background:#1A3A5C;color:#fff;padding:5px 10px;border:1px solid #DDD;text-align:left;width:30%;">學習風格</th>';
+      html+='<th style="background:#1A3A5C;color:#fff;padding:5px 10px;border:1px solid #DDD;text-align:center;width:18%;">得分</th>';
+      html+='<th style="background:#1A3A5C;color:#fff;padding:5px 10px;border:1px solid #DDD;text-align:left;">說明</th>';
+      html+='</tr>';
+      F16_AXIS_ORDER.forEach(function(code){
+        var sc = f16scores[code];
+        var isTop = f16top.indexOf(code)>=0 && sc>0;
+        var bg = isTop ? '#FEF3C7' : '#FAFBFF';
+        var color = isTop ? '#C0392B' : '#1A5276';
+        var weight = isTop ? '700' : '500';
+        html+='<tr style="background:'+bg+';">';
+        html+='<td style="padding:5px 10px;border:1px solid #DDD;font-size:10pt;color:'+color+';font-weight:'+weight+';">'+F16_STYLES[code].zh+(isTop?' ★':'')+'</td>';
+        html+='<td style="padding:5px 10px;border:1px solid #DDD;text-align:center;font-size:11pt;font-weight:700;color:'+color+';">'+sc+' / 20</td>';
+        html+='<td style="padding:5px 10px;border:1px solid #DDD;font-size:9pt;color:#555;">'+F16_STYLES[code].desc+'</td>';
+        html+='</tr>';
+      });
+      html+='</table>';
+    }
+    // ── 雷達圖 ──
+    if(f16scores && typeof buildF16RadarSVG==='function'){
+      html+='<div class="section-head">學習風格雷達圖</div>';
+      html+='<div style="text-align:center;padding:10px 0;background:#FFF;border:1px solid #DDD;">';
+      html+=buildF16RadarSVG(f16scores, 460);
+      html+='</div>';
+    }
+    // ── 評估結果（主要風格） ──
+    html+='<div class="section-head">評估結果：主要學習風格</div>';
+    html+='<table>';
+    if(f16top.length===0){
+      html+='<tr><td style="padding:10px 12px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;color:#888;">尚未完成評估</td></tr>';
+    } else {
+      var topNames = f16top.map(function(c){ return F16_STYLES[c].zh; }).join('、');
+      html+='<tr><td style="padding:8px 12px;border:1px solid #DDD;background:#FFF5F5;font-size:11pt;font-weight:700;color:#C0392B;">主要學習風格：'+topNames+(f16top.length>1?'（並列）':'')+'</td></tr>';
+      f16top.forEach(function(c){
+        html+='<tr><td style="padding:8px 12px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;color:#1A2530;line-height:1.7;"><strong style="color:#C0392B;">'+F16_STYLES[c].zh+'：</strong>'+F16_STYLES[c].desc+'</td></tr>';
+      });
+    }
+    html+='</table>';
+    // ── 學生簽名 ──
+    html+='<div class="section-head">學生簽名</div>';
+    html+='<table>';
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
+    html+='</table>';
+    return html;
+  }
   html+='<table>';
   // 基本資料
   var basicKeys=['s_name','school','s_date','date','t_name','teacher_name','period','topic','speaker','pt_info','bed','mode','fio2','peep','vt','rr'];
@@ -4820,6 +4920,7 @@ function buildFormBody(f,d,canT,formKey,canS){
     D01:buildDOPS,D02:buildDOPS,D03:buildDOPS,D04:buildDOPS,
     E01:buildEPA,E02:buildEPA,E03:buildEPA,
     F15:buildF15,
+    F16:buildF16,
   };
   return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
@@ -6307,6 +6408,323 @@ function buildF15(f,d,canT,fkey,canS){
   setTimeout(function(){calcF15Score(fid);},100);
   setTimeout(function(){calcF15Score(fid);},600);
   setTimeout(function(){calcF15Score(fid);},1500);
+  return h;
+}
+
+/* ═══════════ F16 LEARNING-STYLE 評估表 ═══════════ */
+// 70 道中文題目（依使用者提供的中文版 Word 檔，順序與英文版的 style 標記對齊）
+// 每題格式：[題目, style 代碼]
+// style 代碼：VS=視覺型, SC=社交型, PS=身體型, AL=聽覺型, VB=言語型, SL=獨立型, LG=邏輯型
+const F16_QUESTIONS = [
+  ['你注重隱私，喜歡獨處','SL'],                                       // 1
+  ['你喜歡按表抄課的旅遊方式','LG'],                                    // 2
+  ['音韻旋律歌曲能隨機出現在你腦海','AL'],                              // 3
+  ['數理是你喜歡的科目','LG'],                                          // 4
+  ['你樂於所屬，喜歡離群獨樂','SL'],                                    // 5
+  ['你喜歡像在課室中與他人互動的學習方式','SC'],                        // 6
+  ['你喜歡閱讀：書報雜誌等','VB'],                                      // 7
+  ['你容易從描繪中看到標的、建築等','VS'],                              // 8
+  ['你是目標導向，清楚知道自己的方向','SL'],                            // 9
+  ['你喜歡團體遊戲或運動如足球籃球等','SC'],                            // 10
+  ['你導航及示圖能力輕鬆，有方向感，很少迷路','VS'],                    // 11
+  ['喜歡一個人讀書或工作','SL'],                                        // 12
+  ['你是他人的良師益友','SC'],                                          // 13
+  ['你會花時間思考重要人生觀點','SL'],                                  // 14
+  ['你經常使用關聯法於一般談話中','VB'],                                // 15
+  ['你善於分類及群組，來幫助你了解他們的相關','LG'],                    // 16
+  ['你有寫日記的習慣','SL'],                                            // 17
+  ['你溝通能力好且常扮演仲介','SC'],                                    // 18
+  ['你喜歡運動','PS'],                                                  // 19
+  ['喜歡聆聽，別人喜歡跟你談話因為覺得你懂','SC'],                      // 20
+  ['喜歡在車內或讀書或工作時聽音樂','AL'],                              // 21
+  ['你喜歡收支平衡','LG'],                                              // 22
+  ['你有不少好朋友','SC'],                                              // 23
+  ['你在說話時會用很多手勢等肢體語言','PS'],                            // 24
+  ['英文等語言是你喜歡的課程','VB'],                                    // 25
+  ['你喜歡模型或拼圖','PS'],                                            // 26
+  ['你喜歡和他人談論問題甚於獨自處理他們','SC'],                        // 27
+  ['音樂是你喜歡的課程','AL'],                                          // 28
+  ['在學校你喜歡藝術繪畫','VS'],                                        // 29
+  ['你喜歡說故事或八卦','VB'],                                          // 30
+  ['你容易發現別人的缺點','LG'],                                        // 31
+  ['你喜歡用相機紀錄生活','VS'],                                        // 32
+  ['你用節律來記住事情如 TEL、密碼等','AL'],                            // 33
+  ['在學校你喜歡工藝、陶藝、雕塑課','PS'],                              // 34
+  ['善於用字遣詞','VB'],                                                // 35
+  ['你講究衣物的質感','PS'],                                            // 36
+  ['你喜歡去人少的小島渡假甚於和多人坐遊艇','SL'],                      // 37
+  ['你喜歡看圖表多的書','VS'],                                          // 38
+  ['你能用語言或文字清楚說明，善於表達自己','VB'],                      // 39
+  ['你喜歡和別人玩撲克牌','SC'],                                        // 40
+  ['你會用比喻或相關來佐證你的觀點','LG'],                              // 41
+  ['你能依聲音來區別不同類的車子或飛機','AL'],                          // 42
+  ['你對色彩敏銳','VS'],                                                // 43
+  ['你喜歡說雙關語、繞口令','VB'],                                      // 44
+  ['你在做某事時喜歡跳脫思考','PS'],                                    // 45
+  ['你閱讀自我成長的書籍或參與研討','SL'],                              // 46
+  ['你會使用樂器或自彈自唱','AL'],                                      // 47
+  ['你喜歡填字遊戲','VB'],                                              // 48
+  ['你喜歡邏輯性遊戲、西洋棋','LG'],                                    // 49
+  ['你喜歡參加派對、社交場合','SC'],                                    // 50
+  ['你偶爾會輕拍音樂節奏，或哼歌、吹口哨。在只聽見聲調幾次後，能記住它','AL'], // 51
+  ['你藉由大聲提問方式解決問題','VB'],                                  // 52
+  ['你喜歡跳舞','PS'],                                                  // 53
+  ['你喜歡一個人工作','SL'],                                            // 54
+  ['你不喜歡安靜，寧可有些背景音樂','AL'],                              // 55
+  ['你對極限運動非常敏感。例如大怒神，不是很愛就是很討厭','PS'],        // 56
+  ['你很會畫畫，想到什麼就會畫','VS'],                                  // 57
+  ['數字概念很好','LG'],                                                // 58
+  ['你喜歡在白板上邊說邊寫','VS'],                                      // 59
+  ['你對聲音敏感','AL'],                                                // 60
+  ['工作上你喜歡實際操作來了解','PS'],                                  // 61
+  ['你可以居於領先，喜歡跑第一','SC'],                                  // 62
+  ['你容易由閱讀吸收訊息','VB'],                                        // 63
+  ['你喜歡去了解事情的原因及理由','LG'],                                // 64
+  ['你是一個思想家，見解精闢','VS'],                                    // 65
+  ['音樂對強烈引發你的情感及回憶','AL'],                                // 66
+  ['思想獨立，了解自己的優缺點','SL'],                                  // 67
+  ['你喜歡園藝','PS'],                                                  // 68
+  ['你喜歡欣賞繪畫、雕塑、拼圖、迷宮','VS'],                            // 69
+  ['你喜歡按部就班解決問題','LG']                                       // 70
+];
+
+// 學習風格中文名稱與描述（依使用者提供的圖片）
+const F16_STYLES = {
+  VS: { zh:'視覺型',  desc:'善於用圖像顏色學習，擅長從講義、教具與實作項目中學習。' },
+  SC: { zh:'社交型',  desc:'善於溝通、善於洞察別人心思，喜歡討論以及與他人合作。' },
+  PS: { zh:'身體型',  desc:'善用身體及觸感學習，較適合實務操作與反覆練習。' },
+  AL: { zh:'聽覺型',  desc:'善用聲音、音樂，視聽教學有利於學習。' },
+  VB: { zh:'言語型',  desc:'善於表達，可鼓勵學生多分享自身觀點。' },
+  SL: { zh:'獨立型',  desc:'較獨立、注意力集中、學習事物較謹慎，會先預習以及大量練習。' },
+  LG: { zh:'邏輯型',  desc:'善用腦力邏輯及數學、善於組合資訊、了解事情前後解決問題。' }
+};
+// 雷達圖顯示順序（與圖片中的軸位置一致：上→右上→右下→下→左下→左上→左）
+const F16_AXIS_ORDER = ['VS','SC','PS','AL','VB','SL','LG'];
+
+// 計算各風格分數（每個 style 對應 10 題，每題最高 2 分 → 最高 20 分）
+function calcF16Scores(d){
+  var scores = {VS:0, SC:0, PS:0, AL:0, VB:0, SL:0, LG:0};
+  for(var i=0; i<F16_QUESTIONS.length; i++){
+    var key = 'f16_q_'+(i+1);
+    var v = parseInt(d[key]);
+    if(isNaN(v) || v<0 || v>2) continue;
+    var style = F16_QUESTIONS[i][1];
+    if(scores[style]!==undefined) scores[style] += v;
+  }
+  return scores;
+}
+
+// 找出主要學習風格（最高分；若多項並列回傳所有）
+function getF16TopStyles(scores){
+  var max = 0;
+  Object.keys(scores).forEach(function(k){ if(scores[k]>max) max=scores[k]; });
+  if(max===0) return [];
+  var top = [];
+  Object.keys(scores).forEach(function(k){ if(scores[k]===max) top.push(k); });
+  return top;
+}
+
+// 產生雷達圖 SVG（七邊形雷達；可同時用於網頁與 PDF）
+// scores: {VS,SC,PS,AL,VB,SL,LG}; size: 圖示寬高（px）
+function buildF16RadarSVG(scores, size){
+  size = size || 480;
+  var cx = size/2, cy = size/2;
+  var maxR = size * 0.36;  // 雷達半徑
+  var maxScore = 20;
+  var n = F16_AXIS_ORDER.length; // 7 軸
+  // 軸的角度（從上方開始，順時針）
+  function angleFor(i){ return -Math.PI/2 + i * (2*Math.PI/n); }
+  function pt(i, r){
+    var a = angleFor(i);
+    return [cx + r*Math.cos(a), cy + r*Math.sin(a)];
+  }
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="display:block;margin:0 auto;font-family:sans-serif;">';
+  // 背景
+  svg += '<rect width="'+size+'" height="'+size+'" fill="#FFFFFF"/>';
+  // 同心七邊形（4 層，分別代表 5、10、15、20 分）
+  for(var lvl=1; lvl<=4; lvl++){
+    var r = maxR * lvl / 4;
+    var poly = '';
+    for(var i=0; i<n; i++){
+      var p = pt(i, r);
+      poly += (i===0?'M':'L') + p[0].toFixed(2) + ',' + p[1].toFixed(2) + ' ';
+    }
+    poly += 'Z';
+    svg += '<path d="'+poly+'" fill="none" stroke="'+(lvl===4?'#888':'#CCC')+'" stroke-width="'+(lvl===4?'1.5':'1')+'"/>';
+    // 在最上方軸上標記分數刻度（5/10/15/20）
+    var labelY = cy - r;
+    svg += '<text x="'+(cx+4)+'" y="'+(labelY+4)+'" font-size="11" fill="#666">'+(lvl*5)+'</text>';
+  }
+  // 7 條軸線
+  for(var i=0; i<n; i++){
+    var p = pt(i, maxR);
+    svg += '<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0].toFixed(2)+'" y2="'+p[1].toFixed(2)+'" stroke="#BBB" stroke-width="1"/>';
+  }
+  // 軸標籤（中文）
+  for(var i=0; i<n; i++){
+    var styleCode = F16_AXIS_ORDER[i];
+    var label = F16_STYLES[styleCode].zh;
+    var p = pt(i, maxR + 28);
+    var anchor = 'middle';
+    if(p[0] > cx + 5) anchor = 'start';
+    else if(p[0] < cx - 5) anchor = 'end';
+    svg += '<text x="'+p[0].toFixed(2)+'" y="'+(p[1]+5).toFixed(2)+'" text-anchor="'+anchor+'" font-size="14" font-weight="700" fill="#1A3A5C">'+label+'</text>';
+  }
+  // 資料多邊形
+  var dataPoly = '';
+  var dataPts = [];
+  for(var i=0; i<n; i++){
+    var sc = scores[F16_AXIS_ORDER[i]] || 0;
+    var ratio = Math.min(sc/maxScore, 1);
+    var p = pt(i, maxR * ratio);
+    dataPts.push(p);
+    dataPoly += (i===0?'M':'L') + p[0].toFixed(2) + ',' + p[1].toFixed(2) + ' ';
+  }
+  dataPoly += 'Z';
+  svg += '<path d="'+dataPoly+'" fill="rgba(192,57,43,0.25)" stroke="#C0392B" stroke-width="2.5"/>';
+  // 資料點
+  for(var i=0; i<n; i++){
+    svg += '<circle cx="'+dataPts[i][0].toFixed(2)+'" cy="'+dataPts[i][1].toFixed(2)+'" r="4" fill="#C0392B"/>';
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+// 重新計算並更新網頁版的雷達圖與分數顯示
+function calcF16AndRender(fid){
+  var realFid = APP.currentFormId ? getFormKey(APP.currentFormId) : fid;
+  var d = Object.assign({}, APP.formData[fid]||{}, APP.formData[realFid]||{});
+  var scores = calcF16Scores(d);
+  var top = getF16TopStyles(scores);
+
+  // 更新分數顯示
+  var sumEl = document.getElementById('f16_scores_'+fid);
+  if(sumEl){
+    var rows = '';
+    F16_AXIS_ORDER.forEach(function(code){
+      var sc = scores[code];
+      var pct = (sc/20*100).toFixed(0);
+      var isTop = top.indexOf(code)>=0 && sc>0;
+      var bg = isTop ? '#FEF3C7' : '#FAFBFF';
+      var color = isTop ? '#C0392B' : '#1A5276';
+      var weight = isTop ? '700' : '500';
+      rows += '<tr style="background:'+bg+';">';
+      rows += '<td style="padding:5px 10px;border:1px solid #DDD;font-size:12px;color:'+color+';font-weight:'+weight+';">'+F16_STYLES[code].zh+(isTop?' ★':'')+'</td>';
+      rows += '<td style="padding:5px 10px;border:1px solid #DDD;text-align:center;font-size:13px;font-weight:700;color:'+color+';">'+sc+' / 20</td>';
+      rows += '<td style="padding:5px 10px;border:1px solid #DDD;font-size:11px;color:#555;">';
+      rows += '<div style="background:#E5E7EB;border-radius:3px;height:8px;overflow:hidden;">';
+      rows += '<div style="width:'+pct+'%;height:100%;background:'+(isTop?'#C0392B':'#3B82F6')+';"></div>';
+      rows += '</div></td>';
+      rows += '</tr>';
+    });
+    sumEl.innerHTML = rows;
+  }
+  // 更新雷達圖
+  var svgEl = document.getElementById('f16_radar_'+fid);
+  if(svgEl) svgEl.innerHTML = buildF16RadarSVG(scores, 420);
+  // 更新主要風格文字
+  var topEl = document.getElementById('f16_top_'+fid);
+  if(topEl){
+    if(top.length===0){
+      topEl.innerHTML = '<span style="color:var(--ink3);">尚未完成評估</span>';
+    } else {
+      var topNames = top.map(function(c){ return '<strong style="color:#C0392B;">'+F16_STYLES[c].zh+'</strong>'; }).join('、');
+      var topDescs = top.map(function(c){ return '<div style="margin-top:6px;padding:8px 12px;background:#FFF5F5;border-left:3px solid #C0392B;border-radius:4px;font-size:12px;color:#555;line-height:1.7;"><strong style="color:#C0392B;">'+F16_STYLES[c].zh+'：</strong>'+F16_STYLES[c].desc+'</div>'; }).join('');
+      topEl.innerHTML = '<div style="font-size:14px;margin-bottom:6px;">您的主要學習風格：'+topNames+'</div>'+topDescs;
+    }
+  }
+}
+
+function buildF16(f,d,canT,fkey,canS){
+  const fid=fkey||f.id;
+  if(canS===undefined) canS=true;
+  // 自動帶入學生姓名
+  if(APP.currentRole==='student'&&APP.currentUser&&!d['s_name']){
+    if(!APP.formData[fid])APP.formData[fid]={};
+    APP.formData[fid]['s_name']=APP.currentUser.name;
+    d['s_name']=APP.currentUser.name;
+  }
+  const cats=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
+  const schools=['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
+  const catOpts=cats.map(function(v){return '<option value="'+v+'" '+((d['intern_cat']||d['cat'])===v?'selected':'')+'>'+v+'</option>';}).join('');
+  const schOpts=schools.map(function(v){return '<option value="'+v+'" '+(d['school']===v?'selected':'')+'>'+v+'</option>';}).join('');
+
+  let h='';
+  // ── 基本資料 ──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g2">';
+  h+='<div class="field"><label>學生姓名</label><input type="text" value="'+(d['s_name']||'')+'" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);font-size:13px;"></div>';
+  h+='<div class="field"><label>實習學校</label><select data-fid="'+fid+'" data-key="school" onchange="saveDraftField(\''+fid+'\',\'school\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習學校</option>'+schOpts+'</select></div>';
+  h+='<div class="field"><label>實習類別</label><select data-fid="'+fid+'" data-key="intern_cat" onchange="saveDraftField(\''+fid+'\',\'intern_cat\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習類別</option>'+catOpts+'</select></div>';
+  h+='<div class="field"><label>實習日期（開始～結束）</label>'+dateRangeField(fid,'s_date',false)+'</div>';
+  h+='</div></div></div>';
+
+  // ── 說明卡 ──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">填寫說明</div></div><div class="card-body" style="font-size:12px;color:#555;line-height:1.8;">';
+  h+='<div style="background:#EBF5FB;border-left:3px solid #2471A3;padding:8px 12px;border-radius:4px;">';
+  h+='請依照以下計分方式針對 70 個敘述進行自我評估：<br>';
+  h+='<strong style="color:#1A5276;">0 分</strong> = 陳述不像你　　';
+  h+='<strong style="color:#1A5276;">1 分</strong> = 有點像　　';
+  h+='<strong style="color:#1A5276;">2 分</strong> = 很像';
+  h+='</div></div></div>';
+
+  // ── 70 道題目 ──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學習風格自我評估（共 70 題）</div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  h+='<thead><tr>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;text-align:center;width:48px;">#</th>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;text-align:left;">題目敘述</th>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;text-align:center;width:80px;">0<br><span style="font-size:10px;font-weight:400;">不像</span></th>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;text-align:center;width:80px;">1<br><span style="font-size:10px;font-weight:400;">有點像</span></th>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;text-align:center;width:80px;">2<br><span style="font-size:10px;font-weight:400;">很像</span></th>';
+  h+='</tr></thead><tbody>';
+  for(var i=0; i<F16_QUESTIONS.length; i++){
+    var qnum = i+1;
+    var qtext = F16_QUESTIONS[i][0];
+    var key = 'f16_q_'+qnum;
+    var cur = d[key];
+    var rowBg = (qnum%2===0) ? '#FAFBFF' : '#FFFFFF';
+    h+='<tr style="background:'+rowBg+';">';
+    h+='<td style="padding:6px 8px;border:1px solid #DDD;text-align:center;font-weight:700;color:#666;">'+qnum+'</td>';
+    h+='<td style="padding:6px 10px;border:1px solid #DDD;color:#1A2530;">'+qtext+'</td>';
+    [0,1,2].forEach(function(v){
+      var sel = (cur==v || cur===String(v));
+      h+='<td style="padding:5px;border:1px solid #DDD;text-align:center;">';
+      h+='<label style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:100%;">';
+      h+='<input type="radio" name="f16_q_'+qnum+'_'+fid+'" value="'+v+'" data-fid="'+fid+'" data-key="'+key+'" '+(sel?'checked':'')+' onchange="saveDraftField(\''+fid+'\',\''+key+'\','+v+');calcF16AndRender(\''+fid+'\')" style="accent-color:#C0392B;transform:scale(1.2);">';
+      h+='</label></td>';
+    });
+    h+='</tr>';
+  }
+  h+='</tbody></table>';
+  h+='</div></div>';
+
+  // ── 結果區塊：分數 + 雷達圖 + 主要風格 ──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">評估結果</div></div><div class="card-body">';
+  h+='<div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:12px;color:#8B6914;">📊 結果會隨您的作答即時更新；每個風格滿分 20 分（10 題 × 2 分）。</div>';
+  // 分數表格
+  h+='<div style="overflow-x:auto;margin-bottom:14px;">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  h+='<thead><tr>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 10px;border:1px solid #DDD;text-align:left;width:25%;">學習風格</th>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 10px;border:1px solid #DDD;text-align:center;width:20%;">得分</th>';
+  h+='<th style="background:#1A3A5C;color:#fff;padding:6px 10px;border:1px solid #DDD;text-align:left;">比例</th>';
+  h+='</tr></thead>';
+  h+='<tbody id="f16_scores_'+fid+'"></tbody>';
+  h+='</table></div>';
+  // 雷達圖
+  h+='<div id="f16_radar_'+fid+'" style="margin:12px 0;text-align:center;"></div>';
+  // 主要風格
+  h+='<div id="f16_top_'+fid+'" style="margin-top:8px;"></div>';
+  h+='</div></div>';
+
+  // ── 學生簽名 ──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生簽名</div></div><div class="card-body">';
+  h+=studentSignRow(fid,'s_sign');
+  h+='</div></div>';
+
+  // 渲染後初始化雷達圖
+  setTimeout(function(){ try{ calcF16AndRender(fid); }catch(e){console.warn('F16 render:',e);} }, 50);
+  setTimeout(function(){ try{ calcF16AndRender(fid); }catch(e){} }, 500);
   return h;
 }
 
