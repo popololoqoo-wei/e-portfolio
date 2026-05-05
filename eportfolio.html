@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v17-f16-learning-style">
+<meta name="version" content="2026-05-05-v18-deidentify">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -2199,6 +2199,20 @@ async function openForm(id){
   <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
   </div>`;
   html+=studentBanner;
+
+  // ★ 個資保護全域警語：在任何包含病人資料的表單上方顯示
+  var _patientForms = ['F04M','F04S','F06M','F06S','F08','F09','F13','F14'];
+  if(_patientForms.indexOf(id)>=0){
+    html+='<div style="background:linear-gradient(135deg,#FEE2E2,#FCA5A5);border:2px solid #DC2626;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;color:#7F1D1D;line-height:1.7;box-shadow:0 2px 4px rgba(220,38,38,.15);">'
+        + '<div style="font-weight:700;font-size:14px;margin-bottom:6px;">🔒 個資保護重要提醒（依個人資料保護法）</div>'
+        + '<div style="margin-left:8px;">'
+        + '• 本系統僅作為<strong>教學評核用途</strong>，請務必對病人資料<strong>去識別化</strong>處理<br>'
+        + '• 病人姓名 → 請使用代號（例如「P-001」、「王 OO」、「個案 A」）<br>'
+        + '• 出生日期 → 僅填寫年齡（例如 65 歲），不寫完整日期<br>'
+        + '• 病歷號 → 請使用內部教學代號，勿填真實病歷號'
+        + '</div>'
+        + '</div>';
+  }
 
   // Lock bar for student viewing teacher-only form
   if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
@@ -5369,14 +5383,21 @@ function buildF04Bedside(f,d,canT,fkey,canS){
 
   // 病患基本資料
   h+='<div class="card"><div class="card-head"><div class="card-head-title">病患資料</div></div><div class="card-body">';
+  // ★ 個資保護警語
+  h+='<div style="background:#FEE2E2;border:2px solid #DC2626;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#991B1B;line-height:1.7;">';
+  h+='<div style="font-weight:700;font-size:13px;margin-bottom:4px;">⚠ 個資保護重要提醒</div>';
+  h+='<div>• 請<strong>勿填寫病人完整姓名</strong>，請使用代號（例如「P-001」、「王 OO」）</div>';
+  h+='<div>• 請<strong>勿填寫出生日期</strong>，僅填寫年齡即可</div>';
+  h+='<div>• 病歷號請使用<strong>內部教學代號</strong>，勿使用真實病歷號</div>';
+  h+='</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
   h+='<tr>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病床號</label><br>'+inp('bed','')+'</td>';
-  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病人名</label><br>'+inp('pt_name','')+'</td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>個案代號（如 P-001 / 王 OO）</label><br>'+inp('pt_name','請勿填全名')+'</td>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>性別</label><br>'+genderHtml+'</td>';
-  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>出生日期</label><br>';
-  var bdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['birth_date']=this.value";
-  h+='<input type="date" value="'+(d['birth_date']||'')+'" data-fid="'+fid+'" data-key="birth_date" onchange="'+bdOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>年齡（歲）</label><br>';
+  var ageOC="saveDraftField('"+fid+"','pt_age',this.value)";
+  h+='<input type="number" min="0" max="120" value="'+(d['pt_age']||'')+'" placeholder="例：65" data-fid="'+fid+'" data-key="pt_age" onchange="'+ageOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></td>';
   h+='</tr></table>';
   h+='</div></div>';
 
@@ -5856,6 +5877,7 @@ function buildF14(f,d,canT,fkey,canS){
 
   // ── 個案報告題目（學生填寫）──
   h+='<div class="card"><div class="card-head"><div class="card-head-title">個案報告題目</div></div><div class="card-body">';
+  h+='<div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:11px;color:#78350F;">⚠ 個資保護提醒：題目中如需提及病人，請使用代號（如 P-001、王 OO），勿寫真實姓名。</div>';
   h+='<div class="field">'+ta(fid,'case_title',2,false)+'</div>';
   h+='</div></div>';
 
