@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v9-f14-pdf">
+<meta name="version" content="2026-05-05-v10-f14-rebuild">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -3963,21 +3963,22 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
 
   // F14 個案報告 PPT 評分表
   if(id==='F14'){
+    // 與網頁 buildF14 完全一致的 12 項，分為 4 大類
     var f14items=[
-      ['報告架構與邏輯性',10],
-      ['簡報設計與視覺效果',10],
-      ['主題掌握與深度',10],
-      ['臨床資料蒐集與整理',10],
-      ['診斷推理與鑑別診斷',10],
-      ['治療計畫之適切性',10],
-      ['文獻查閱與引用',10],
-      ['口語表達清晰度',10],
-      ['時間掌控',5],
-      ['回答問題能力',5],
-      ['團隊合作與互動',5],
-      ['整體臨床思維',5]
+      {cat:'報告技巧',label:'口語表達清晰流暢',max:5},
+      {cat:'報告技巧',label:'台風穩健',max:5},
+      {cat:'報告技巧',label:'熟悉報告主題及內容',max:10},
+      {cat:'報告技巧',label:'時間掌握良好（10-15 分鐘）',max:5},
+      {cat:'內容',label:'前言與入院經過',max:10},
+      {cat:'內容',label:'身體評估',max:10},
+      {cat:'內容',label:'疾病流程圖與呼吸照護主要問題',max:10},
+      {cat:'內容',label:'呼吸照護計畫',max:10},
+      {cat:'內容',label:'討論與文獻回顧',max:15},
+      {cat:'內容',label:'回答問題',max:10},
+      {cat:'期刊選擇',label:'內容完整度',max:5},
+      {cat:'與老師討論',label:'準時、認真',max:5}
     ];
-    var f14max=f14items.reduce(function(a,b){return a+b[1];},0);
+    var f14max=f14items.reduce(function(a,b){return a+b.max;},0);
     // ── 基本資料 ──
     html+='<div class="section-head">基本資料</div>';
     html+='<table>';
@@ -3986,36 +3987,48 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('實習日期',cleanDate(val('s_date')),false);
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
-    // ── 評分項目 ──
+    // ── 個案報告題目 ──
+    html+='<div class="section-head">個案報告題目</div>';
+    html+='<table>';
+    html+=pdfR('個案報告題目',val('case_title')||'—',false);
+    html+='</table>';
+    // ── 評分項目（4 大類，12 項，總分 100 分）──
     html+='<div class="section-head">評分項目（滿分 '+f14max+' 分）</div>';
     html+='<table>';
-    html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:60%;">評核項目</th>';
-    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">滿分</th>';
-    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">得分</th></tr>';
+    html+='<tr>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:18%;">評分項目</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:50%;">報告評分內容</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:14%;">配分</th>';
+    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:18%;">評分</th>';
+    html+='</tr>';
+
+    // 計算每個分類的列數，使用 rowspan 合併儲存格（與網頁版一致）
+    var catSpans={};
+    f14items.forEach(function(it){ catSpans[it.cat]=(catSpans[it.cat]||0)+1; });
+    var catRendered={};
     var f14total=0;
+
     f14items.forEach(function(it,i){
       var sc=parseInt(d['f14_sc_'+i]||0)||0;
-      if(sc>it[1])sc=it[1]; if(sc<0)sc=0;
+      if(sc>it.max)sc=it.max; if(sc<0)sc=0;
       f14total+=sc;
       html+='<tr>';
-      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+it[0]+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;background:#FAFAF8;font-size:10pt;color:var(--ink3);">'+it[1]+'</td>';
+      if(!catRendered[it.cat]){
+        html+='<td rowspan="'+catSpans[it.cat]+'" style="vertical-align:middle;text-align:center;font-weight:700;background:#FAFBFF;border:1px solid #DDD;padding:5px 8px;font-size:10pt;">'+it.cat+'</td>';
+        catRendered[it.cat]=true;
+      }
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+it.label+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FAFAF8;font-size:10pt;color:#666;">'+it.max+'</td>';
       html+='<td style="text-align:center;border:1px solid #DDD;background:#FFF5F5;font-size:12pt;font-weight:700;color:#C0392B;">'+sc+'</td>';
       html+='</tr>';
     });
-    html+='</table>';
-    // ── 總分 ──
-    var f14pass=f14total>=60;
-    html+='<div class="section-head">PPT 報告總分</div>';
-    html+='<table>';
-    html+='<tr><td style="border:1px solid #DDD;padding:8px 12px;background:linear-gradient(135deg,#EBF5FB,#E8F8F5);text-align:center;">';
-    html+='<span style="font-size:24pt;font-weight:700;color:'+(f14pass?'#27AE60':'#C0392B')+';">'+f14total+'</span>';
-    html+='<span style="font-size:12pt;color:#888;"> / '+f14max+'</span>';
-    html+=' &nbsp;<span style="font-size:11pt;font-weight:600;color:'+(f14pass?'#27AE60':'#C0392B')+';">'+(f14pass?'✓ 合格':'✗ 未達 60 分')+'</span>';
-    html+='</td></tr>';
+    // 報告總分列
+    html+='<tr>';
+    html+='<td colspan="3" style="text-align:right;background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;border:1px solid #DDD;">報告總分</td>';
+    html+='<td style="text-align:center;background:#FFF5F5;font-size:14pt;font-weight:700;color:#C0392B;border:1px solid #DDD;">'+f14total+' / '+f14max+'</td>';
+    html+='</tr>';
     html+='</table>';
     // ── 學生填寫（學生簽名 → 學生簽名日期）──
-    // 註：網頁版 F14 並無「學生心得」欄位，故僅呈現實際存在的學生欄位（簽名 + 日期）
     html+='<div class="section-head">學生填寫</div>';
     html+='<table>';
     html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
@@ -5702,32 +5715,48 @@ function buildF14(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   let h=basicInfoCard(fid,d,'');
 
-  // PPT 評分項目（12項，各項有最高分限制）
+  // ── 個案報告題目（學生填寫）──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">個案報告題目</div></div><div class="card-body">';
+  h+='<div class="field">'+ta(fid,'case_title',2,false)+'</div>';
+  h+='</div></div>';
+
+  // PPT 評分項目（依原檔：4 大分類，12 項，總分 100 分）
+  // f14_sc_0 ~ f14_sc_11 順序與原檔一致
   const items=[
-    {label:'報告架構與邏輯性',max:10},
-    {label:'簡報設計與視覺效果',max:10},
-    {label:'主題掌握與深度',max:10},
-    {label:'臨床資料蒐集與整理',max:10},
-    {label:'診斷推理與鑑別診斷',max:10},
-    {label:'治療計畫之適切性',max:10},
-    {label:'文獻查閱與引用',max:10},
-    {label:'口語表達清晰度',max:10},
-    {label:'時間掌控',max:5},
-    {label:'回答問題能力',max:5},
-    {label:'團隊合作與互動',max:5},
-    {label:'整體臨床思維',max:5},
+    {cat:'報告技巧',label:'口語表達清晰流暢',max:5},
+    {cat:'報告技巧',label:'台風穩健',max:5},
+    {cat:'報告技巧',label:'熟悉報告主題及內容',max:10},
+    {cat:'報告技巧',label:'時間掌握良好（10-15 分鐘）',max:5},
+    {cat:'內容',label:'前言與入院經過',max:10},
+    {cat:'內容',label:'身體評估',max:10},
+    {cat:'內容',label:'疾病流程圖與呼吸照護主要問題',max:10},
+    {cat:'內容',label:'呼吸照護計畫',max:10},
+    {cat:'內容',label:'討論與文獻回顧',max:15},
+    {cat:'內容',label:'回答問題',max:10},
+    {cat:'期刊選擇',label:'內容完整度',max:5},
+    {cat:'與老師討論',label:'準時、認真',max:5},
   ];
   const totalMax=items.reduce(function(a,b){return a+b.max;},0);
 
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分'+totalMax+'分）<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<table class="rating-table"><tr><th style="text-align:left;">評核項目</th><th>滿分</th><th>得分（數字輸入）</th></tr>';
+  h+='<table class="rating-table"><tr><th style="text-align:left;width:18%;">評分項目</th><th style="text-align:left;">報告評分內容</th><th style="width:12%;">配分</th><th style="width:18%;">評分</th></tr>';
+
+  // 計算每個分類連續出現的項目數，用來合併分類儲存格
+  var catSpans={};
+  items.forEach(function(it){ catSpans[it.cat]=(catSpans[it.cat]||0)+1; });
+  var catRendered={};
 
   items.forEach(function(item,i){
     var key='f14_sc_'+i;
     var cur=parseInt(d[key]||0)||0;
     var oc="(function(){var v=parseInt(this.value)||0;if(v>"+item.max+")v="+item.max+";if(v<0)v=0;this.value=v;saveDraftField('"+fid+"','"+key+"',v);calcF14Score('"+fid+"');})(this)";
     h+='<tr>';
-    h+='<td class="row-label">'+item.label+'</td>';
+    // 分類欄：每個分類只在第一行顯示，rowspan 跨越同分類的所有項目
+    if(!catRendered[item.cat]){
+      h+='<td class="row-label" rowspan="'+catSpans[item.cat]+'" style="vertical-align:middle;text-align:center;font-weight:600;background:#FAFBFF;">'+item.cat+'</td>';
+      catRendered[item.cat]=true;
+    }
+    h+='<td class="row-label" style="text-align:left;">'+item.label+'</td>';
     h+='<td style="text-align:center;color:var(--ink3);font-size:11px;">'+item.max+'</td>';
     h+='<td style="text-align:center;"><input type="number" min="0" max="'+item.max+'" value="'+cur+'" '+(canT?'':'disabled')+' data-fid="'+fid+'" data-key="'+key+'" data-teacher="1" onchange="'+oc+'" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;text-align:center;background:'+(canT?'#fff':'var(--cream)')+';">分</td>';
     h+='</tr>';
@@ -5737,7 +5766,7 @@ function buildF14(f,d,canT,fkey,canS){
   // 分數顯示卡（在評分表下方）
   h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">';
   h+='<div class="card-body" style="text-align:center;padding:16px;">';
-  h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">PPT 報告總分</div>';
+  h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">報告總分</div>';
   h+='<div id="f14_total_'+fid+'" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / '+totalMax+'</span></div>';
   h+='</div></div>';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">學生報告繳交簽名</div></div><div class="card-body">';
@@ -5756,7 +5785,8 @@ function calcF14Score(fid){
   var realFid=APP.currentFormId?getFormKey(APP.currentFormId):fid;
   var d=Object.assign({},APP.formData[fid]||{},APP.formData[realFid]||{});
   var total=0;
-  var items=[10,10,10,10,10,10,10,10,5,5,5,5];
+  // 配分（與 buildF14 / PDF 三方一致）
+  var items=[5,5,10,5, 10,10,10,10,15,10, 5, 5];
   var totalMax=items.reduce(function(a,b){return a+b;},0);
   items.forEach(function(max,i){
     var v=parseInt(d['f14_sc_'+i]||0)||0;
