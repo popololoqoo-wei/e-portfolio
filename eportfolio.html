@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v15-f15-order">
+<meta name="version" content="2026-05-05-v16-f15-bonus">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -2314,6 +2314,29 @@ async function openForm(id){
     }catch(e){}
     if(changed){
       console.log('[F10 修補] 清除舊版殘留的 "on" 值，請重新勾選查核項目');
+    }
+  }
+
+  // ★ F15 加分項目殘留值清理：先前 onchange 用 this.value 但 radio 沒有 value 屬性，
+  //   所以 bonus 被存成 "on"。現在修好之後清掉舊的壞值，讓使用者重新勾選。
+  if(id==='F15'){
+    var f15changed=false;
+    [id, formKey].forEach(function(k){
+      if(APP.formData[k] && APP.formData[k]['bonus']==='on'){
+        delete APP.formData[k]['bonus']; f15changed=true;
+      }
+    });
+    try{
+      var ls15=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      [id, formKey].forEach(function(k){
+        if(ls15[k] && ls15[k]['bonus']==='on'){
+          delete ls15[k]['bonus']; f15changed=true;
+        }
+      });
+      if(f15changed) localStorage.setItem('form_drafts', JSON.stringify(ls15));
+    }catch(e){}
+    if(f15changed){
+      console.log('[F15 修補] 清除舊版加分項目殘留的 "on" 值，請重新勾選');
     }
   }
 }
@@ -6229,10 +6252,10 @@ function buildF15(f,d,canT,fkey,canS){
   h+=mkSection('三、溝通、協調與專業態度（20%，共4題，每題5分，滿分20分）',comms,'f15_com','f15_com_score_'+fid,20);
 
   // 加分項目
-  var bonusOC=`APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['bonus']=this.value;calcF15Score('${fid}')`;
+  var bonusOC=`saveDraftField('${fid}','bonus',this.value);calcF15Score('${fid}')`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">加分項目<span class="t-badge">老師</span><span id="f15_bonus_score_${fid}_lbl" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--green);"></span></div></div><div class="card-body">
     <div class="field"><label>臨床專業能力可獨立負責一般治療師1/2以上工作量</label>
-      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus_${fid}" data-teacher="1" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="${bonusOC}" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus_${fid}" value="${v}" data-fid="${fid}" data-key="bonus" data-teacher="1" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="${bonusOC}" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>
   </div></div>`;
 
