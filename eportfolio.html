@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v14-dops-reminder">
+<meta name="version" content="2026-05-05-v15-f15-order">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -4325,20 +4325,20 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('事假（天）',val('leave_priv'),false);
     html+=pdfR('遲到（次）',val('late_cnt'),false);
     html+='</table>';
-    // ── 評語與回饋 ──
-    html+='<div class="section-head">評語與回饋</div>';
+    // ── 學生填寫（學生自我評語和建議 → 學生簽名 → 學生簽名日期）──
+    html+='<div class="section-head">學生填寫</div>';
     html+='<table>';
-    html+=pdfR('學生自我評語和建議',val('s_comment'),false);
-    html+=pdfR('師生檢討與回饋',val('t_fb'),true);
-    html+='</table>';
-    // ── 簽名 ──
-    html+='<div class="section-head">簽名</div>';
-    html+='<table>';
-    html+=pdfR('學生簽名',val('s_sign'),false);
+    html+=pdfR('學生自我評語和建議',val('s_comment')||'—',false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
     html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
-    html+=pdfR('實習總指導教師簽名',val('t_sign'),true);
+    html+='</table>';
+    // ── 老師填寫（師生檢討與回饋 → 實習總指導教師簽名 → 簽名日期 → 實習計畫主持人簽名 → 簽名日期）──
+    html+='<div class="section-head">老師填寫</div>';
+    html+='<table>';
+    html+=pdfR('師生檢討與回饋',val('t_fb')||'—',true);
+    html+=pdfR('實習總指導教師簽名',val('t_sign')||'—',true);
     html+=pdfR('實習總指導教師簽名日期',formatSignTs(val('t_sign_date')),true);
-    html+=pdfR('實習計畫主持人簽名',val('host_sign'),true);
+    html+=pdfR('實習計畫主持人簽名',val('host_sign')||'—',true);
     html+=pdfR('計畫主持人簽名時間',formatSignTs(val('host_sign_date')),true);
     html+='</table>';
     return html;
