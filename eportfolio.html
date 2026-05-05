@@ -628,8 +628,7 @@ input[type="date"]{
   <div id="quick-nav" style="display:none;background:linear-gradient(180deg,#F8FAFE 0%,#EFF4FB 100%);border-bottom:1px solid var(--border);padding:8px 1rem;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:56px;z-index:150;box-shadow:0 1px 3px rgba(15,23,42,.04);">
     <button onclick="renderFormList()" class="qnav-btn qnav-overview">📋 總覽</button>
     <button onclick="renderStatusSection('new')" class="qnav-btn qnav-new">⭕ 未填 <b id="qnav-new-cnt">-</b> 份</button>
-    <button onclick="renderStatusSection('draft')" class="qnav-btn qnav-draft" title="有資料但尚未按下儲存的表單">✏️ 草稿中(未儲存) <b id="qnav-draft-cnt">-</b> 份</button>
-    <button onclick="renderStatusSection('partial')" class="qnav-btn qnav-partial" title="已儲存但必填欄位尚未完成的表單">📝 進行中 <b id="qnav-partial-cnt">-</b> 份</button>
+    <button onclick="renderStatusSection('draft')" class="qnav-btn qnav-draft" title="尚未完成的表單（包含未儲存的、以及已儲存但必填欄位還沒填齊的）">✏️ 草稿中(未完成) <b id="qnav-draft-cnt">-</b> 份</button>
 
     <button onclick="renderStatusSection('done')" class="qnav-btn qnav-done">✅ 已完成 <b id="qnav-done-cnt">-</b> 份</button>
   </div>
@@ -1714,7 +1713,7 @@ function getStatus(id){
     var f04Req=['s_name','school','bed','pt_name',
       'diagnosis','medical_focus','rt_plan','t_fb','t_sign','t_sign_date','s_sign'];
     if(f04Req.every(function(k){return checkField(k);})) return 'done';
-    return 'partial';
+    return 'draft';
   }
 
   // ── F10A/F10B 輔導記錄：只看學生欄位 ──
@@ -1726,7 +1725,7 @@ function getStatus(id){
       return checkField(k);
     });
     if(f10Ok) return 'done';
-    return 'partial';
+    return 'draft';
   }
 
   // ── 一般表單：REQUIRED_STUDENT_FIELDS ──
@@ -1743,14 +1742,14 @@ function getStatus(id){
     : req.every(function(k){return checkField(k);});
 
   if(allFilled) return 'done';
-  return 'partial';
+  return 'draft';
 }
 
 function getStatusSummary(){
   const statuses=FORMS.map(f=>getStatus(f.id));
   return{
     done:statuses.filter(s=>s==='done').length,
-    partial:statuses.filter(s=>s==='partial').length,
+    partial:0, // 已合併到 draft（保留欄位避免相容性問題）
     draft:statuses.filter(s=>s==='draft').length,
     newF:statuses.filter(s=>s==='new').length,
     total:FORMS.length
@@ -1758,7 +1757,7 @@ function getStatusSummary(){
 }
 
 function getUnfilledForms(){
-  return FORMS.filter(f=>['new','draft','partial'].includes(getStatus(f.id)));
+  return FORMS.filter(f=>['new','draft'].includes(getStatus(f.id)));
 }
 
 /* ═══════════ SIDEBAR ═══════════ */
@@ -1792,7 +1791,7 @@ function renderSidebar(){
         const f=findForm(id);if(!f)return;
         const shortName=f.name.length>13?f.name.slice(0,13)+'…':f.name;
         const st2=APP.currentStudentId?getStudentFormStatus(id,APP.currentStudentId):getStatus(id);
-        const dot2=st2==='done'?'dot-done':st2==='draft'?'dot-draft':st2==='wait'?'dot-partial':st2==='partial'?'dot-partial':'dot-new';
+        const dot2=st2==='done'?'dot-done':st2==='draft'?'dot-draft':'dot-new';
         thtml+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
           <span class="sidebar-dot ${dot2}"></span>${shortName}
         </div>`;
@@ -1819,7 +1818,7 @@ function renderSidebar(){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
-      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
       const shortName=f.name.length>14?f.name.slice(0,14)+'…':f.name;
       html+=`<div class="sidebar-item${APP.currentFormId===id?' active':''}" onclick="openForm('${id}')">
         <span class="sidebar-dot ${dotC}"></span>${shortName}
@@ -1869,9 +1868,9 @@ function selectStudent(sid){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStudentFormStatus(id,sid);
-      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未儲存）':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
-      const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
+      const stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
       html+=`<div class="form-card" onclick="openForm('${id}')">
         <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
         <div class="form-card-sub">${f.sub}</div>
@@ -1939,13 +1938,11 @@ function renderFormList(){
       </div>
       <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;display:flex;">
         <div style="width:${Math.round(sm.done/sm.total*100)}%;height:100%;background:var(--green);transition:width .5s;"></div>
-
-        <div style="width:${Math.round(sm.partial/sm.total*100)}%;height:100%;background:#B4C8E0;transition:width .5s;"></div>
+        <div style="width:${Math.round((sm.draft||0)/sm.total*100)}%;height:100%;background:#7DD3FC;transition:width .5s;"></div>
       </div>
       <div style="display:flex;gap:12px;margin-top:7px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--green);">✅ 已完成 ${sm.done} 份</span>
-        <span style="font-size:11px;color:#0EA5E9;" title="有資料但尚未按下儲存的表單">✏️ 草稿中(未儲存) ${sm.draft||0} 份</span>
-        <span style="font-size:11px;color:#5A8AAA;" title="已儲存但必填欄位尚未完成">📝 進行中 ${sm.partial} 份</span>
+        <span style="font-size:11px;color:#0EA5E9;" title="尚未完成的表單（包含未儲存的、以及已儲存但必填欄位還沒填齊的）">✏️ 草稿中(未完成) ${sm.draft||0} 份</span>
         <span style="font-size:11px;color:var(--ink3);">⭕ 未填寫 ${sm.newF} 份</span>
       </div>
     </div>
@@ -1955,9 +1952,9 @@ function renderFormList(){
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
-      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未儲存）':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
-      const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
+      const stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
       const rolesTag=f.roles==='both'?`<span class="tag tag-both">學生＋老師</span>`:f.roles==='student'?`<span class="tag tag-student">學生填寫</span>`:`<span class="tag tag-teacher">老師填寫</span>`;
       html+=`<div class="form-card" onclick="openForm('${id}')">
         <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
@@ -6927,9 +6924,9 @@ function showUnfilledNotification() {
           <div style="font-size:11px;color:var(--ink3);">✅ 已完成</div>
         </div>
 
-        <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('partial');">
-          <div style="font-size:28px;font-weight:700;color:#5A8AAA;text-decoration:underline;">${sm2.partial}</div>
-          <div style="font-size:11px;color:var(--ink3);">📝 進行中</div>
+        <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('draft');">
+          <div style="font-size:28px;font-weight:700;color:#0EA5E9;text-decoration:underline;">${sm2.draft||0}</div>
+          <div style="font-size:11px;color:var(--ink3);">✏️ 草稿中</div>
         </div>
         <div style="text-align:center;cursor:pointer;" onclick="closeNotify();renderStatusSection('new');">
           <div style="font-size:28px;font-weight:700;color:var(--red);text-decoration:underline;">${sm2.newF}</div>
@@ -6950,11 +6947,9 @@ function updateQuickNav(){
   var sm=getStatusSummary();
   var nd=document.getElementById('qnav-new-cnt');
   var draftEl=document.getElementById('qnav-draft-cnt');
-  var pd=document.getElementById('qnav-partial-cnt');
   var dd=document.getElementById('qnav-done-cnt');
   if(nd)nd.textContent=sm.newF;
   if(draftEl)draftEl.textContent=sm.draft||0;
-  if(pd)pd.textContent=sm.partial;
   if(dd)dd.textContent=sm.done;
 }
 
@@ -7149,8 +7144,8 @@ function renderStatusSection(filterStatus){
   APP.currentFormId='__status_'+filterStatus;
   renderSidebar();
   const mc=document.getElementById('main-content');
-  const labelMap={done:'✅ 已完成',draft:'✏️ 草稿中（未儲存）',partial:'📝 進行中',new:'⭕ 未填寫'};
-  const colorMap={done:'var(--green)',draft:'#0EA5E9',wait:'var(--gold)',partial:'#5A8AAA',new:'var(--red)'};
+  const labelMap={done:'✅ 已完成',draft:'✏️ 草稿中（未完成）',new:'⭕ 未填寫'};
+  const colorMap={done:'var(--green)',draft:'#0EA5E9',new:'var(--red)'};
   const filtered=FORMS.filter(function(f){return getStatus(f.id)===filterStatus;});
   let html='<div class="form-list-view">';
   var batchBtn=filterStatus==='done'
@@ -7168,9 +7163,9 @@ function renderStatusSection(filterStatus){
     html+='<div class="form-grid">';
     filtered.forEach(function(f){
       const st=getStatus(f.id);
-      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':st==='wait'?'dot-partial':st==='partial'?'dot-partial':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未儲存）':st==='wait'?'📝 進行中':st==='partial'?'📝 進行中':'⭕ 未填寫';
-      const stColor=st==='done'?'var(--green)':st==='wait'?'var(--gold)':st==='partial'?'#5A8AAA':'var(--ink3)';
+      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
+      const stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
       const dlBtn=st==='done'
         ?`<button onclick="event.stopPropagation();checkAndDownloadPDF('${f.id}')" style="margin-top:8px;width:100%;padding:6px 0;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.3px;" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">⬇ 下載 PDF</button>`
         :'';
