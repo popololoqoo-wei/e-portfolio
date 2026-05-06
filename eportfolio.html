@@ -1088,25 +1088,14 @@ async function passwordMatches(input, stored){
   return stored === input;
 }
 
-/* ── 把現有明文密碼/PIN 自動轉換為雜湊 ── 在 enterApp 後背景執行 */
+/* ── 把現有明文密碼/PIN 自動轉換為雜湊 ── 在 enterApp 後背景執行
+   ※ 注意：依管理需求，學生與老師「帳號密碼」採明文儲存以便管理員查看；
+     管理員密碼、老師 PIN、筆試後測 PIN 仍以雜湊儲存（這些不需檢視原值）。
+*/
 async function migratePlaintextSecrets(){
   let changed=false;
-  // 學生密碼
-  for(const sid of Object.keys(APP.students||{})){
-    const acc=APP.students[sid];
-    if(acc && acc.pwd && typeof acc.pwd==='string' && acc.pwd.indexOf('h:')!==0){
-      acc.pwd = 'h:' + (await sha256(acc.pwd));
-      changed=true;
-    }
-  }
-  // 老師密碼
-  for(const card of Object.keys(APP.teachers||{})){
-    const acc=APP.teachers[card];
-    if(acc && acc.pwd && typeof acc.pwd==='string' && acc.pwd.indexOf('h:')!==0){
-      acc.pwd = 'h:' + (await sha256(acc.pwd));
-      changed=true;
-    }
-  }
+  // 【依設定】學生密碼：不再自動雜湊化（保持明文以供管理員檢視）
+  // 【依設定】老師密碼：不再自動雜湊化
   // 管理員密碼
   if(APP.adminPwd && typeof APP.adminPwd==='string' && APP.adminPwd.indexOf('h:')!==0){
     APP.adminPwd = 'h:' + (await sha256(APP.adminPwd));
@@ -1141,9 +1130,8 @@ async function doRegister(){
   // 檢查學號是否已存在
   if(APP.students[sid]){err.textContent='此學號已被註冊，請聯繫管理員';err.style.display='block';return;}
   err.style.display='none';
-  // 【安全】密碼以雜湊形式儲存
-  const hashedPwd = 'h:' + (await sha256(pwd));
-  APP.students[sid]={name,school,pwd:hashedPwd,registeredAt:new Date().toISOString(),selfRegistered:true};
+  // 依管理需求：學生密碼以明文儲存
+  APP.students[sid]={name,school,pwd:pwd,registeredAt:new Date().toISOString(),selfRegistered:true};
   // ★★★ 同步到 GAS，讓管理員後台看得到 ★★★
   try{ saveConfigToSheets(); }catch(e){console.warn('同步學生帳號失敗',e);}
   APP.currentRole='student';APP.currentUser={sid,name,school};
@@ -1177,8 +1165,8 @@ async function changeStudentPwd(){
   // 6. 新舊密碼不可相同
   if(nw===old){err.textContent='新密碼不可與舊密碼相同';err.style.display='block';return;}
   clearFails(lockKey);
-  // 【安全】儲存雜湊
-  APP.students[sid].pwd = 'h:' + (await sha256(nw));
+  // 依管理需求：學生密碼以明文儲存
+  APP.students[sid].pwd = nw;
   try{ saveConfigToSheets(); }catch(e){console.warn('同步密碼失敗',e);}
   err.style.display='none';
   // 清空表單
@@ -8032,13 +8020,18 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">學生帳號管理</div>
       <div class="admin-card-body">
+        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7C2D12;line-height:1.7;">
+          <b>🔓 密碼明文檢視模式</b><br>
+          學生密碼以「明文」儲存，可點擊密碼欄的 <b>👁</b> 圖示顯示原始密碼。<br>
+          <span style="color:#92400E;">⚠ 請務必嚴格控管 Google Sheets 與本機檔案的存取權限，避免密碼外洩。</span>
+        </div>
         <div class="admin-row">
           <input id="ns-sid" placeholder="學號" style="max-width:120px;">
           <input id="ns-name" placeholder="姓名">
           <input id="ns-school" placeholder="學校">
           <button class="btn-add" onclick="addStudent()">＋ 新增</button>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號</div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號　｜　舊版「雜湊」密碼無法檢視，請按「重設」設一個新明文密碼</div>
         <table class="accounts-table" id="student-table"></table>
       </div>
     </div>
@@ -8047,6 +8040,9 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">臨床老師帳號管理</div>
       <div class="admin-card-body">
+        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7C2D12;line-height:1.7;">
+          <b>🔓 密碼明文檢視模式</b>　老師密碼同樣以明文儲存，可點 <b>👁</b> 圖示檢視。
+        </div>
         <div class="admin-row">
           <input id="nt-card" placeholder="卡號" style="max-width:120px;">
           <input id="nt-name" placeholder="姓名">
@@ -8430,9 +8426,8 @@ async function addStudent(){
     toast('⚠ 此學號已存在');
     return;
   }
-  // 【安全】預設密碼也以雜湊形式儲存
-  const hashedDefault = 'h:' + (await sha256('123'));
-  APP.students[sid]={name,school,pwd:hashedDefault};
+  // 預設密碼以明文儲存（依管理需求，方便管理員後台查看）
+  APP.students[sid]={name,school,pwd:'123'};
   refreshStudentTable();
   saveConfigToSheets();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
@@ -8442,18 +8437,25 @@ function refreshStudentTable(){
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
-  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（已加密保護）</span></th><th>帳號期限</th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
   orderedSids.forEach(function(sid){
     var acc = APP.students[sid]; if(!acc) return;
     var expired = acc.expiry && new Date(acc.expiry) < new Date();
     var expiryColor = expired ? 'color:var(--red);font-weight:500;' : '';
     var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
+    // 密碼顯示：明文可切換顯示／隱藏；雜湊則顯示「已加密」並提示須重設
     var pwdId='pwd_'+sid.replace(/[^A-Za-z0-9]/g,'_');
-    // 【安全】密碼已雜湊化，不向管理員顯示明文。只顯示加密狀態
     var isHashed = typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0;
-    var pwdCell = isHashed
-      ? '<span style="font-family:monospace;font-size:11px;color:var(--green);background:var(--green-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--green-line);">🔐 已加密</span>'
-      : '<span style="font-family:monospace;font-size:11px;color:var(--red);background:var(--red-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--red-line);" title="此密碼仍為明文，登入後將自動轉為雜湊">⚠ 未加密</span>';
+    var pwdCell;
+    if(isHashed){
+      pwdCell = '<span style="font-family:monospace;font-size:11px;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:999px;border:1px solid #F59E0B;" title="此帳號是早期版本建立的雜湊密碼，無法檢視原值。請按「重設」或「修改」設定新明文密碼。">🔐 雜湊（不可檢視）</span>';
+    } else {
+      var pwdVal = acc.pwd || '';
+      pwdCell = '<div style="display:inline-flex;align-items:center;gap:6px;">'+
+        '<span id="'+pwdId+'" data-pwd="'+escAttr(pwdVal)+'" data-shown="0" style="font-family:monospace;font-size:12px;background:#F3F4F6;padding:3px 10px;border-radius:6px;border:1px solid #D1D5DB;color:#111827;letter-spacing:1px;min-width:70px;display:inline-block;">••••••</span>'+
+        '<button type="button" onclick="togglePwdShow(\''+pwdId+'\',this)" title="顯示／隱藏密碼" style="padding:2px 6px;font-size:13px;background:#fff;border:1px solid #D1D5DB;border-radius:4px;cursor:pointer;">👁</button>'+
+        '</div>';
+    }
     rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+escAttr(sid)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
@@ -8503,8 +8505,8 @@ async function resetStudentPwd(sid){
   var acc=APP.students[sid];
   if(!acc)return;
   if(!confirm('確定要將學生「'+acc.name+'」（'+sid+'）的密碼重設為預設值「123」嗎？\n\n重設後請通知學生使用新密碼登入。')) return;
-  // 【安全】儲存雜湊
-  APP.students[sid].pwd = 'h:' + (await sha256('123'));
+  // 依管理需求：學生密碼以明文儲存
+  APP.students[sid].pwd = '123';
   refreshStudentTable();
   saveConfigToSheets();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「123」');
@@ -8515,7 +8517,7 @@ async function resetTeacherPwd(card){
   var acc=APP.teachers[card];
   if(!acc)return;
   if(!confirm('確定要將老師「'+acc.name+'」（'+card+'）的密碼重設為預設值「000」嗎？')) return;
-  APP.teachers[card].pwd = 'h:' + (await sha256('000'));
+  APP.teachers[card].pwd = '000';
   refreshTeacherTable();
   saveConfigToSheets();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「000」');
@@ -8534,7 +8536,7 @@ async function addTeacher(){
     toast('⚠ 此卡號已存在');
     return;
   }
-  APP.teachers[card]={name, pwd: 'h:' + (await sha256(pwd))};
+  APP.teachers[card]={name, pwd: pwd};
   refreshTeacherTable();
   saveConfigToSheets();
   document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
@@ -8543,14 +8545,21 @@ async function addTeacher(){
 function refreshTeacherTable(){
   const tbl=document.getElementById('teacher-table');if(!tbl)return;
   var orderedCards = getTeacherOrder();
-  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼<span style="font-size:9px;font-weight:400;color:var(--ink3);margin-left:4px;">（已加密保護）</span></th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>';
   orderedCards.forEach(function(card){
     var acc = APP.teachers[card]; if(!acc) return;
-    // 【安全】密碼已雜湊化，不向管理員顯示明文
     var isHashed = typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0;
-    var pwdCell = isHashed
-      ? '<span style="font-family:monospace;font-size:11px;color:var(--green);background:var(--green-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--green-line);">🔐 已加密</span>'
-      : '<span style="font-family:monospace;font-size:11px;color:var(--red);background:var(--red-soft);padding:2px 8px;border-radius:999px;border:1px solid var(--red-line);" title="此密碼仍為明文，登入後將自動轉為雜湊">⚠ 未加密</span>';
+    var tpwdId='tpwdv_'+card.replace(/[^A-Za-z0-9]/g,'_');
+    var pwdCell;
+    if(isHashed){
+      pwdCell = '<span style="font-family:monospace;font-size:11px;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:999px;border:1px solid #F59E0B;" title="此帳號是早期版本建立的雜湊密碼，無法檢視原值。請按「重設」或「修改」設定新明文密碼。">🔐 雜湊（不可檢視）</span>';
+    } else {
+      var tpwdVal = acc.pwd || '';
+      pwdCell = '<div style="display:inline-flex;align-items:center;gap:6px;">'+
+        '<span id="'+tpwdId+'" data-pwd="'+escAttr(tpwdVal)+'" data-shown="0" style="font-family:monospace;font-size:12px;background:#F3F4F6;padding:3px 10px;border-radius:6px;border:1px solid #D1D5DB;color:#111827;letter-spacing:1px;min-width:70px;display:inline-block;">••••••</span>'+
+        '<button type="button" onclick="togglePwdShow(\''+tpwdId+'\',this)" title="顯示／隱藏密碼" style="padding:2px 6px;font-size:13px;background:#fff;border:1px solid #D1D5DB;border-radius:4px;cursor:pointer;">👁</button>'+
+        '</div>';
+    }
     rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+escAttr(card)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
@@ -8759,18 +8768,21 @@ async function editStudent(sid) {
   if (newName === null) return;
   const newSchool = prompt('修改學校（目前：' + (acc.school||'') + '）', acc.school||'');
   if (newSchool === null) return;
-  // 【安全】不顯示原密碼（即使是雜湊也不該洩漏給管理員）
-  const newPwd = prompt('修改密碼（留空表示不變更，輸入新密碼將直接以雜湊形式儲存）', '');
-  // 【安全】統一裁切並雜湊
+  // 顯示目前密碼供管理員參考；若為已雜湊的舊密碼，則提示無法檢視
+  var curPwdHint = (typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0)
+    ? '（目前：已雜湊，無法檢視）'
+    : '（目前：' + (acc.pwd||'') + '）';
+  const newPwd = prompt('修改密碼' + curPwdHint + '\n留空表示不變更；輸入新密碼將以明文儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanSchool = clipInput((newSchool||acc.school||'').trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
-  const hashedPwd = cleanPwd ? ('h:' + (await sha256(cleanPwd))) : acc.pwd;
+  // 依管理需求：學生密碼以明文儲存
+  const finalPwd = cleanPwd !== null ? cleanPwd : acc.pwd;
   if (trimmedSid && trimmedSid !== sid) {
     APP.students[trimmedSid] = {
       name: cleanName,
       school: cleanSchool,
-      pwd: hashedPwd,
+      pwd: finalPwd,
       expiry: acc.expiry,
       selfRegistered: acc.selfRegistered,
       registeredAt: acc.registeredAt
@@ -8782,7 +8794,7 @@ async function editStudent(sid) {
   } else {
     APP.students[sid].name = cleanName;
     APP.students[sid].school = cleanSchool;
-    if (cleanPwd) APP.students[sid].pwd = hashedPwd;
+    if (cleanPwd !== null) APP.students[sid].pwd = cleanPwd;
   }
   refreshStudentTable();
   saveConfigToSheets();
@@ -8803,19 +8815,22 @@ async function editTeacher(card) {
   }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
-  const newPwd = prompt('修改密碼（留空表示不變更，輸入新密碼將直接以雜湊形式儲存）', '');
+  var curTPwdHint = (typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0)
+    ? '（目前：已雜湊，無法檢視）'
+    : '（目前：' + (acc.pwd||'') + '）';
+  const newPwd = prompt('修改密碼' + curTPwdHint + '\n留空表示不變更；輸入新密碼將以明文儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
-  const hashedPwd = cleanPwd ? ('h:' + (await sha256(cleanPwd))) : acc.pwd;
+  const finalTPwd = cleanPwd !== null ? cleanPwd : acc.pwd;
   if (trimmedCard && trimmedCard !== card) {
-    APP.teachers[trimmedCard] = { name: cleanName, pwd: hashedPwd };
+    APP.teachers[trimmedCard] = { name: cleanName, pwd: finalTPwd };
     delete APP.teachers[card];
     if (APP.teacherOrder && APP.teacherOrder.indexOf(card) >= 0) {
       APP.teacherOrder = APP.teacherOrder.map(function(c){ return c === card ? trimmedCard : c; });
     }
   } else {
     APP.teachers[card].name = cleanName;
-    if (cleanPwd) APP.teachers[card].pwd = hashedPwd;
+    if (cleanPwd !== null) APP.teachers[card].pwd = cleanPwd;
   }
   refreshTeacherTable();
   saveConfigToSheets();
