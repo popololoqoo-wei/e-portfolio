@@ -5783,10 +5783,20 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
   var sn=d['s_name']||'';
   if(APP.currentRole==='student'&&APP.currentUser){
     sn=APP.currentUser.name;
+    if(!APP.formData[fid])APP.formData[fid]={};
+    // 自動回填 s_name 到 formData（避免送出時被誤判為「未填」）
+    if(!d['s_name']){
+      APP.formData[fid]['s_name']=sn;
+      try{ saveDraftField(fid,'s_name',sn); }catch(e){}
+    }
     // 自動填入 s_sign（學生簽名與姓名相同）
     if(!d['s_sign']){
-      if(!APP.formData[fid])APP.formData[fid]={};
       APP.formData[fid]['s_sign']=sn;
+    }
+    // 學生若有預設學校，也一起回填，讓送出檢查順利通過
+    if(!d['school'] && APP.currentUser.school){
+      APP.formData[fid]['school']=APP.currentUser.school;
+      try{ saveDraftField(fid,'school',APP.currentUser.school); }catch(e){}
     }
   }
   var snOpts=getStudentList();
@@ -7581,6 +7591,22 @@ function examPick(fid, qnum, opt){
 function examSubmit(fid, mode){
   var d=APP.formData[fid]||{};
   if(d.submitted){ toast('此份考卷已送出'); return; }
+
+  // 學生登入時，姓名/學校系統自動帶入；確保 formData 已寫入（保險回填）
+  if(APP.currentRole==='student' && APP.currentUser){
+    if(!APP.formData[fid]) APP.formData[fid]={};
+    if(!APP.formData[fid].s_name && APP.currentUser.name){
+      APP.formData[fid].s_name = APP.currentUser.name;
+      try{ saveDraftField(fid,'s_name',APP.currentUser.name); }catch(e){}
+    }
+    if(!APP.formData[fid].school && APP.currentUser.school){
+      APP.formData[fid].school = APP.currentUser.school;
+      try{ saveDraftField(fid,'school',APP.currentUser.school); }catch(e){}
+    }
+    // 重新讀取最新值
+    d = APP.formData[fid];
+  }
+
   // 必填基本資料檢查
   var missing=[];
   if(!d.s_name) missing.push('學生姓名');
