@@ -4664,6 +4664,239 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 筆試前測 / 筆試後測（重症呼吸照護實習）
+  // 25 題單選 + 基本資料 + 分數結果
+  // ─ 前測：作答後僅標出錯題（不揭露正解）
+  // ─ 後測：作答後完整顯示每題正確答案
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F-PRE' || id==='F-POST'){
+    var examMode = (id==='F-POST') ? 'post' : 'pre';
+    var examModeLabel = (id==='F-POST') ? '筆試後測' : '筆試前測';
+    var submitted = (d['submitted']==='true' || d['submitted']===true);
+
+    // 計算分數（即使未送出，也算出當前進度做為參考）
+    var correctCnt = 0, answeredCnt = 0, wrongList = [], unansweredList = [];
+    if(typeof EXAM_QUESTIONS!=='undefined' && EXAM_QUESTIONS){
+      for(var iX=0; iX<EXAM_QUESTIONS.length; iX++){
+        var uA = String(d['q'+(iX+1)]||'').toUpperCase();
+        if(uA){
+          answeredCnt++;
+          if(uA===EXAM_QUESTIONS[iX].answer){ correctCnt++; }
+          else { wrongList.push(iX+1); }
+        } else {
+          unansweredList.push(iX+1);
+        }
+      }
+    }
+    var perQ = (typeof EXAM_PER_QUESTION_SCORE!=='undefined') ? EXAM_PER_QUESTION_SCORE : 4;
+    var passLine = (typeof EXAM_PASS_SCORE!=='undefined') ? EXAM_PASS_SCORE : 60;
+    var totalQ = (typeof EXAM_QUESTIONS!=='undefined' && EXAM_QUESTIONS) ? EXAM_QUESTIONS.length : 25;
+    var finalScore = correctCnt * perQ;
+    var passed = finalScore >= passLine;
+
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名', val('s_name')||studentName||'—', false);
+    html+=pdfR('實習學校', val('school')||studentSchool||'—', false);
+    html+=pdfR('實習類別', val('intern_cat')||'—', false);
+    html+=pdfR('實習日期', cleanDate(val('s_date')), false);
+    html+='</table>';
+
+    // ── 作答狀態與分數 ──
+    html+='<div class="section-head">作答結果</div>';
+    html+='<table>';
+    if(submitted){
+      var statusColor = passed ? '#10B981' : '#EF4444';
+      var statusBg = passed ? '#ECFDF5' : '#FEF2F2';
+      var statusText = passed ? '✓ 及格' : '✗ 未達及格標準';
+      html+='<tr><td style="background:'+statusBg+';font-weight:600;padding:8px 10px;border:1px solid #DDD;width:35%;font-size:11pt;color:'+statusColor+';">考卷狀態</td>';
+      html+='<td style="background:'+statusBg+';padding:8px 10px;border:1px solid #DDD;font-size:11pt;color:'+statusColor+';font-weight:700;">已送出　'+statusText+'</td></tr>';
+      html+='<tr><td style="background:'+statusBg+';font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">總分</td>';
+      html+='<td style="background:'+statusBg+';padding:8px 10px;border:1px solid #DDD;font-size:13pt;font-weight:700;color:'+statusColor+';">'+finalScore+' / 100 分</td></tr>';
+      html+='<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">答對題數</td>';
+      html+='<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+correctCnt+' / '+totalQ+' 題（每題 '+perQ+' 分）</td></tr>';
+      html+='<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">及格標準</td>';
+      html+='<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+passLine+' 分</td></tr>';
+      if(val('submit_time')){
+        html+='<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">送出時間</td>';
+        html+='<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+val('submit_time')+'</td></tr>';
+      }
+    } else {
+      html+='<tr><td style="background:#FFFBEB;font-weight:600;padding:8px 10px;border:1px solid #DDD;width:35%;font-size:11pt;color:#92400E;">考卷狀態</td>';
+      html+='<td style="background:#FFFBEB;padding:8px 10px;border:1px solid #DDD;font-size:11pt;color:#92400E;font-weight:700;">尚未送出（草稿）</td></tr>';
+      html+='<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">作答進度</td>';
+      html+='<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+answeredCnt+' / '+totalQ+' 題</td></tr>';
+    }
+    html+='</table>';
+
+    // ── 前測限定：錯題清單（不揭露正解） ──
+    if(submitted && examMode==='pre'){
+      html+='<div class="section-head">答錯（或未作答）的題號</div>';
+      html+='<table><tr><td style="background:#FFF7ED;padding:8px 12px;border:1px solid #DDD;font-size:11pt;color:#7C2D12;">';
+      var preWrongAll = wrongList.concat(unansweredList).sort(function(a,b){return a-b;});
+      if(preWrongAll.length===0){
+        html+='<span style="color:#065F46;font-weight:700;">👏 全部答對！</span>';
+      } else {
+        html+='<b>第 '+preWrongAll.join('、')+' 題</b>';
+        html+='<div style="margin-top:6px;font-size:9pt;color:#9A3412;">※ 前測不揭露正確答案，請自行查閱教材後於後測作答時驗證。</div>';
+      }
+      html+='</td></tr></table>';
+    }
+
+    // ── 題目作答列表 ──
+    html+='<div class="section-head">考題作答內容（共 '+totalQ+' 題，每題 '+perQ+' 分）</div>';
+    html+='<table style="font-size:10pt;">';
+    html+='<tr>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:6%;">題號</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;">題目與選項</th>';
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:11%;">您的答案</th>';
+    if(submitted && examMode==='post'){
+      html+='<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:11%;">正確答案</th>';
+    }
+    html+='<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:9%;">結果</th>';
+    html+='</tr>';
+
+    if(typeof EXAM_QUESTIONS!=='undefined' && EXAM_QUESTIONS){
+      for(var qq=0; qq<EXAM_QUESTIONS.length; qq++){
+        var Q = EXAM_QUESTIONS[qq];
+        var qNum = qq+1;
+        var userA = String(d['q'+qNum]||'').toUpperCase();
+        var corrA = Q.answer;
+        var isCorrect = userA && (userA===corrA);
+        var isWrong = userA && !isCorrect;
+        var unanswered = !userA;
+
+        // 結果顯示
+        var resultCell = '';
+        var rowBg = (qNum%2===0) ? '#FAFBFF' : '#FFFFFF';
+        if(submitted){
+          if(isCorrect){
+            resultCell = '<span style="color:#059669;font-weight:700;">✓ 答對</span>';
+            rowBg = '#F0FDF4';
+          } else if(isWrong){
+            resultCell = '<span style="color:#DC2626;font-weight:700;">✗ 答錯</span>';
+            rowBg = '#FEF2F2';
+          } else {
+            resultCell = '<span style="color:#92400E;font-weight:700;">— 未作答</span>';
+            rowBg = '#FFFBEB';
+          }
+        } else {
+          resultCell = unanswered
+            ? '<span style="color:#9CA3AF;">—</span>'
+            : '<span style="color:#1E40AF;">已選</span>';
+        }
+
+        // 題目本體（包含 4 個選項；若為已送出且後測，正解選項以綠色標示；錯誤選擇以紅色標示）
+        // 這裡採用直接列出 (A)(B)(C)(D) 全部選項的方式，便於監考檢核
+        var qBlock = '<div style="font-weight:700;color:#1E40AF;margin-bottom:4px;">第 '+qNum+' 題.</div>';
+        qBlock += '<div style="white-space:pre-wrap;color:#111827;line-height:1.6;margin-bottom:6px;">'+escapeExamHtml(Q.q)+'</div>';
+        var optKeys = ['A','B','C','D'];
+        for(var oo=0; oo<optKeys.length; oo++){
+          var L = optKeys[oo];
+          var optTxt = Q.options[L];
+          var lineColor = '#374151', lineWeight = '400', lineBg = 'transparent', lineBorder = 'none';
+          var marker = '';
+          if(submitted){
+            // 後測：正解綠色、錯選紅色
+            if(examMode==='post'){
+              if(L===corrA){
+                lineColor = '#065F46';
+                lineWeight = '700';
+                lineBg = '#D1FAE5';
+                lineBorder = '1px solid #10B981';
+                marker = '　✓ 正解';
+              }
+              if(L===userA && L!==corrA){
+                lineColor = '#991B1B';
+                lineWeight = '700';
+                lineBg = '#FEE2E2';
+                lineBorder = '1px solid #EF4444';
+                marker = '　← 您的選擇';
+              } else if(L===userA && L===corrA){
+                marker = '　← 您的選擇';
+              }
+            }
+            // 前測：只標學生的錯選（紅），不標正解
+            if(examMode==='pre'){
+              if(L===userA && L!==corrA){
+                lineColor = '#991B1B';
+                lineWeight = '700';
+                lineBg = '#FEE2E2';
+                lineBorder = '1px solid #EF4444';
+                marker = '　← 您的選擇（答錯）';
+              } else if(L===userA && L===corrA){
+                lineColor = '#065F46';
+                lineWeight = '700';
+                marker = '　← 您的選擇（答對）';
+              }
+            }
+          } else {
+            // 未送出：僅高亮學生目前選的項
+            if(L===userA){
+              lineColor = '#1E40AF';
+              lineWeight = '700';
+              lineBg = '#DBEAFE';
+              marker = '　← 已選';
+            }
+          }
+          qBlock += '<div style="padding:4px 8px;margin:2px 0;border-radius:3px;background:'+lineBg+';border:'+lineBorder+';color:'+lineColor+';font-weight:'+lineWeight+';font-size:10pt;line-height:1.5;">'
+            + '<b>('+L+')</b> '+escapeExamHtml(optTxt)+marker
+            + '</div>';
+        }
+
+        // 「您的答案」欄
+        var userAnsCell = userA
+          ? '<span style="font-weight:700;color:'+(submitted ? (isCorrect?'#059669':'#DC2626') : '#1E40AF')+';font-size:13pt;">'+userA+'</span>'
+          : '<span style="color:#9CA3AF;">—</span>';
+
+        html+='<tr style="background:'+rowBg+';">';
+        html+='<td style="padding:6px 6px;border:1px solid #DDD;text-align:center;font-weight:700;font-size:11pt;color:#1E40AF;vertical-align:top;">'+qNum+'</td>';
+        html+='<td style="padding:8px 10px;border:1px solid #DDD;vertical-align:top;">'+qBlock+'</td>';
+        html+='<td style="padding:6px;border:1px solid #DDD;text-align:center;vertical-align:middle;">'+userAnsCell+'</td>';
+        if(submitted && examMode==='post'){
+          html+='<td style="padding:6px;border:1px solid #DDD;text-align:center;vertical-align:middle;background:#ECFDF5;font-weight:700;color:#059669;font-size:13pt;">'+corrA+'</td>';
+        }
+        html+='<td style="padding:6px;border:1px solid #DDD;text-align:center;vertical-align:middle;font-size:10pt;">'+resultCell+'</td>';
+        html+='</tr>';
+      }
+    }
+    html+='</table>';
+
+    // ── 後測：完整正解總表（已送出才顯示） ──
+    if(submitted && examMode==='post' && typeof EXAM_QUESTIONS!=='undefined'){
+      html+='<div class="section-head">正確答案總表</div>';
+      html+='<table style="font-size:10pt;">';
+      html+='<tr>';
+      for(var hi=0; hi<5; hi++){
+        html+='<th style="background:#10B981;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:8%;">題號</th>';
+        html+='<th style="background:#10B981;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:7%;">答案</th>';
+        if(hi<4) html+='<th style="background:#fff;border:none;width:1%;"></th>';
+      }
+      html+='</tr>';
+      // 5 題一列
+      for(var rRow=0; rRow<5; rRow++){
+        html+='<tr>';
+        for(var cCol=0; cCol<5; cCol++){
+          var qIdx = rRow*5 + cCol;
+          if(qIdx<EXAM_QUESTIONS.length){
+            html+='<td style="padding:4px 6px;border:1px solid #DDD;text-align:center;font-weight:700;color:#1E40AF;">'+(qIdx+1)+'</td>';
+            html+='<td style="padding:4px 6px;border:1px solid #DDD;text-align:center;font-weight:700;color:#059669;background:#F0FDF4;">'+EXAM_QUESTIONS[qIdx].answer+'</td>';
+          } else {
+            html+='<td style="padding:4px 6px;border:1px solid #DDD;background:#fff;"></td>';
+            html+='<td style="padding:4px 6px;border:1px solid #DDD;background:#fff;"></td>';
+          }
+          if(cCol<4) html+='<td style="background:#fff;border:none;"></td>';
+        }
+        html+='</tr>';
+      }
+      html+='</table>';
+    }
+
+    return html;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // F16 Learning-Style 評估表
   // 70 題自我評估 → 7 種學習風格分數 → 雷達圖 + 主要風格
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
