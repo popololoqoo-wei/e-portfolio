@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v18-deidentify">
+<meta name="version" content="2026-05-05-v17-f16-learning-style">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -870,8 +870,11 @@ let APP={
   /* Admin@2025 的 SHA-256 = 0c83a9...；首次載入時會自動雜湊化現有明文 */
   adminPwd:'Admin@2025',  // ※載入後會被自動雜湊化
   teacherPIN:'168168',    // ※載入後會被自動雜湊化
+  examPIN:'202020',       // ※筆試後測專用 PIN（與 teacherPIN 獨立），載入後會自動雜湊化
   _adminPwdHashed:false,  // 標記是否已轉雜湊
   _teacherPINHashed:false,
+  _examPINHashed:false,
+  examUnlocked:false,     // 筆試後測 PIN 解鎖狀態（每次切換表單會重置）
   courseTopics:[],        // admin-managed
   courseSpeakers:[],      // admin-managed
   gsToken:null,           // Google OAuth token
@@ -1114,6 +1117,11 @@ async function migratePlaintextSecrets(){
     APP.teacherPIN = 'h:' + (await sha256(APP.teacherPIN));
     changed=true;
   }
+  // 筆試後測專用 PIN（獨立於 teacherPIN，可由管理員另行設定）
+  if(APP.examPIN && typeof APP.examPIN==='string' && APP.examPIN.indexOf('h:')!==0){
+    APP.examPIN = 'h:' + (await sha256(APP.examPIN));
+    changed=true;
+  }
   if(changed){
     try{ saveConfigToSheets(); }catch(e){console.warn('hash migration save failed',e);}
   }
@@ -1187,7 +1195,7 @@ async function changeStudentPwd(){
   },50);
 }
 function doLogout(){
-  APP.currentRole=null;APP.currentUser=null;APP.teacherUnlocked=false;APP.currentFormId=null;
+  APP.currentRole=null;APP.currentUser=null;APP.teacherUnlocked=false;APP.examUnlocked=false;APP.currentFormId=null;
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app-screen').style.display='none';
   document.getElementById('login-screen').classList.add('active');
@@ -1295,7 +1303,263 @@ const FORMS=[
   {id:'E03',num:'貳拾參(3)',name:'EPA (10)：侵襲性呼吸器脫離照護',sub:'即時評量',roles:'both'},
   {id:'F15',num:'貳拾伍',name:'實習課程評值表',sub:'學習態度+技能+溝通',roles:'both'},
   {id:'F16',num:'貳拾陸',name:'Learning-Style 評估表',sub:'學習風格自我評估',roles:'student'},
+  {id:'F-PRE',num:'筆試(前)',name:'筆試前測-重症呼吸照護實習',sub:'每題4分．25題．60分及格',roles:'student'},
+  {id:'F-POST',num:'筆試(後)',name:'筆試後測-重症呼吸照護實習',sub:'每題4分．25題．60分及格',roles:'student'},
 ];
+
+/* ─── 重症呼吸照護實習筆試考題（前測/後測共用） ─── */
+/* 每題 4 分，25 題共 100 分；60 分及格 */
+const EXAM_QUESTIONS = [
+  {
+    q: '病人患有急性呼吸窘迫症候群胸部Ｘ光攝影，可以顯示出下列那些影像？\n①雙側肺不透明　②雙側肺門對稱性浸潤　③肋膜積液',
+    options: { A:'僅①', B:'①②', C:'②③', D:'①③' },
+    answer: 'A'
+  },
+  {
+    q: '68歲急性呼吸窘迫症候群病人，血壓120/50 mm Hg，呼吸器設定為 pressure control ventilation，FiO2:0.55，PEEP：5 cmH2O，inspiratory pressure（IP）：30 cmH2O，抽血檢查發現乳酸（lactic acid）:5.67 mmol/L，動脈血氧分析 pH：7.31，PaO2：53 mm Hg，PaCO2：48 mmHg，HCO3⁻：19 mEq/L，下列敘述何者正確？',
+    options: {
+      A: '應嘗試調升 PEEP 至 optimal PEEP，以改善低血氧症',
+      B: '應增加 inspiratory pressure 來降低 PaCO2',
+      C: '優先增加 FiO2 以改善組織缺氧',
+      D: '應給予病人 NaHCO3 以改善酸血症'
+    },
+    answer: 'A'
+  },
+  {
+    q: '急性呼吸窘迫症候群的病人使用俯臥姿勢(prone position)對病人的主要影響為何？',
+    options: {
+      A: '改善背側肺的通氣灌流比',
+      B: '使病患放鬆',
+      C: '改善肺部順應性',
+      D: '減低肺血管阻力'
+    },
+    answer: 'A'
+  },
+  {
+    q: '下列關於預防呼吸器相關肺炎(ventilator associated pneumonia, VAP)的方法，何者錯誤？',
+    options: {
+      A: '床頭抬高30～45度',
+      B: '每日更換呼吸器管路以避免管路遭細菌污染',
+      C: '注意口腔清潔，可用 Chlorhexidine 漱口水清潔',
+      D: '適度的停止鎮靜劑'
+    },
+    answer: 'B'
+  },
+  {
+    q: '下列何者不適合使用葉克膜(ECMO)?',
+    options: {
+      A: '嚴重氣喘發作合併有低潮氣容積及高二氧化碳分壓',
+      B: '肺動脈栓塞合併有低血氧',
+      C: '急性心肌梗塞合併嚴重休克',
+      D: '肺大量出血'
+    },
+    answer: 'D'
+  },
+  {
+    q: '吸入性一氧化氮治療可以改善氧合之主要機轉為：',
+    options: {
+      A: '肺泡再擴張改善通氣和灌流',
+      B: '降低全身性動脈壓',
+      C: '選擇性肺血管擴張',
+      D: '增加心輸出量'
+    },
+    answer: 'C'
+  },
+  {
+    q: '有關重症肌無力(myasthenia gravis, MG)的敘述，下列何者錯誤？',
+    options: {
+      A: '常在早期出現眼瞼下垂、視力模糊(複視)',
+      B: '屬於一種自體免疫疾病，破壞神經肌肉交界處',
+      C: '治療時可考慮用正腎上腺素改善肌無力',
+      D: '免疫調節劑如皮質類固醇、血漿置換術均可用於重症肌無力 crisis'
+    },
+    answer: 'C'
+  },
+  {
+    q: '有關肺栓塞的敘述，下列何者錯誤？',
+    options: {
+      A: '下肢深層靜脈血栓發生率最高',
+      B: '靜脈導管產生血栓也是發生原因之一',
+      C: '深層靜脈血栓不會發生在心臟衰竭病患',
+      D: '上肢深層靜脈血栓多數發生在腫瘤、心律調整器置放和外傷病患'
+    },
+    answer: 'C'
+  },
+  {
+    q: '肺水腫最常見的促發原因，下列何者錯誤？',
+    options: {
+      A: '嚴重且控制不良的高血壓',
+      B: '心肌梗塞或心肌缺血(特別是合併有缺血性二尖瓣逆流相關的情形)',
+      C: '急性心臟瓣膜閉鎖不全',
+      D: '嚴重右心功能障礙的情形下，發生體液容積過多造成肺水腫'
+    },
+    answer: 'D'
+  },
+  {
+    q: '有關支氣管氣喘致病機轉及臨床表現的敘述，下列何者最不可能？',
+    options: {
+      A: '呼吸道阻塞',
+      B: '氣道發炎',
+      C: '氣道過度敏感',
+      D: '侷限性通氣障礙'
+    },
+    answer: 'D'
+  },
+  {
+    q: '下列何者不適用高壓氧治療(HBO)？',
+    options: {
+      A: '一氧化碳中毒',
+      B: '急性腸胃道出血',
+      C: '復發性骨髓炎',
+      D: '周邊血管阻塞合併壞疽'
+    },
+    answer: 'B'
+  },
+  {
+    q: '有關漸凍人(amyotrophic lateral sclerosis)呼吸治療的敘述，下列何者錯誤？',
+    options: {
+      A: '可以利用 incentive spirometry(IS) 來訓練呼吸肌肉，促進肺部擴張',
+      B: '可以利用非侵襲性正壓呼吸器來幫助呼吸',
+      C: '非侵襲性正壓呼吸器可促進肺部擴張',
+      D: '咳嗽機(mechanical insufflation-exsufflation, MIE)可用於痰液清除'
+    },
+    answer: 'A'
+  },
+  {
+    q: '腦部手術後的高血壓急症(hypertensive emergencies)，是指收縮壓大於 200 mmHg 但未合併下列何種情況？',
+    options: {
+      A: '腦出血',
+      B: '急性肺水腫',
+      C: '視乳突水腫',
+      D: '暈眩'
+    },
+    answer: 'D'
+  },
+  {
+    q: '66歲男性慢性阻塞性肺病(COPD)病人，今年因急性發作住院治療兩次。為了減少往後的急性發作及延長生命，下列處置何者錯誤？',
+    options: {
+      A: '吸菸的病人，建議戒菸或是參加戒菸班',
+      B: '建議要接受肺復原訓練',
+      C: '一律居家24小時氧氣治療',
+      D: '按規定施打肺炎鏈球菌疫苗及流感疫苗'
+    },
+    answer: 'C'
+  },
+  {
+    q: '65歲COPD男性病人，因急性發作，伴隨更嚴重的氣促，而到急診室，初步檢查後，可以先給予藥物緩解症狀，下列何者錯誤？',
+    options: {
+      A: '以 nebulizer 給予短效的 β2 agonists 吸入',
+      B: '短效的 β2 agonists，如 albuterol，可以一次高劑量給予(6mg)，以達到最佳效果',
+      C: '可以考慮投予全身性類固醇治療',
+      D: '如果痰液顏色有變化，尤其是變黃綠色，應給予抗生素治療'
+    },
+    answer: 'B'
+  },
+  {
+    q: '有關高流量鼻導管(HFNC)氧氣治療的敘述，下列何者錯誤？',
+    options: {
+      A: '改善肺泡再擴張',
+      B: '高流量鼻導管跟非侵襲性呼吸器相比，不能減少插管的機率',
+      C: '減少上呼吸道無效腔',
+      D: '可增加氧氣輸送'
+    },
+    answer: 'B'
+  },
+  {
+    q: 'Quick sequential organ failure assessment(q-sofa) 不包含下列那一項？',
+    options: {
+      A: '體溫＞38℃或＜36℃',
+      B: '呼吸速率≧22次/分',
+      C: '意識不清',
+      D: '收縮壓≦100 mmHg'
+    },
+    answer: 'A'
+  },
+  {
+    q: '意識清楚，病人因持續呼吸短促至急診室，室內空氣之動脈血氣體分析 ABG 如下：pH＝7.2，PaCO2＝60 mmHg，PaO2＝55 mmHg，HCO3⁻＝23 mEq/L，下列敘述何者正確？',
+    options: {
+      A: '病人處於 respiratory alkalosis 狀態',
+      B: '病人處於 metabolic acidosis 狀態',
+      C: '可優先考慮使用非侵襲性正壓呼吸器',
+      D: '須立即插管'
+    },
+    answer: 'C'
+  },
+  {
+    q: '有關非侵襲性呼吸器（non-invasive ventilation, NIV）在治療某些神經肌肉疾病病人的呼吸衰竭，下列何者最不適用？',
+    options: {
+      A: '濃痰分泌物多',
+      B: '神識清楚',
+      C: '血壓心跳穩定',
+      D: '氣道控制佳'
+    },
+    answer: 'A'
+  },
+  {
+    q: '有關睡眠呼吸中止症候群的敘述，下列何者錯誤？',
+    options: {
+      A: '睡眠呼吸中止是指睡眠時呼吸氣體流速完全中止達10秒以上',
+      B: '阻塞性是因上呼吸道狹窄，可藉由鼻咽手術根治',
+      C: '中樞性是因缺乏中樞呼吸驅力，常見於心衰竭或腦血管疾病者',
+      D: 'hypopnea 是指呼吸氣體流速減少30%以上並伴隨血氧飽和度下降3%以上'
+    },
+    answer: 'B'
+  },
+  {
+    q: '有關氣喘(asthma)的敘述，下列何者正確？',
+    options: {
+      A: '支氣管擴張測驗中，在使用過支氣管擴張劑後的第一秒用力吐氣容積（FEV1）上升超過12%且大於200 mL',
+      B: '病人通常有抽菸病史',
+      C: '病人通常較COPD的病人年長',
+      D: '病人的預後通常比COPD差'
+    },
+    answer: 'A'
+  },
+  {
+    q: '有關手術後呼吸系統併發症的敘述，下列何者錯誤？',
+    options: {
+      A: '若出現呼吸系統併發症，會延長住院天數',
+      B: '胸部及上腹部手術，較容易出現術後的呼吸系統併發症',
+      C: '手術時的麻醉會降低呼吸的驅動力，也容易降低咳嗽反應，嚴重者會導致吸入性肺炎',
+      D: '肺功能正常的年輕人，接受手術不會出現呼吸系統併發症'
+    },
+    answer: 'D'
+  },
+  {
+    q: '肺栓塞（pulmonary embolism）造成的休克，屬於那一類型的休克？',
+    options: {
+      A: '心因性休克（cardiogenic shock）',
+      B: '低血容性休克（hypovolemic shock）',
+      C: '阻塞性休克（obstructive shock）',
+      D: '分布性休克（distributive shock）'
+    },
+    answer: 'C'
+  },
+  {
+    q: '下列那一項因素不會造成血紅素氧氣飽和濃度解離曲線左移？',
+    options: {
+      A: '急性鹼中毒',
+      B: '體溫下降',
+      C: '高的 2,3-DPG',
+      D: '動脈血中二氧化碳分壓下降'
+    },
+    answer: 'C'
+  },
+  {
+    q: '放置氣管內管病人，在拔管後10分鐘內出現哮吼(stridor)聲，下列敘述何者正確？',
+    options: {
+      A: '哮吼(stridor)的出現代表肺部塌陷',
+      B: '造成這個狀況的原因，最有可能是因為喉頭水腫',
+      C: '可以使用吸入型的甲型腎上腺受體拮抗劑(α antagonist)來緩解症狀',
+      D: '應立即把氣管內管再放回去'
+    },
+    answer: 'B'
+  }
+];
+const EXAM_PER_QUESTION_SCORE = 4;
+const EXAM_PASS_SCORE = 60;
+
+
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
 function getFormKey(id){
@@ -1630,6 +1894,12 @@ const REQUIRED_STUDENT_FIELDS = {
   // F16 Learning-Style 評估表（70 題自我評估 + 簽名）
   F16: ['s_name','school','intern_cat','s_date','s_sign','s_sign_date']
     .concat(Array.from({length:70},function(_,i){return 'f16_q_'+(i+1);})),
+  // 筆試前測（25 題；submitted=true 即代表已送出，不需要簽名）
+  'F-PRE': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:25},function(_,i){return 'q'+(i+1);})),
+  // 筆試後測（25 題；同上）
+  'F-POST': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:25},function(_,i){return 'q'+(i+1);})),
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -1771,6 +2041,16 @@ function getStatus(id){
     return 'draft';
   }
 
+  // ── 筆試前測 / 後測：以 submitted 標記為 done ──
+  if(id==='F-PRE'||id==='F-POST'){
+    var subVal=d['submitted'];
+    var isSubmitted=(subVal==='true'||subVal===true);
+    var basicReq=['s_name','school','intern_cat','s_date'];
+    var basicOk=basicReq.every(function(k){return checkField(k);});
+    if(isSubmitted && basicOk) return 'done';
+    return 'draft';
+  }
+
   // ── 一般表單：REQUIRED_STUDENT_FIELDS ──
   const req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
 
@@ -1823,6 +2103,7 @@ function renderSidebar(){
       {label:'EPA',ids:['E01','E02','E03']},
       {label:'總評值',ids:['F15']},
       {label:'學習風格',ids:['F16']},
+      {label:'筆試評估',ids:['F-PRE','F-POST']},
     ];
     let thtml='';
     if(APP.currentStudentId){
@@ -1851,6 +2132,7 @@ function renderSidebar(){
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
     {label:'總評值',ids:['F15']},
     {label:'學習風格',ids:['F16']},
+    {label:'筆試評估',ids:['F-PRE','F-POST']},
   ];
   let html='';
   // 未填寫表單快捷區
@@ -1908,6 +2190,7 @@ function selectStudent(sid){
     {label:'EPA 即時評量',ids:['E01','E02','E03']},
     {label:'實習課程總評值',ids:['F15']},
     {label:'學習風格自我評估',ids:['F16']},
+    {label:'筆試評估（重症呼吸照護實習）',ids:['F-PRE','F-POST']},
   ];
   groups.forEach(g=>{
     html+=`<div class="section-header"><h2>${g.label}</h2></div><div class="form-grid">`;
@@ -1972,6 +2255,7 @@ function renderFormList(){
     {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
     {label:'實習課程總評值',count:'1份',ids:['F15']},
     {label:'學習風格自我評估',count:'1份',ids:['F16']},
+    {label:'筆試評估（重症呼吸照護實習）',count:'2份',ids:['F-PRE','F-POST']},
   ];
   let html='<div class="form-list-view">';
   // progress
@@ -2040,6 +2324,10 @@ async function openForm(id){
     var _isSwitchingForm = (APP.currentFormId && APP.currentFormId !== id);
     if(_isSwitchingForm && !APP._skipPinReset){
       APP.teacherUnlocked=false;
+    }
+    // 筆試後測 PIN：離開後測表單就重置（除非剛解鎖）
+    if(_isSwitchingForm && id!=='F-POST'){
+      APP.examUnlocked=false;
     }
     // 只有在真正切表單時才清旗標；同表單再次渲染保留旗標
     if(_isSwitchingForm){
@@ -2199,20 +2487,6 @@ async function openForm(id){
   <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
   </div>`;
   html+=studentBanner;
-
-  // ★ 個資保護全域警語：在任何包含病人資料的表單上方顯示
-  var _patientForms = ['F04M','F04S','F06M','F06S','F08','F09','F13','F14'];
-  if(_patientForms.indexOf(id)>=0){
-    html+='<div style="background:linear-gradient(135deg,#FEE2E2,#FCA5A5);border:2px solid #DC2626;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;color:#7F1D1D;line-height:1.7;box-shadow:0 2px 4px rgba(220,38,38,.15);">'
-        + '<div style="font-weight:700;font-size:14px;margin-bottom:6px;">🔒 個資保護重要提醒（依個人資料保護法）</div>'
-        + '<div style="margin-left:8px;">'
-        + '• 本系統僅作為<strong>教學評核用途</strong>，請務必對病人資料<strong>去識別化</strong>處理<br>'
-        + '• 病人姓名 → 請使用代號（例如「P-001」、「王 OO」、「個案 A」）<br>'
-        + '• 出生日期 → 僅填寫年齡（例如 65 歲），不寫完整日期<br>'
-        + '• 病歷號 → 請使用內部教學代號，勿填真實病歷號'
-        + '</div>'
-        + '</div>';
-  }
 
   // Lock bar for student viewing teacher-only form
   if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
@@ -4935,6 +5209,8 @@ function buildFormBody(f,d,canT,formKey,canS){
     E01:buildEPA,E02:buildEPA,E03:buildEPA,
     F15:buildF15,
     F16:buildF16,
+    'F-PRE':buildExamPre,
+    'F-POST':buildExamPost,
   };
   return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
@@ -5383,21 +5659,14 @@ function buildF04Bedside(f,d,canT,fkey,canS){
 
   // 病患基本資料
   h+='<div class="card"><div class="card-head"><div class="card-head-title">病患資料</div></div><div class="card-body">';
-  // ★ 個資保護警語
-  h+='<div style="background:#FEE2E2;border:2px solid #DC2626;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#991B1B;line-height:1.7;">';
-  h+='<div style="font-weight:700;font-size:13px;margin-bottom:4px;">⚠ 個資保護重要提醒</div>';
-  h+='<div>• 請<strong>勿填寫病人完整姓名</strong>，請使用代號（例如「P-001」、「王 OO」）</div>';
-  h+='<div>• 請<strong>勿填寫出生日期</strong>，僅填寫年齡即可</div>';
-  h+='<div>• 病歷號請使用<strong>內部教學代號</strong>，勿使用真實病歷號</div>';
-  h+='</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
   h+='<tr>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病床號</label><br>'+inp('bed','')+'</td>';
-  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>個案代號（如 P-001 / 王 OO）</label><br>'+inp('pt_name','請勿填全名')+'</td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病人名</label><br>'+inp('pt_name','')+'</td>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>性別</label><br>'+genderHtml+'</td>';
-  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>年齡（歲）</label><br>';
-  var ageOC="saveDraftField('"+fid+"','pt_age',this.value)";
-  h+='<input type="number" min="0" max="120" value="'+(d['pt_age']||'')+'" placeholder="例：65" data-fid="'+fid+'" data-key="pt_age" onchange="'+ageOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></td>';
+  h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>出生日期</label><br>';
+  var bdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['birth_date']=this.value";
+  h+='<input type="date" value="'+(d['birth_date']||'')+'" data-fid="'+fid+'" data-key="birth_date" onchange="'+bdOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></td>';
   h+='</tr></table>';
   h+='</div></div>';
 
@@ -5877,7 +6146,6 @@ function buildF14(f,d,canT,fkey,canS){
 
   // ── 個案報告題目（學生填寫）──
   h+='<div class="card"><div class="card-head"><div class="card-head-title">個案報告題目</div></div><div class="card-body">';
-  h+='<div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:11px;color:#78350F;">⚠ 個資保護提醒：題目中如需提及病人，請使用代號（如 P-001、王 OO），勿寫真實姓名。</div>';
   h+='<div class="field">'+ta(fid,'case_title',2,false)+'</div>';
   h+='</div></div>';
 
@@ -6750,7 +7018,395 @@ function buildF16(f,d,canT,fkey,canS){
   return h;
 }
 
-/* ═══════════ ADMIN PANEL ═══════════ */
+/* ═══════════ 筆試前測 / 筆試後測 共用元件 ═══════════ */
+
+/* 取得學生在某張考卷的目前作答（從 APP.formData[fkey] 讀取 q1~q25） */
+function _examGetAnswers(fid){
+  var d=APP.formData[fid]||{};
+  var ans=[];
+  for(var i=0;i<EXAM_QUESTIONS.length;i++){
+    ans.push(d['q'+(i+1)]||'');
+  }
+  return ans;
+}
+
+/* 計算分數：回傳 {score, correctCnt, wrongList:[1-based題號], answered, total} */
+function _examCalcScore(fid){
+  var ans=_examGetAnswers(fid);
+  var correct=0, wrongList=[], answered=0;
+  for(var i=0;i<EXAM_QUESTIONS.length;i++){
+    var u=(ans[i]||'').toUpperCase();
+    if(u) answered++;
+    if(u===EXAM_QUESTIONS[i].answer){
+      correct++;
+    } else if(u){
+      wrongList.push(i+1);
+    } else {
+      wrongList.push(i+1); // 未作答視為錯誤
+    }
+  }
+  return {
+    score: correct*EXAM_PER_QUESTION_SCORE,
+    correctCnt: correct,
+    wrongList: wrongList,
+    answered: answered,
+    total: EXAM_QUESTIONS.length
+  };
+}
+
+/* 點選某題某選項 */
+function examPick(fid, qnum, opt){
+  var d=APP.formData[fid]||{};
+  // 若已送出（submitted）則禁止再修改
+  if(d.submitted){ toast('表單已送出，無法再修改答案'); return; }
+  saveDraftField(fid, 'q'+qnum, opt);
+  // 重繪該題的選項按鈕外觀（避免整張表重繪造成捲動跳位）
+  for(var i=0;i<4;i++){
+    var L=['A','B','C','D'][i];
+    var btn=document.querySelector('button[data-exam-q="'+fid+'-'+qnum+'-'+L+'"]');
+    if(btn){
+      if(L===opt){
+        btn.style.background='#2563EB';
+        btn.style.color='#fff';
+        btn.style.borderColor='#1E40AF';
+      } else {
+        btn.style.background='#fff';
+        btn.style.color='var(--ink)';
+        btn.style.borderColor='var(--border)';
+      }
+    }
+  }
+  // 更新進度提示
+  var prog=document.getElementById('exam-progress-'+fid);
+  if(prog){
+    var cnt=0;
+    for(var k=1;k<=EXAM_QUESTIONS.length;k++){ if(d['q'+k]) cnt++; }
+    prog.textContent='已作答 '+cnt+' / '+EXAM_QUESTIONS.length+' 題';
+  }
+}
+
+/* 送出筆試（學生按下「送出考卷」） */
+function examSubmit(fid, mode){
+  var d=APP.formData[fid]||{};
+  if(d.submitted){ toast('此份考卷已送出'); return; }
+  // 必填基本資料檢查
+  var missing=[];
+  if(!d.s_name) missing.push('學生姓名');
+  if(!d.school) missing.push('實習學校');
+  if(!d.intern_cat) missing.push('實習類別');
+  if(!d.s_date) missing.push('實習日期');
+  if(missing.length){
+    alert('請先填寫基本資料：'+missing.join('、'));
+    return;
+  }
+  // 計算未作答題數，提醒
+  var ans=_examGetAnswers(fid);
+  var unanswered=[];
+  for(var i=0;i<ans.length;i++){
+    if(!ans[i]) unanswered.push(i+1);
+  }
+  var msg='送出後將無法再修改答案。';
+  if(unanswered.length){
+    msg='您尚有 '+unanswered.length+' 題未作答（第 '+unanswered.join('、')+' 題），這些題目將以「錯誤」計分。\n\n'+msg;
+  }
+  msg+='\n是否確定送出？';
+  if(!confirm(msg)) return;
+
+  // 標記為已送出，並寫入分數
+  var res=_examCalcScore(fid);
+  saveDraftField(fid,'submitted','true');
+  saveDraftField(fid,'final_score',String(res.score));
+  saveDraftField(fid,'final_correct',String(res.correctCnt));
+  saveDraftField(fid,'final_total',String(res.total));
+  saveDraftField(fid,'final_passed',res.score>=EXAM_PASS_SCORE?'true':'false');
+  saveDraftField(fid,'submit_time', new Date().toLocaleString('zh-TW',{hour12:false}));
+
+  toast('考卷已送出 ✓ 您的分數：'+res.score+' 分');
+  // 觸發儲存表單以記錄到 history
+  try{
+    var rawId = mode==='pre'?'F-PRE':'F-POST';
+    saveForm(rawId);
+  }catch(e){console.warn('exam saveForm failed:',e);}
+
+  // 重新渲染表單
+  setTimeout(function(){
+    var rawId = mode==='pre'?'F-PRE':'F-POST';
+    if(typeof openForm==='function') openForm(rawId);
+  }, 300);
+}
+
+/* 取消送出（管理員/老師專用：解除 submitted 狀態，讓學生重作） */
+function examReset(fid, mode){
+  if(APP.currentRole!=='admin' && APP.currentRole!=='teacher'){
+    toast('僅管理員或老師可重置考卷');
+    return;
+  }
+  if(!confirm('確定要重置此份考卷？學生將可重新作答。\n（原始分數紀錄會保留在歷史紀錄中）')) return;
+  // 清除作答與送出標記
+  if(!APP.formData[fid]) APP.formData[fid]={};
+  APP.formData[fid].submitted='';
+  APP.formData[fid].final_score='';
+  APP.formData[fid].final_correct='';
+  APP.formData[fid].final_total='';
+  APP.formData[fid].final_passed='';
+  for(var i=1;i<=EXAM_QUESTIONS.length;i++){
+    APP.formData[fid]['q'+i]='';
+  }
+  // 同步寫入草稿
+  saveDraftField(fid,'submitted','');
+  saveDraftField(fid,'final_score','');
+  saveDraftField(fid,'final_correct','');
+  for(var j=1;j<=EXAM_QUESTIONS.length;j++){
+    saveDraftField(fid,'q'+j,'');
+  }
+  toast('考卷已重置，可重新作答');
+  setTimeout(function(){
+    var rawId = mode==='pre'?'F-PRE':'F-POST';
+    if(typeof openForm==='function') openForm(rawId);
+  }, 200);
+}
+
+/* 共用建構：題目作答區（mode = 'pre' | 'post'） */
+function _buildExamCommon(f, d, fid, mode){
+  var submitted = (d.submitted==='true' || d.submitted===true);
+  var res = submitted ? _examCalcScore(fid) : null;
+  var passed = res ? res.score>=EXAM_PASS_SCORE : false;
+
+  // 基本資料區（用既有 helper）
+  var h = basicInfoCard(fid, d, '');
+
+  // 結果摘要卡（送出後顯示）
+  if(submitted && res){
+    var bg = passed ? '#ECFDF5' : '#FEF2F2';
+    var bd = passed ? '#10B981' : '#EF4444';
+    var ic = passed ? '✅' : '❌';
+    var label = passed ? '及格' : '未達及格標準';
+    h += '<div class="card" style="border:2px solid '+bd+';">'+
+      '<div class="card-head" style="background:'+bd+';color:#fff;"><div class="card-head-title">'+ic+' 作答結果</div></div>'+
+      '<div class="card-body" style="background:'+bg+';">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:14px;">'+
+      '<div><b>分數：</b><span style="font-size:22px;font-weight:700;color:'+bd+';">'+res.score+'</span> / 100</div>'+
+      '<div><b>答對：</b>'+res.correctCnt+' / '+res.total+' 題</div>'+
+      '<div><b>狀態：</b><span style="color:'+bd+';font-weight:700;">'+label+'</span>（及格標準 '+EXAM_PASS_SCORE+' 分）</div>'+
+      (d.submit_time?'<div><b>送出時間：</b>'+d.submit_time+'</div>':'')+
+      '</div>';
+
+    // 前測：只列出錯題題號（不顯示正解）
+    if(mode==='pre'){
+      if(res.wrongList.length){
+        h += '<div style="margin-top:10px;padding:10px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;font-size:13px;color:#7C2D12;">'+
+          '<b>📋 答錯（或未作答）的題號：</b>'+
+          '<div style="margin-top:6px;font-weight:700;">第 '+res.wrongList.join('、')+' 題</div>'+
+          '<div style="margin-top:6px;font-size:11px;color:#9A3412;">※ 前測不揭露正確答案，請自行查閱教材後於後測作答時驗證。</div>'+
+          '</div>';
+      } else {
+        h += '<div style="margin-top:10px;padding:10px 12px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:6px;font-size:13px;color:#065F46;"><b>👏 全部答對！</b></div>';
+      }
+    }
+    // 後測：顯示完整正解對照（已送出才顯示）
+    if(mode==='post'){
+      h += '<div style="margin-top:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:13px;color:#1E3A8A;">'+
+        '<b>📖 正確答案（後測完成後揭露）</b>'+
+        '<div style="margin-top:6px;font-size:12px;color:#1E40AF;">完整作答對照請見下方題目區，正解會以綠色框標示。</div>'+
+        '</div>';
+    }
+
+    // 重置按鈕（僅管理員/老師可見）
+    if(APP.currentRole==='admin' || APP.currentRole==='teacher'){
+      h += '<div style="margin-top:12px;text-align:right;">'+
+        '<button onclick="examReset(\''+fid+'\',\''+mode+'\')" style="padding:6px 12px;background:#F59E0B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">🔄 重置考卷（允許重作）</button>'+
+        '</div>';
+    }
+    h += '</div></div>';
+  } else {
+    // 未送出：顯示作答進度
+    var d0=APP.formData[fid]||{};
+    var c=0;
+    for(var kk=1;kk<=EXAM_QUESTIONS.length;kk++){ if(d0['q'+kk]) c++; }
+    h += '<div class="card"><div class="card-head"><div class="card-head-title">作答進度</div></div>'+
+      '<div class="card-body" style="font-size:13px;color:var(--ink2);">'+
+      '<div id="exam-progress-'+fid+'" style="font-weight:600;color:#1E40AF;">已作答 '+c+' / '+EXAM_QUESTIONS.length+' 題</div>'+
+      '<div style="margin-top:6px;font-size:11px;color:var(--ink3);">每題 '+EXAM_PER_QUESTION_SCORE+' 分，共 '+EXAM_QUESTIONS.length+' 題（總分 100 分），及格分數 '+EXAM_PASS_SCORE+' 分。</div>'+
+      '<div style="margin-top:4px;font-size:11px;color:var(--ink3);">送出後將自動計分並鎖定，無法再修改答案。</div>'+
+      '</div></div>';
+  }
+
+  // 題目區
+  h += '<div class="card"><div class="card-head"><div class="card-head-title">考題作答（共 '+EXAM_QUESTIONS.length+' 題，每題 '+EXAM_PER_QUESTION_SCORE+' 分）</div></div><div class="card-body">';
+  for(var qi=0; qi<EXAM_QUESTIONS.length; qi++){
+    var Q = EXAM_QUESTIONS[qi];
+    var qnum = qi+1;
+    var userAns = (d['q'+qnum]||'').toUpperCase();
+    var isWrong = submitted && userAns !== Q.answer;
+    var qBorder = '#E5E7EB';
+    var qBg = '#FFFFFF';
+    if(submitted){
+      if(mode==='post'){
+        qBorder = isWrong ? '#FCA5A5' : '#A7F3D0';
+        qBg = isWrong ? '#FEF2F2' : '#F0FDF4';
+      } else {
+        // 前測：只用紅色標出錯題（但不顯示正解）
+        if(isWrong){ qBorder = '#FCA5A5'; qBg = '#FEF2F2'; }
+      }
+    }
+    h += '<div style="margin-bottom:14px;padding:12px 14px;border:1px solid '+qBorder+';border-radius:8px;background:'+qBg+';">';
+    h += '<div style="font-size:13px;line-height:1.7;color:#111827;margin-bottom:8px;white-space:pre-wrap;"><b style="color:#1E40AF;">第 '+qnum+' 題.</b> '+escapeExamHtml(Q.q)+'</div>';
+    h += '<div style="display:flex;flex-direction:column;gap:6px;">';
+    var keys=['A','B','C','D'];
+    for(var oi=0; oi<keys.length; oi++){
+      var L=keys[oi];
+      var optText = Q.options[L];
+      var selected = (userAns===L);
+      var isCorrectOpt = (L===Q.answer);
+
+      var btnBg='#fff', btnColor='var(--ink)', btnBorder='var(--border)';
+      var marker='';
+
+      if(selected){
+        btnBg='#2563EB'; btnColor='#fff'; btnBorder='#1E40AF';
+      }
+      // 後測送出後：標示正解（綠色框）；同時錯誤選擇用紅色
+      if(submitted && mode==='post'){
+        if(isCorrectOpt){
+          btnBg='#10B981'; btnColor='#fff'; btnBorder='#059669';
+          marker=' ✓';
+        }
+        if(selected && !isCorrectOpt){
+          btnBg='#EF4444'; btnColor='#fff'; btnBorder='#DC2626';
+          marker=' ✗';
+        }
+      }
+      // 前測送出後：選錯的標紅色，但不顯示正解
+      if(submitted && mode==='pre'){
+        if(selected && !isCorrectOpt){
+          btnBg='#EF4444'; btnColor='#fff'; btnBorder='#DC2626';
+          marker=' ✗';
+        }
+      }
+
+      var disabled = submitted ? 'disabled' : '';
+      var cur = 'cursor:'+(submitted?'not-allowed':'pointer')+';';
+      h += '<button '+disabled+' data-exam-q="'+fid+'-'+qnum+'-'+L+'" onclick="examPick(\''+fid+'\','+qnum+',\''+L+'\')" '+
+        'style="text-align:left;padding:8px 12px;border:1.5px solid '+btnBorder+';border-radius:6px;background:'+btnBg+';color:'+btnColor+';font-size:13px;'+cur+'transition:all .15s;">';
+      h += '<b>('+L+')</b> '+escapeExamHtml(optText)+marker;
+      h += '</button>';
+    }
+    h += '</div>';
+
+    // 後測作答後：顯示「您的答案 / 正確答案」摘要
+    if(submitted && mode==='post'){
+      h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(255,255,255,0.7);border-radius:4px;font-size:11px;color:#374151;">';
+      h += '您的答案：<b>'+(userAns||'（未作答）')+'</b>　｜　正確答案：<b style="color:#059669;">'+Q.answer+'</b>';
+      h += '</div>';
+    }
+    // 前測作答後：僅標示對／錯（不顯示正解）
+    if(submitted && mode==='pre'){
+      if(isWrong){
+        h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(254,226,226,0.7);border-radius:4px;font-size:11px;color:#991B1B;">您的答案：<b>'+(userAns||'（未作答）')+'</b>　— ❌ 這題答錯了（前測不顯示正解）</div>';
+      } else {
+        h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(220,252,231,0.7);border-radius:4px;font-size:11px;color:#065F46;">您的答案：<b>'+userAns+'</b>　— ✅ 答對！</div>';
+      }
+    }
+
+    h += '</div>';
+  }
+  h += '</div></div>';
+
+  // 送出按鈕（未送出時才顯示）
+  if(!submitted){
+    h += '<div class="card" style="border:2px dashed #FBBF24;background:#FFFBEB;">'+
+      '<div class="card-body" style="text-align:center;">'+
+      '<div style="font-size:13px;color:#92400E;margin-bottom:10px;">⚠ 確認所有答案後請按下送出。送出後將自動計分，無法再修改。</div>'+
+      '<button onclick="examSubmit(\''+fid+'\',\''+mode+'\')" style="padding:10px 28px;background:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(220,38,38,.3);">📨 送出考卷並計算分數</button>'+
+      '</div></div>';
+  }
+
+  return h;
+}
+
+/* HTML 跳脫（避免題目中含特殊字元造成版面問題） */
+function escapeExamHtml(s){
+  if(s==null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+/* ─── 筆試前測（送出後僅顯示錯題題號，不揭露正解） ─── */
+function buildExamPre(f,d,canT,fkey,canS){
+  const fid = fkey || f.id;
+  return _buildExamCommon(f, d, fid, 'pre');
+}
+
+/* ─── 筆試後測（需 PIN 解鎖才能作答；送出後揭露正解） ─── */
+function buildExamPost(f,d,canT,fkey,canS){
+  const fid = fkey || f.id;
+  // 學生必須先輸入「筆試後測 PIN」才能作答
+  // 老師/管理員直接放行
+  if(APP.currentRole==='student' && !APP.examUnlocked){
+    return _buildExamPostPinGate(fid);
+  }
+  return _buildExamCommon(f, d, fid, 'post');
+}
+
+/* 後測 PIN 鎖屏 */
+function _buildExamPostPinGate(fid){
+  return '<div class="card" style="border:2px solid #DC2626;">'+
+    '<div class="card-head" style="background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);"><div class="card-head-title" style="color:#fff;">🔒 筆試後測需 PIN 碼解鎖</div></div>'+
+    '<div class="card-body">'+
+    '<div style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:14px;">'+
+    '此份「<b>筆試後測－重症呼吸照護實習</b>」考卷需由監考老師輸入專用 PIN 碼解鎖後方可作答。<br>'+
+    '<span style="color:#6B7280;font-size:12px;">（後測 PIN 碼與一般表單的老師 PIN 為獨立設定，請向監考老師索取。）</span>'+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
+    '<input id="exam-pin-input" type="password" placeholder="請輸入筆試後測 PIN 碼" maxlength="16" style="flex:1;min-width:200px;padding:10px 14px;border:1.5px solid #DC2626;border-radius:8px;font-size:14px;background:#fff;">'+
+    '<button onclick="examPostUnlock()" style="padding:10px 22px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔓 解鎖</button>'+
+    '</div>'+
+    '<div id="exam-pin-msg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>'+
+    '<div style="margin-top:14px;padding:10px 12px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;font-size:11px;color:#78350F;line-height:1.7;">'+
+    '💡 <b>說明：</b>解鎖後，您可以立即開始作答；送出考卷後會立即顯示分數與所有題目的正確答案。'+
+    '</div>'+
+    '</div></div>';
+}
+
+/* 解鎖筆試後測（驗證 examPIN，與 teacherPIN 獨立） */
+async function examPostUnlock(){
+  var inp = document.getElementById('exam-pin-input');
+  var msg = document.getElementById('exam-pin-msg');
+  if(!inp || !msg) return;
+  var pin = clipInput(inp.value, 16);
+  if(!pin){
+    msg.style.color='#DC2626';
+    msg.textContent='請輸入 PIN 碼';
+    return;
+  }
+  // 暴力破解保護（與一般 PIN 計次區分）
+  var lockKey='exampin_'+(APP.currentUser&&APP.currentUser.sid?APP.currentUser.sid:'guest');
+  var locked=isLocked(lockKey);
+  if(locked){
+    msg.style.color='#DC2626';
+    msg.textContent='PIN 嘗試次數過多，請等待 '+locked+' 秒後再試';
+    return;
+  }
+  var ok = await passwordMatches(pin, APP.examPIN);
+  if(ok){
+    clearFails(lockKey);
+    APP.examUnlocked=true;
+    msg.style.color='#10B981';
+    msg.textContent='✓ 解鎖成功，正在開啟後測...';
+    inp.value='';
+    setTimeout(function(){ openForm('F-POST'); }, 350);
+  } else {
+    recordFail(lockKey);
+    msg.style.color='#DC2626';
+    msg.textContent='PIN 碼錯誤，請洽監考老師。';
+    inp.value='';
+  }
+}
+
+
 function renderAdmin(){
   document.getElementById('sidebar').querySelectorAll('.sidebar-item').forEach(el=>el.classList.remove('active'));
   const mc=document.getElementById('main-content');
@@ -6797,6 +7453,23 @@ function renderAdmin(){
           <span style="font-size:12px;width:120px;">設定新 PIN 碼：</span>
           <input id="pin-display" type="password" placeholder="請輸入新 PIN（4-8 碼數字）" maxlength="8" style="width:200px;">
           <button class="btn-update" onclick="updatePIN()">更新</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;">🔒 PIN 碼以雜湊形式儲存，無法檢視原始值。若忘記請重新設定。<br>※ 此 PIN 用於一般評分表單（F01B、F02、DOPS、EPA…）的老師欄位解鎖。</div>
+      </div>
+    </div>
+
+    <!-- 筆試後測專用 PIN（與老師 PIN 獨立） -->
+    <div class="admin-card" style="border-color:#DC2626;">
+      <div class="admin-card-head" style="background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);">📝 筆試後測 PIN 碼設定（獨立）</div>
+      <div class="admin-card-body">
+        <div style="font-size:12px;color:#7F1D1D;background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:10px 12px;margin-bottom:10px;line-height:1.7;">
+          ⚠ 此 PIN 碼<b>專供「筆試後測－重症呼吸照護實習」</b>表單作答前解鎖使用，與一般「老師 PIN」<b>完全獨立</b>。<br>
+          建議用於監考時控管：學生需向監考老師索取此 PIN 才能開始作答後測。
+        </div>
+        <div class="admin-row">
+          <span style="font-size:12px;width:120px;">設定新後測 PIN：</span>
+          <input id="exam-pin-display" type="password" placeholder="請輸入新 PIN（4-16 碼）" maxlength="16" style="width:220px;">
+          <button class="btn-update" onclick="updateExamPIN()">更新</button>
         </div>
         <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;">🔒 PIN 碼以雜湊形式儲存，無法檢視原始值。若忘記請重新設定。</div>
       </div>
@@ -6928,7 +7601,7 @@ window.addEventListener('load', () => {
 const CONFIG_SHEET='_系統設定';
 
 async function saveConfigToSheets(){
-  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
+  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
   const configStr = JSON.stringify(config);
   localStorage.setItem('app_config', configStr);
 
@@ -6997,6 +7670,7 @@ function applyConfig(cfg){
   if(cfg.teachers) Object.assign(APP.teachers, cfg.teachers);
   if(cfg.adminPwd) APP.adminPwd=cfg.adminPwd;
   if(cfg.teacherPIN) APP.teacherPIN=cfg.teacherPIN;
+  if(cfg.examPIN) APP.examPIN=cfg.examPIN;
   if(cfg.courseTopics?.length>0) APP.courseTopics=cfg.courseTopics;
   if(cfg.courseSpeakers?.length>0) APP.courseSpeakers=cfg.courseSpeakers;
   if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
@@ -7016,6 +7690,20 @@ async function updatePIN(){
       pinEl.type='password';
       pinEl.value='********';
     }
+  }
+}
+async function updateExamPIN(){
+  const v=clipInput((document.getElementById('exam-pin-display').value||'').trim(), 16);
+  if(!v){ toast('請輸入新 PIN 碼', false); return; }
+  if(v.length<4){ toast('PIN 碼至少 4 碼', false); return; }
+  // 【安全】PIN 不存明文
+  APP.examPIN = 'h:' + (await sha256(v));
+  saveConfigToSheets();
+  toast('✓ 筆試後測 PIN 已更新（已雜湊化儲存）');
+  var ep=document.getElementById('exam-pin-display');
+  if(ep){
+    ep.type='password';
+    ep.value='********';
   }
 }
 async function updateAdminPwd(){
@@ -7185,6 +7873,7 @@ function exportBackup(){
       students: APP.students,
       teachers: APP.teachers,
       teacherPIN: APP.teacherPIN,
+      examPIN: APP.examPIN,
       adminPwd: APP.adminPwd,
       courseTopics: APP.courseTopics,
       courseSpeakers: APP.courseSpeakers,
