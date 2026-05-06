@@ -1559,6 +1559,246 @@ const EXAM_QUESTIONS = [
 const EXAM_PER_QUESTION_SCORE = 4;
 const EXAM_PASS_SCORE = 60;
 
+/* ─── 25 題正解分析（依題序對應 EXAM_QUESTIONS） ───
+   每題依「正解理由 + 各選項辨析 + 臨床補充」結構撰寫，
+   來源依據：台灣專技高考呼吸治療師歷屆考題出題方向、Berlin ARDS 共識、
+   GOLD COPD 指引、AHA 肺水腫/高血壓急症指引、AASM 睡眠醫學、
+   SCCM Sepsis/qSOFA 共識、ELSO ECMO 指引、NIV 適應症共識 等。
+*/
+const EXAM_EXPLANATIONS = [
+  // 第 1 題
+  '【正解 A：僅①】\n\n'+
+  'ARDS 在胸部 X 光的特徵是「雙側肺不透明（bilateral opacities）」（依 Berlin definition 2012），不可被心衰竭、肋膜積液或肺塌陷完全解釋。\n\n'+
+  '② 雙側肺門對稱性「蝙蝠翅膀（butterfly/bat-wing）」浸潤，是典型「心因性肺水腫（cardiogenic pulmonary edema）」的影像，並非 ARDS 的特徵。\n'+
+  '③ 肋膜積液（pleural effusion）若顯著，應優先懷疑心衰竭或其他原因；ARDS 即使有少量肋膜積液，也不是診斷標準的影像描述。\n\n'+
+  '故僅①為正確，選 A。',
+
+  // 第 2 題
+  '【正解 A：調升 PEEP 至 optimal PEEP】\n\n'+
+  '本題為典型重度 ARDS 處置：PaO₂ 53 mmHg、FiO₂ 0.55 → PaO₂/FiO₂ ≈ 96，已達 Berlin 重度標準（≤100）。\n\n'+
+  '(A) ✔ 重度 ARDS 須先以「適當 PEEP 招募塌陷肺泡」改善低血氧，這是 ARDSNet/肺保護性通氣的核心。\n'+
+  '(B) ✘ IP 30 cmH₂O 已偏高，再增加會超出 plateau pressure ≤30 cmH₂O 的安全上限，造成 barotrauma/VILI。輕度高碳酸血症在 ARDS 採「permissive hypercapnia」可接受。\n'+
+  '(C) ✘ FiO₂ 0.55 雖可再升，但長期高 FiO₂ 會造成氧中毒；應先用 PEEP 改善 shunt，再考慮 FiO₂。\n'+
+  '(D) ✘ pH 7.31 屬輕度酸血症，乳酸 5.67 是組織灌流不足造成的代謝性酸中毒，給 NaHCO₃ 並不能解決根本問題；NaHCO₃ 通常用於 pH < 7.1 時。\n\n'+
+  '故選 A。',
+
+  // 第 3 題
+  '【正解 A：改善背側肺的通氣灌流比】\n\n'+
+  '俯臥姿勢（prone position）改善 ARDS 氧合的核心機轉：\n'+
+  '• 仰臥時，背側（dependent）肺泡受心臟與腹腔重力壓迫而塌陷，但血流分布仍以背側為主 → V/Q mismatch。\n'+
+  '• 改俯臥後，背側壓迫解除、跨肺壓上升，背側肺泡重新擴張參與通氣；血流仍偏向背側，使 V/Q 比改善。\n\n'+
+  '(B) 俯臥反而可能增加病人不適，需給予鎮靜。\n'+
+  '(C) 整體肺順應性的改變不一致，並非主要機轉。\n'+
+  '(D) 俯臥對肺血管阻力的影響不顯著。\n\n'+
+  'PROSEVA 試驗（NEJM 2013）證實俯臥可顯著降低重度 ARDS 死亡率，目前是肺保護策略無效時的重要救援選項。',
+
+  // 第 4 題
+  '【正解 B：每日更換呼吸器管路（錯誤）】\n\n'+
+  'VAP Bundle 預防包含：\n'+
+  '(A) ✔ 床頭抬高 30–45°（避免胃內容物逆流誤吸）\n'+
+  '(B) ✘ 不需「每日」更換管路！研究顯示頻繁更換反而增加汙染與 VAP 發生率，建議「僅在管路髒污或機械故障時更換」。\n'+
+  '(C) ✔ 每日 2% Chlorhexidine 口腔護理（部分指引近年因效益爭議調整建議，但仍是經典 bundle 項目）\n'+
+  '(D) ✔ 每日中斷鎮靜劑（sedation vacation）並評估拔管時機（SBT）\n\n'+
+  '其他常見項目：抬高床頭、Subglottic suction 氣管內管、DVT/PUD 預防、減少不必要的氣管內管再插管。',
+
+  // 第 5 題
+  '【正解 D：肺大量出血】\n\n'+
+  'ECMO 適應症通常包含可逆性的嚴重心、肺衰竭：\n'+
+  '(A) ✔ 嚴重氣喘合併高 CO₂ 與低 TV：屬可逆呼吸衰竭，可考慮 V-V ECMO。\n'+
+  '(B) ✔ 大量肺栓塞合併低血氧/休克：可用 V-A ECMO 過渡到取栓或溶栓。\n'+
+  '(C) ✔ 急性心肌梗塞合併心因性休克：V-A ECMO 是常見適應症（橋接到 PCI/CABG/恢復）。\n'+
+  '(D) ✘ ECMO 需全身肝素抗凝，「大量肺出血」是 ECMO 的相對禁忌；強行使用恐使出血失控。\n\n'+
+  '其他禁忌：無法治癒的末期疾病、嚴重不可逆的腦損傷、無法控制的出血、長期高設定呼吸器（>7天）等。',
+
+  // 第 6 題
+  '【正解 C：選擇性肺血管擴張】\n\n'+
+  '吸入性一氧化氮（iNO）的特性是「選擇性擴張通氣良好區域的肺血管」：\n'+
+  '• NO 經由活化 cGMP 使血管平滑肌鬆弛。\n'+
+  '• 由於只到達有通氣的肺泡（吸入給藥），改善 V/Q 比、降低肺內 shunt → 改善氧合。\n'+
+  '• 進入血液後迅速與血紅素結合而失活，故「不會」造成全身性低血壓（與口服/靜脈 NO donor 不同）。\n\n'+
+  '(A) iNO 不直接造成肺泡再擴張。\n'+
+  '(B) iNO 不降低全身性血壓（A 為其主要安全特性）。\n'+
+  '(D) iNO 對心輸出量影響不顯著。\n\n'+
+  '臨床用於：新生兒持續性肺高壓（PPHN）、ARDS 輔助治療、急性肺高壓危象。',
+
+  // 第 7 題
+  '【正解 C：用正腎上腺素改善肌無力（錯誤）】\n\n'+
+  '重症肌無力（MG）是自體抗體攻擊神經肌肉接合處的「乙醯膽鹼受體（AChR）」造成的疾病：\n'+
+  '(A) ✔ 早期常見眼瞼下垂（ptosis）、複視（diplopia）。\n'+
+  '(B) ✔ 屬自體免疫疾病。\n'+
+  '(C) ✘ 治療應使用「乙醯膽鹼酯酶抑制劑（AChE inhibitor）」，如 pyridostigmine（Mestinon），增加突觸間隙的 ACh；正腎上腺素（norepinephrine）作用於腎上腺素受體，與神經肌肉接合處無關。\n'+
+  '(D) ✔ 危象時可用免疫抑制（類固醇）、血漿置換（plasmapheresis）、IVIG。\n\n'+
+  '注意：MG 病人應「避免」使用 aminoglycosides 抗生素、neuromuscular blocker、β-blocker 等可能加重肌無力的藥物。',
+
+  // 第 8 題
+  '【正解 C：DVT 不會發生在心衰竭病患（錯誤）】\n\n'+
+  '深部靜脈血栓（DVT）的 Virchow’s triad：靜脈鬱血、內皮損傷、高凝狀態。\n'+
+  '(A) ✔ 下肢 DVT 是肺栓塞最常見來源（>90%）。\n'+
+  '(B) ✔ 中央靜脈導管（CVP/PICC）會造成上肢 DVT。\n'+
+  '(C) ✘ 心衰竭病患因低心輸出量、靜脈鬱血，「反而是 DVT 高危險群」！臥床、心衰、肥胖、惡性腫瘤、術後、懷孕都是高危險。\n'+
+  '(D) ✔ 上肢 DVT 多見於惡性腫瘤、心律調節器、外傷、CVP 置放。\n\n'+
+  '預防：高危患者應給予低分子量肝素、間歇性氣動壓迫、早期活動。',
+
+  // 第 9 題
+  '【正解 D：右心衰竭造成肺水腫（錯誤）】\n\n'+
+  '肺水腫（pulmonary edema）多為「左心衰竭造成 LVEDP 升高 → 肺微血管壓上升 → 液體滲漏入肺泡」：\n'+
+  '(A) ✔ 控制不良的高血壓 → 急性後負荷上升 → 急性左心失代償。\n'+
+  '(B) ✔ AMI/缺血性 MR → 急性左心衰、肺水腫。\n'+
+  '(C) ✔ 急性 AR/MR（瓣膜閉鎖不全）→ 急性左心容積負荷上升 → 肺水腫。\n'+
+  '(D) ✘ 「右心衰竭」造成的是「全身性水腫（下肢、腹水）」，不會直接造成肺水腫。右心衰時血液鬱積在體靜脈系統，肺循環反而負荷下降。\n\n'+
+  '註：嚴重右心衰若由肺高壓引起，可能伴隨左心舒張受限（ventricular interdependence），但這非「直接造成肺水腫」的機轉。',
+
+  // 第 10 題
+  '【正解 D：侷限性通氣障礙（最不可能）】\n\n'+
+  '氣喘（asthma）是「氣道阻塞性疾病」：\n'+
+  '(A) ✔ 呼吸道阻塞（支氣管痙攣、黏液分泌、氣道水腫）\n'+
+  '(B) ✔ 氣道發炎（嗜酸性球、肥大細胞參與）\n'+
+  '(C) ✔ 氣道過度敏感（airway hyperresponsiveness, AHR），對冷空氣、運動、過敏原過度反應\n'+
+  '(D) ✘ 「侷限性（restrictive）通氣障礙」指肺擴張受限，總肺容量（TLC）下降，常見於肺纖維化、胸廓畸形、肌無力。氣喘屬阻塞性，FEV₁/FVC 下降但 TLC 多正常或上升（air trapping）。\n\n'+
+  '肺功能特徵：FEV₁/FVC < 70%、給支氣管擴張劑後 FEV₁ 可逆 ≥ 12% 且 ≥ 200 mL（見第 21 題）。',
+
+  // 第 11 題
+  '【正解 B：急性腸胃道出血（不適用）】\n\n'+
+  '高壓氧治療（HBOT）的適應症（UHMS 認可）：\n'+
+  '(A) ✔ CO 中毒：可加速 carboxyhemoglobin 解離、提供溶解氧。\n'+
+  '(B) ✘ 急性腸胃道出血：HBOT 並非適應症；急性大出血應先穩定循環、內視鏡止血。HBOT 不是處置出血的工具。\n'+
+  '(C) ✔ 慢性骨髓炎（refractory osteomyelitis）：促進骨組織氧合、加強白血球殺菌力。\n'+
+  '(D) ✔ 周邊血管阻塞合併壞疽（problem wounds、糖尿病足、缺血性傷口）：HBOT 可促進傷口癒合。\n\n'+
+  '其他經典適應症：減壓症、氣栓塞、放射性傷害、燒傷、壞死性筋膜炎、移植皮瓣存活問題。',
+
+  // 第 12 題
+  '【正解 A：用 IS 訓練呼吸肌肉（錯誤）】\n\n'+
+  '漸凍人（ALS, amyotrophic lateral sclerosis）為運動神經元退化：\n'+
+  '(A) ✘ 「IS（incentive spirometry）誘發性呼吸量計」是給「術後肺擴張」用的，重點在病人「主動深吸氣」。ALS 病人的呼吸肌已逐漸無力，「無法」靠 IS 訓練回原本肌力，過度訓練反而疲勞，加速衰竭。\n'+
+  '(B) ✔ NIV（如 BiPAP）可延緩呼吸衰竭、延長存活、改善生活品質（已被證實）。\n'+
+  '(C) ✔ NIV 提供 IPAP 可促進肺部擴張、預防肺塌陷。\n'+
+  '(D) ✔ 咳嗽機（MIE/Cough Assist）可協助 ALS 病人清除痰液（因咳嗽尖峰流速 PCEF 不足）。\n\n'+
+  '臨床建議：當 FVC < 50% 預測值或夜間低血氧/二氧化碳上升時開始 NIV。',
+
+  // 第 13 題
+  '【正解 D：暈眩】\n\n'+
+  '高血壓「急症（hypertensive emergency）」的定義是「BP 突然升高且伴隨『標的器官損害』」。題目問的是「未合併」哪一項——也就是「不算 emergency 的合併症」：\n'+
+  '(A) ✔ 腦出血（intracranial hemorrhage）→ 標的器官損害\n'+
+  '(B) ✔ 急性肺水腫 → 心肺標的器官損害\n'+
+  '(C) ✔ 視乳突水腫（papilledema）→ 高血壓視網膜病變/腦壓上升的徵象\n'+
+  '(D) ✘ 「暈眩」是非特異性症狀，不算標的器官損害；單純頭暈伴隨高血壓多屬「hypertensive urgency」而非 emergency。\n\n'+
+  '處置原則：emergency 須在 ICU 用靜脈降壓藥（labetalol、nicardipine、nitroprusside）在 1 小時內降 MAP 約 10–20%，過快降壓恐造成器官低灌流。',
+
+  // 第 14 題
+  '【正解 C：一律 24 小時居家氧氣（錯誤）】\n\n'+
+  'COPD 急性發作後的長期照護（GOLD 指引）：\n'+
+  '(A) ✔ 戒菸是「唯一」能改變 COPD 自然病程的處置。\n'+
+  '(B) ✔ 肺復原（pulmonary rehabilitation）可改善運動耐受、症狀、生活品質。\n'+
+  '(C) ✘ 居家長期氧氣治療（LTOT）「有適應症」才用：PaO₂ ≤ 55 mmHg 或 SaO₂ ≤ 88%；若 PaO₂ 56–59 並合併肺高壓、紅血球增多、或下肢水腫者也可考慮。「一律給予」會讓無低血氧病人過量吸氧、抑制呼吸驅力，且增加成本，並無存活率益處。\n'+
+  '(D) ✔ 肺炎鏈球菌疫苗、流感疫苗每年接種，可減少急性發作。\n\n'+
+  'LTOT 須使用 ≥ 15 小時/天才能改善存活率（NOTT、MRC trials）。',
+
+  // 第 15 題
+  '【正解 B：β2 agonist 一次給 6 mg（錯誤）】\n\n'+
+  'COPD 急性發作（AECOPD）處置：\n'+
+  '(A) ✔ Nebulizer 給予 SABA（如 albuterol/salbutamol）為標準急救方式。\n'+
+  '(B) ✘ Albuterol 標準劑量是「2.5 mg/次」，每 20 分鐘可重複，最高一次也不會單次給 6 mg；過量會造成心悸、震顫、低血鉀、心律不整。\n'+
+  '(C) ✔ 全身性類固醇（prednisolone 40 mg/day × 5 天）可縮短住院、加速恢復。\n'+
+  '(D) ✔ 痰液變黃綠色、量增、呼吸困難加劇符合 Anthonisen criteria，應給抗生素。\n\n'+
+  '註：MDI + spacer 與 nebulizer 在急救時同樣有效。',
+
+  // 第 16 題
+  '【正解 B：HFNC 跟 NIV 相比，「不能」減少插管率（錯誤）】\n\n'+
+  '高流量鼻導管（HFNC, high-flow nasal cannula）的特性：\n'+
+  '(A) ✔ 提供溫濕化氣流、輕微 PEEP 效應 → 改善肺泡擴張。\n'+
+  '(B) ✘ 多項研究（如 FLORALI 試驗 NEJM 2015）顯示 HFNC 在低血氧型呼吸衰竭，「不亞於甚至優於」NIV，可降低 90 天死亡率與插管率。「不能減少」的敘述錯誤。\n'+
+  '(C) ✔ 高流量沖洗鼻咽腔的 CO₂，減少上呼吸道無效腔。\n'+
+  '(D) ✔ 可精確調整 FiO₂ 0.21–1.0、流量 30–60 L/min。\n\n'+
+  '注意：高碳酸血症型呼吸衰竭（如 COPD 急性發作），NIV（BiPAP）仍是首選。',
+
+  // 第 17 題
+  '【正解 A：體溫 ≧ 38℃ 或 ≦ 36℃（不在 qSOFA 內）】\n\n'+
+  'qSOFA（quick SOFA）是 Sepsis-3（2016）發布的快速床邊評估，三項：\n'+
+  '• 呼吸速率 ≥ 22 次/分\n'+
+  '• 意識改變（GCS < 15）\n'+
+  '• 收縮壓 ≤ 100 mmHg\n'+
+  '≥ 2 項陽性，住院死亡率明顯上升，應啟動敗血症評估。\n\n'+
+  '(A) 體溫屬「SIRS criteria」（已被 Sepsis-3 廢除作為敗血症定義），不在 qSOFA 內 → 答案。\n'+
+  '(B)(C)(D) 三項都是 qSOFA。',
+
+  // 第 18 題
+  '【正解 C：可優先考慮使用 NIV（正確）】\n\n'+
+  'ABG：pH 7.20、PaCO₂ 60、PaO₂ 55、HCO₃⁻ 23 → 高碳酸血症型呼吸衰竭、急性呼吸性酸中毒。\n'+
+  '(A) ✘ 病人是 respiratory「acidosis」（酸血症），非 alkalosis。\n'+
+  '(B) ✘ HCO₃⁻ 23 屬正常，無代謝性酸中毒；A/G 計算亦無 metabolic acidosis 跡象。\n'+
+  '(C) ✔ 意識清楚、血壓穩定、能配合的高碳酸呼吸衰竭，「優先 NIV（BiPAP）」是標準做法（GOLD、ERS/ATS 指引），可避免插管、降低死亡率。\n'+
+  '(D) ✘ 立即插管應留給：意識惡化、無法清痰、血流動力學不穩、NIV 失敗。題目病人意識清楚，先試 NIV 才是首選。',
+
+  // 第 19 題
+  '【正解 A：濃痰分泌物多（最不適用）】\n\n'+
+  'NIV 的禁忌或不適合條件：\n'+
+  '• 呼吸或心跳停止\n'+
+  '• 意識不清、無法保護氣道\n'+
+  '• 「大量分泌物無法清除」（會造成誤吸、阻塞）\n'+
+  '• 上消化道出血/嘔吐\n'+
+  '• 顏面外傷或手術\n'+
+  '• 血流動力學不穩定\n\n'+
+  '(A) ✔ 濃痰多屬「最不適用」NIV，因正壓會推動分泌物深入肺內，且戴面罩無法咳痰。\n'+
+  '(B)(C)(D) 神識清楚、生命徵象穩定、氣道控制佳——都是 NIV 的「適合條件」。',
+
+  // 第 20 題
+  '【正解 B：阻塞性可由鼻咽手術根治（錯誤）】\n\n'+
+  '睡眠呼吸中止症候群（OSA/CSA）：\n'+
+  '(A) ✔ Apnea：呼吸氣流完全中止 ≥ 10 秒。\n'+
+  '(B) ✘ OSA 由上呼吸道塌陷造成，鼻咽手術（UPPP、扁桃腺切除等）「無法根治」，僅改善部分病人；首選治療仍是 CPAP。研究顯示 UPPP 成功率約 40%，且常隨體重增加而復發。\n'+
+  '(C) ✔ 中樞性（CSA）因呼吸中樞驅力不足，常見於心衰竭（Cheyne-Stokes 呼吸）、腦中風、藥物誘發。\n'+
+  '(D) ✔ Hypopnea：氣流減少 ≥ 30% 且伴 SpO₂ 下降 ≥ 3% 或 arousal（AASM 標準）。\n\n'+
+  'OSA 治療：CPAP 是金標準；其他選項：減重、口腔矯治器、姿勢治療、上下顎前移手術（MMA）、舌下神經刺激器等。',
+
+  // 第 21 題
+  '【正解 A：FEV₁ 上升 > 12% 且 > 200 mL】\n\n'+
+  '氣喘的可逆性氣道阻塞特徵——支氣管擴張試驗（bronchodilator reversibility）標準：\n'+
+  '• 給 SABA 後 15 分鐘 FEV₁（或 FVC）「上升 ≥ 12% 且 ≥ 200 mL」即為陽性，支持氣喘診斷（GINA、ATS/ERS 標準）。\n\n'+
+  '(B) ✘ COPD 才常見抽菸病史；氣喘與抽菸關係相對較弱（雖會加重）。\n'+
+  '(C) ✘ COPD 病人通常較年長（≥ 40 歲），氣喘多為兒童/青年發病。\n'+
+  '(D) ✘ 氣喘預後一般「優於」COPD，是可逆性的。',
+
+  // 第 22 題
+  '【正解 D：肺功能正常的年輕人不會發生（錯誤）】\n\n'+
+  '術後肺部併發症（PPC, postoperative pulmonary complications）：\n'+
+  '(A) ✔ 一旦發生，會延長住院、增加成本與死亡率。\n'+
+  '(B) ✔ 上腹部、胸部手術的 PPC 風險最高（橫膈功能受影響、咳嗽痛）。\n'+
+  '(C) ✔ 全身麻醉降低呼吸驅力與咳嗽反射，加上臥床、止痛藥使用，易致肺塌陷與吸入性肺炎。\n'+
+  '(D) ✘ 即使「年輕、肺功能正常」，仍可能因麻醉、手術部位、操作時間、肌鬆劑殘留而出現 PPC——絕對不能說「不會」。\n\n'+
+  '預防：戒菸 ≥ 8 週、術前肺復原、IS、早期下床、咳痰訓練、適當止痛。',
+
+  // 第 23 題
+  '【正解 C：阻塞性休克（obstructive shock）】\n\n'+
+  '休克分類：\n'+
+  '• Cardiogenic（心因性）：心臟收縮力下降，如 AMI、心肌炎\n'+
+  '• Hypovolemic（低血容性）：失血、脫水\n'+
+  '• Distributive（分布性）：敗血症、過敏、神經性\n'+
+  '• Obstructive（阻塞性）：「血流通路被阻擋」——肺栓塞、心包填塞、張力性氣胸\n\n'+
+  '肺栓塞造成肺血管阻力暴增 → 右心後負荷↑ → 右心無法將血推至肺循環 → 左心輸出量下降 → 休克，屬「阻塞性休克」。',
+
+  // 第 24 題
+  '【正解 C：高 2,3-DPG（不會造成左移）】\n\n'+
+  '氧合解離曲線「左移」表示血紅素「對氧的親和力增加」，氧較難釋放到組織：\n'+
+  '左移因子（記法：「冷、鹼、低 PCO₂、低 DPG」）：\n'+
+  '• 體溫下降\n'+
+  '• 鹼血症（pH 上升）\n'+
+  '• PCO₂ 下降（Bohr effect）\n'+
+  '• 2,3-DPG 下降（庫存血、低代謝狀態）\n'+
+  '• 胎兒血紅素（HbF）\n\n'+
+  '右移因子（運動肌肉組織）：\n'+
+  '• 體溫上升、酸血症、PCO₂ 上升、「2,3-DPG 上升」\n\n'+
+  '(C) 高 2,3-DPG 是「右移」原因（促進氧釋放），故為答案。',
+
+  // 第 25 題
+  '【正解 B：最可能是喉頭水腫】\n\n'+
+  '拔管後出現吸氣相 stridor（哮吼），最常見原因是「喉頭水腫（laryngeal/post-extubation edema）」，多發生在拔管後 30 分鐘到數小時內：\n'+
+  '(A) ✘ Stridor 是上呼吸道阻塞的徵象，與肺部塌陷無關。肺塌陷的聲音是 crackle、呼吸音減弱。\n'+
+  '(B) ✔ 喉頭水腫多由插管壓迫聲門/聲帶引起，風險：插管時間長、女性、太大號管子、創傷性插管。\n'+
+  '(C) ✘ 治療應使用「racemic epinephrine（消旋腎上腺素）吸入」——是「α-受體致效劑（agonist）」收縮黏膜血管、消水腫；不是 α-拮抗劑。同時可給靜脈 dexamethasone。\n'+
+  '(D) ✘ 「立即」再插管不正確，應先用霧化 epinephrine + 類固醇治療；若失敗或氣道完全阻塞才再插管（甚至需要更小尺寸或 fiberoptic guided）。\n\n'+
+  '預防：拔管前做 cuff-leak test（高風險者使用 dexamethasone 預防性給藥）。'
+];
+
 
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
@@ -2325,8 +2565,9 @@ async function openForm(id){
     if(_isSwitchingForm && !APP._skipPinReset){
       APP.teacherUnlocked=false;
     }
-    // 筆試後測 PIN：離開後測表單就重置（除非剛解鎖）
-    if(_isSwitchingForm && id!=='F-POST'){
+    // 筆試後測 PIN：只要離開 F-POST（切到任何其他表單），一律重置解鎖狀態
+    // 即便考生作答到一半，跳到其他表單再回來，仍需重新輸入 PIN（防止離座後旁人偷看）
+    if(_isSwitchingForm && APP.currentFormId==='F-POST' && id!=='F-POST'){
       APP.examUnlocked=false;
     }
     // 只有在真正切表單時才清旗標；同表單再次渲染保留旗標
@@ -4899,6 +5140,28 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         html+='</tr>';
       }
       html+='</table>';
+
+      // ── 後測：每題正解分析 ──
+      if(typeof EXAM_EXPLANATIONS!=='undefined' && EXAM_EXPLANATIONS && EXAM_EXPLANATIONS.length){
+        html+='<div class="section-head" style="page-break-before:always;">逐題正解分析</div>';
+        html+='<div style="font-size:9pt;color:#666;background:#EFF6FF;border-left:3px solid #1E40AF;padding:6px 10px;margin:6px 0;">';
+        html+='出題範疇參考：台灣考選部 — 專門職業及技術人員高等考試「呼吸治療師」歷屆試題類型整理。';
+        html+='</div>';
+        for(var ex=0; ex<EXAM_QUESTIONS.length; ex++){
+          var EQ = EXAM_QUESTIONS[ex];
+          var exText = EXAM_EXPLANATIONS[ex] || '';
+          if(!exText) continue;
+          html+='<div style="margin-bottom:14px;border:1px solid #BFDBFE;border-radius:5px;page-break-inside:avoid;">';
+          html+='<div style="background:#1E40AF;color:#fff;padding:5px 10px;font-weight:700;font-size:10.5pt;">第 '+(ex+1)+' 題　正解：'+EQ.answer+'</div>';
+          html+='<div style="padding:8px 12px;background:#F8FAFC;font-size:10pt;color:#1E293B;line-height:1.7;border-bottom:1px dashed #CBD5E1;">';
+          html+='<b style="color:#475569;">題目：</b>'+escapeExamHtml(EQ.q).replace(/\n/g,'<br>');
+          html+='</div>';
+          html+='<div style="padding:10px 12px;font-size:10pt;color:#1E293B;line-height:1.85;white-space:pre-wrap;background:#FFFFFF;">';
+          html+=escapeExamHtml(exText);
+          html+='</div>';
+          html+='</div>';
+        }
+      }
     }
 
     return html;
@@ -7534,11 +7797,25 @@ function _buildExamCommon(f, d, fid, mode){
     }
     h += '</div>';
 
-    // 後測作答後：顯示「您的答案 / 正確答案」摘要
+    // 後測作答後：顯示「您的答案 / 正確答案」摘要 + 解析
     if(submitted && mode==='post'){
       h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(255,255,255,0.7);border-radius:4px;font-size:11px;color:#374151;">';
       h += '您的答案：<b>'+(userAns||'（未作答）')+'</b>　｜　正確答案：<b style="color:#059669;">'+Q.answer+'</b>';
       h += '</div>';
+      // 正解分析（可摺疊）
+      var explainText = (typeof EXAM_EXPLANATIONS!=='undefined' && EXAM_EXPLANATIONS[qi]) ? EXAM_EXPLANATIONS[qi] : '';
+      if(explainText){
+        var detailId = 'exam-explain-'+fid+'-'+qnum;
+        h += '<details style="margin-top:8px;border:1px solid #BFDBFE;border-radius:6px;background:#EFF6FF;" id="'+detailId+'">';
+        h += '<summary style="cursor:pointer;padding:8px 12px;font-size:12px;font-weight:700;color:#1E40AF;list-style:none;display:flex;align-items:center;justify-content:space-between;">';
+        h += '<span>📖 正解分析（點擊展開／收合）</span>';
+        h += '<span style="font-size:10px;color:#64748B;font-weight:400;">出題範疇參考：台灣專技高考呼吸治療師</span>';
+        h += '</summary>';
+        h += '<div style="padding:12px 14px;border-top:1px solid #BFDBFE;background:#FFFFFF;font-size:12.5px;line-height:1.85;color:#1E293B;white-space:pre-wrap;">';
+        h += escapeExamHtml(explainText);
+        h += '</div>';
+        h += '</details>';
+      }
     }
     // 前測作答後：僅標示對／錯（不顯示正解）
     if(submitted && mode==='pre'){
