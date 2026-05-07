@@ -6854,21 +6854,38 @@ function buildDOPS(f,d,canT,fkey,canS){
   h+='<div class="field"><select data-fid="'+fid+'" data-key="score_grade" data-teacher="1" '+(canT?'':'disabled')+' onchange="'+scOC+'" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+(canT?'#fff':'var(--cream)')+';">';
   h+='<option value="">請選擇評分等級</option>'+gradeHtml2+'</select></div>';
   h+='</div></div>';
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">評量結果<span class="t-badge">老師</span></div></div><div class="card-body">';
-    h+='<div class="field"><label>評量結果<span class="t-badge">老師</span></label><div class="check-group">';
-    ['合格','不合格'].forEach(function(v){
-      var chk=(d['result']&&d['result']===v)?'checked':'';
-      var dis=!canT?'disabled':'';
-      var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['result']='"+v+"';saveDraftField('"+fid+"','result','"+v+"')";
-      h+='<label class="check-item"><input type="radio" name="'+f.id+'_result" '+chk+' '+dis+' onchange="'+oc+'" style="accent-color:var(--gold);"> '+v+'</label>';
-    });
-    h+='</div></div>';
-    h+='<div class="field"><label>學生自覺技術複雜度</label><div class="check-group">';['低','中','高'].forEach(function(v2){var c2=d['complexity']===v2?'checked':'';var o2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['complexity']='"+v2+"'";h+='<label class="check-item"><input type="radio" name="'+fid+'_cx" '+c2+' onchange="'+o2+'" style="accent-color:var(--gold);"> '+v2+'</label>';});h+='</div></div>';
-    h+='<div class="field"><label>學生對此技術操作的心得感受</label>'+ta(fid,'s_feeling',3,false)+'</div>';
-    h+=studentSignRow(fid,'s_sign');
-    h+='<div class="field"><label>老師回饋<span class="t-badge">老師</span></label>'+ta(fid,'t_fb',3,!canT)+'</div>';
-    h+=teacherSignRow(fid,'t_sign',canT);
-    h+='</div></div>';
+  // ── 學生區（藍底）──
+  h+='<div class="card" style="border:2px solid #93C5FD;background:#EFF6FF;"><div class="card-head" style="background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);"><div class="card-head-title" style="color:#fff;">👤 學生填寫區<span style="display:inline-block;font-size:10px;font-weight:400;background:rgba(255,255,255,.25);color:#fff;padding:2px 8px;border-radius:10px;margin-left:8px;">學生</span></div></div><div class="card-body" style="background:#F0F7FF;">';
+  // 學生自覺技術複雜度
+  h+='<div class="field"><label>學生自覺技術複雜度</label><div class="check-group">';
+  ['低','中','高'].forEach(function(v2){
+    var c2=d['complexity']===v2?'checked':'';
+    var o2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['complexity']='"+v2+"';saveDraftField('"+fid+"','complexity','"+v2+"')";
+    h+='<label class="check-item"><input type="radio" name="'+fid+'_cx" '+c2+' onchange="'+o2+'" style="accent-color:var(--blue);"> '+v2+'</label>';
+  });
+  h+='</div></div>';
+  // 學生對此技術操作的心得感受
+  h+='<div class="field"><label>學生對此技術操作的心得感受</label>'+ta(fid,'s_feeling',3,false)+'</div>';
+  // 學生簽名 + 簽名日期
+  h+=studentSignRow(fid,'s_sign');
+  h+='</div></div>';
+
+  // ── 老師區（紅底）──
+  h+='<div class="card" style="border:2px solid #FCA5A5;background:#FEF2F2;"><div class="card-head" style="background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);"><div class="card-head-title" style="color:#fff;">👨‍🏫 老師評核區<span style="display:inline-block;font-size:10px;font-weight:400;background:rgba(255,255,255,.25);color:#fff;padding:2px 8px;border-radius:10px;margin-left:8px;">老師</span></div></div><div class="card-body" style="background:#FFF5F5;">';
+  // 評量結果（合格/不合格）
+  h+='<div class="field"><label>評量結果<span class="t-badge">老師</span></label><div class="check-group">';
+  ['合格','不合格'].forEach(function(v){
+    var chk=(d['result']&&d['result']===v)?'checked':'';
+    var dis=!canT?'disabled':'';
+    var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['result']='"+v+"';saveDraftField('"+fid+"','result','"+v+"')";
+    h+='<label class="check-item"><input type="radio" name="'+f.id+'_result" '+chk+' '+dis+' onchange="'+oc+'" style="accent-color:#DC2626;"> '+v+'</label>';
+  });
+  h+='</div></div>';
+  // 老師回饋
+  h+='<div class="field"><label>老師回饋<span class="t-badge">老師</span></label>'+ta(fid,'t_fb',3,!canT)+'</div>';
+  // 老師簽名 + 簽名日期
+  h+=teacherSignRow(fid,'t_sign',canT);
+  h+='</div></div>';
   return h;
 }
 function setDOPS(fid,key,val,btn){
