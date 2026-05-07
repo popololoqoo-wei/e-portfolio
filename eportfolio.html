@@ -196,20 +196,53 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .card-head{background:linear-gradient(180deg,#F8FAFC 0%,#F1F5F9 100%);border-bottom:1px solid var(--border2);padding:11px 1.2rem;display:flex;align-items:center;gap:8px;}
 .card-head-title{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.2px;}
 .card-body{padding:1.2rem;}
-/* 學生卡片（淡藍底）／老師卡片（淡紅底）／混合卡片（中性） */
-.card.s-card{background:#F5F9FF;border-color:var(--blue-line);}
-.card.s-card .card-head{background:linear-gradient(180deg,#EFF6FF 0%,#DBEAFE 100%);border-bottom-color:var(--blue-line);}
-.card.s-card .card-head-title{color:#1E40AF;}
-.card.t-card{background:#FFF7F7;border-color:var(--red-line);}
-.card.t-card .card-head{background:linear-gradient(180deg,#FEF2F2 0%,#FEE2E2 100%);border-bottom-color:var(--red-line);}
-.card.t-card .card-head-title{color:#991B1B;}
-.card.m-card{background:linear-gradient(180deg,#F5F9FF 0%,#FFF7F7 100%);}
+
+/* ─── 統一配色標準 ───
+   學生區（藍）：邊框 #93C5FD、底色 #F0F7FF、標題列漸層 #3B82F6→#1D4ED8（白字）
+   老師區（紅）：邊框 #FCA5A5、底色 #FFF5F5、標題列漸層 #DC2626→#991B1B（白字）
+   這個色組是全站基準，所有「學生／老師」區塊都遵循，避免深淺不一。 */
+
+/* 學生卡片 */
+.card.s-card{background:#F0F7FF;border:2px solid #93C5FD;}
+.card.s-card .card-head{background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);border-bottom:none;}
+.card.s-card .card-head-title{color:#fff;}
+
+/* 老師卡片（手動加 class） */
+.card.t-card{background:#FFF5F5;border:2px solid #FCA5A5;}
+.card.t-card .card-head{background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);border-bottom:none;}
+.card.t-card .card-head-title{color:#fff;}
+
+/* 混合卡片（共同填寫） */
+.card.m-card{background:linear-gradient(180deg,#F0F7FF 0%,#FFF5F5 100%);}
 .card.m-card .card-head{background:linear-gradient(90deg,#DBEAFE 0%,#FEE2E2 100%);}
 .card.m-card .card-head-title{color:#1F2937;}
+
+/* ─── 自動套用「老師」配色：所有 card-head 內含 t-badge 的卡片，自動視為老師卡片 ───
+   不論 build 函式是否手動加上 .t-card class，只要標題列寫了 <span class="t-badge">老師</span>
+   就會自動上紅色配色。這樣未來新增的卡片不需特別處理。 */
+.card:not(.s-card):not(.m-card):has(.card-head .t-badge){
+  background:#FFF5F5;
+  border:2px solid #FCA5A5;
+}
+.card:not(.s-card):not(.m-card):has(.card-head .t-badge) > .card-head{
+  background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);
+  border-bottom:none;
+}
+.card:not(.s-card):not(.m-card):has(.card-head .t-badge) > .card-head .card-head-title{
+  color:#fff;
+}
+/* 在白色標題列中，t-badge 應該變成半透明白色才看得見 */
+.card.t-card .t-badge,
+.card:not(.s-card):not(.m-card):has(.card-head .t-badge) > .card-head .t-badge{
+  background:rgba(255,255,255,.25);
+  color:#fff;
+  border-color:rgba(255,255,255,.4);
+}
+
 /* 混合卡片內的學生／老師子區塊 */
-.s-block{background:#EFF6FF;border:1px solid var(--blue-line);border-radius:var(--r);padding:12px 14px;margin:10px 0;}
+.s-block{background:#F0F7FF;border:1px solid #93C5FD;border-radius:var(--r);padding:12px 14px;margin:10px 0;}
 .s-block-title{font-size:12px;font-weight:700;color:#1E40AF;margin-bottom:8px;letter-spacing:.2px;}
-.t-block{background:#FEF2F2;border:1px solid var(--red-line);border-radius:var(--r);padding:12px 14px;margin:10px 0;}
+.t-block{background:#FFF5F5;border:1px solid #FCA5A5;border-radius:var(--r);padding:12px 14px;margin:10px 0;}
 .t-block-title{font-size:12px;font-weight:700;color:#991B1B;margin-bottom:8px;letter-spacing:.2px;}
 
 /* ─── FIELDS ─── */
@@ -6925,13 +6958,13 @@ function buildDOPS(f,d,canT,fkey,canS){
   h+='<option value="">請選擇評分等級</option>'+gradeHtml2+'</select></div>';
   h+='</div></div>';
   // ── 學生區（藍底）──
-  h+='<div class="card" style="border:2px solid #93C5FD;background:#EFF6FF;"><div class="card-head" style="background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);"><div class="card-head-title" style="color:#fff;">👤 學生填寫區<span style="display:inline-block;font-size:10px;font-weight:400;background:rgba(255,255,255,.25);color:#fff;padding:2px 8px;border-radius:10px;margin-left:8px;">學生</span></div></div><div class="card-body" style="background:#F0F7FF;">';
+  h+='<div class="card s-card"><div class="card-head"><div class="card-head-title">👤 學生填寫區</div><span class="t-badge" style="background:rgba(255,255,255,.25);color:#fff;border-color:rgba(255,255,255,.4);">學生</span></div><div class="card-body">';
   // 學生自覺技術複雜度
   h+='<div class="field"><label>學生自覺技術複雜度</label><div class="check-group">';
   ['低','中','高'].forEach(function(v2){
     var c2=d['complexity']===v2?'checked':'';
     var o2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['complexity']='"+v2+"';saveDraftField('"+fid+"','complexity','"+v2+"')";
-    h+='<label class="check-item"><input type="radio" name="'+fid+'_cx" '+c2+' onchange="'+o2+'" style="accent-color:var(--blue);"> '+v2+'</label>';
+    h+='<label class="check-item"><input type="radio" name="'+fid+'_cx" '+c2+' onchange="'+o2+'" style="accent-color:#1E40AF;"> '+v2+'</label>';
   });
   h+='</div></div>';
   // 學生對此技術操作的心得感受
@@ -6941,7 +6974,7 @@ function buildDOPS(f,d,canT,fkey,canS){
   h+='</div></div>';
 
   // ── 老師區（紅底）──
-  h+='<div class="card" style="border:2px solid #FCA5A5;background:#FEF2F2;"><div class="card-head" style="background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);"><div class="card-head-title" style="color:#fff;">👨‍🏫 老師評核區<span style="display:inline-block;font-size:10px;font-weight:400;background:rgba(255,255,255,.25);color:#fff;padding:2px 8px;border-radius:10px;margin-left:8px;">老師</span></div></div><div class="card-body" style="background:#FFF5F5;">';
+  h+='<div class="card t-card"><div class="card-head"><div class="card-head-title">👨‍🏫 老師評核區</div><span class="t-badge">老師</span></div><div class="card-body">';
   // 評量結果（合格/不合格）
   h+='<div class="field"><label>評量結果<span class="t-badge">老師</span></label><div class="check-group">';
   ['合格','不合格'].forEach(function(v){
