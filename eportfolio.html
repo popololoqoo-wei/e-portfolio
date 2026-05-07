@@ -1390,6 +1390,8 @@ const FORMS=[
   {id:'F16',num:'貳拾陸',name:'Learning-Style 評估表',sub:'學習風格自我評估',roles:'student'},
   {id:'F-PRE',num:'筆試(前)',name:'筆試前測-重症呼吸照護實習',sub:'每題4分．25題．60分及格',roles:'student'},
   {id:'F-POST',num:'筆試(後)',name:'筆試後測-重症呼吸照護實習',sub:'每題4分．25題．60分及格',roles:'student'},
+  /* ─── 核心課程-課後測驗（每題10分．10題．60分及格．無PIN．題序固定） ─── */
+  {id:'F-CT01',num:'課後(1)',name:'課後測驗-ABG判讀（徐國軒醫師）',sub:'每題10分．10題．60分及格',roles:'student'},
 ];
 
 /* ─── 重症呼吸照護實習筆試考題（前測/後測共用） ─── */
@@ -1625,6 +1627,179 @@ const EXAM_PASS_SCORE = 60;
    解鎖／送出考卷時透過 GAS API 驗證與計分。
    前端只有題目文字與選項，沒有 answer 欄位。
 */
+
+/* ═══════════════════════════════════════════════════════════════════
+   核心課程-課後測驗：題庫定義
+   ─────────────────────────────────────────────────────────────────
+   • 每堂核心課程一份題庫（共 12 堂，目前提供第 1 堂：徐國軒醫師-ABG判讀）
+   • 每題 10 分，共 10 題，總分 100 分，及格 60 分
+   • 不需 PIN 解鎖、題目順序固定（不洗牌）
+   • 送出後立即顯示正確答案及解析（題目皆出自台灣考選部歷屆國考題）
+   • 答案與解析直接存於前端（與筆試前/後測不同）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 共用常數：每題 10 分、共 10 題、總分 100、及格 60 */
+const COURSE_TEST_PER_QUESTION_SCORE = 10;
+const COURSE_TEST_PASS_SCORE = 60;
+const COURSE_TEST_TOTAL_QUESTIONS = 10;
+
+/* 課後測驗：題庫總表（依表單 id 對應） */
+const COURSE_TEST_BANK = {
+  /* ─── F-CT01：徐國軒醫師 - ABG 判讀 ─── */
+  'F-CT01': {
+    title: '【課後筆試】講師：徐國軒 醫師　題目：ABG 判讀',
+    teacher: '徐國軒 醫師',
+    topic: 'ABG 判讀',
+    questions: [
+      {
+        q: '關於呼吸性酸中毒（respiratory acidosis）的動脈血氣體分析結果，下列敘述何者錯誤？',
+        options: {
+          A: '可分為急性呼吸性酸中毒及慢性呼吸性酸中毒',
+          B: '[HCO3⁻] 下降',
+          C: 'pH < 7.4',
+          D: 'PaCO2 上升'
+        },
+        answer: 'B',
+        explanation: '呼吸性酸中毒因肺泡換氣不足而導致 PaCO2 上升，pH 下降（< 7.4）。\n身體為了代償酸血症，腎臟會增加 HCO3⁻ 的再吸收，因此 [HCO3⁻] 應為「上升」（特別是慢性呼吸性酸中毒，腎臟代償約需 3～5 天達穩定）。\n選項 (B) 「[HCO3⁻] 下降」描述錯誤，故為正解。\n（A）正確：依時間長短可分為急性與慢性。\n（C）正確：呼吸性酸中毒 pH 必 < 7.4。\n（D）正確：PaCO2 上升是呼吸性酸中毒的主因。'
+      },
+      {
+        q: '呼吸性鹼中毒（respiratory alkalosis）時，血液中的 PaCO2 及 [HCO3⁻] 會如何變化？',
+        options: {
+          A: 'PaCO2 上升，[HCO3⁻] 上升',
+          B: 'PaCO2 下降，[HCO3⁻] 上升',
+          C: 'PaCO2 上升，[HCO3⁻] 下降',
+          D: 'PaCO2 下降，[HCO3⁻] 下降'
+        },
+        answer: 'D',
+        explanation: '呼吸性鹼中毒的成因為「過度換氣」導致 PaCO2 下降，pH 升高（> 7.45）。\n為了代償鹼血症，腎臟會降低 HCO3⁻ 的再吸收（增加 HCO3⁻ 排出），因此 [HCO3⁻] 也會「下降」。\n故正解為 (D)：PaCO2 ↓、[HCO3⁻] ↓。\n依 Henderson–Hasselbalch 方程式 pH = 6.1 + log([HCO3⁻] / (0.03 × PaCO2))：當 PaCO2 大幅下降時，[HCO3⁻] 也須同步下降以維持比值，此即代償機轉。'
+      },
+      {
+        q: '動脈血氣體分析 pH:7.57、PCO2:23 mmHg、HCO3⁻:22 mEq/L，下列判讀何者正確？',
+        options: {
+          A: '呼吸性鹼中毒無代償',
+          B: '呼吸性鹼中毒完全代償',
+          C: '呼吸性酸中毒不完全代償',
+          D: '代謝性酸中毒完全代償'
+        },
+        answer: 'A',
+        explanation: '判讀步驟：\n①pH=7.57 > 7.45 → 鹼中毒（alkalosis）。\n②PaCO2=23 mmHg < 35 → 為呼吸性病因（PaCO2 降低 → 呼吸性鹼中毒）。\n③HCO3⁻=22 mEq/L 仍在正常範圍 22～26，代表代謝端「尚未代償」。\n→ 故為「呼吸性鹼中毒，無代償（uncompensated respiratory alkalosis）」。\n若已部分代償，HCO3⁻ 應 < 22；若已完全代償，pH 應回到正常範圍 7.35～7.45。本題 pH 仍偏鹼且 HCO3⁻ 正常，故選 (A)。'
+      },
+      {
+        q: 'COPD 病人出院前抽了動脈血氣體分析如下：FiO2：room air，pH:7.45，PaO2:155 mmHg，PaCO2:35 mmHg，HCO3⁻:24 mEq/L。下列何者處置最合適？',
+        options: {
+          A: '資料有誤，應該重新執行動脈血氣體分析',
+          B: '病人有過度換氣',
+          C: '病況很好，可以順利出院',
+          D: '有靜脈血混進這個檢體'
+        },
+        answer: 'A',
+        explanation: '室內空氣（room air，FiO2≈0.21）下的 PaO2 不可能高達 155 mmHg。\n依肺泡氣體方程式：PAO2 = FiO2×(Patm−PH2O) − PaCO2/R = 0.21×(760−47) − 35/0.8 ≈ 150 − 44 ≈ 106 mmHg。\n正常 A-a gradient（年齡/4＋4）下，PaO2 通常 < PAO2，最高也只能略接近 100 mmHg。\n本題 PaO2=155 mmHg 已超過理論最高值，幾乎可確定為「採血或檢測有誤」（例如：採到動脈血但氣泡污染、採血器標示錯誤、機器異常等）。\n故正解為 (A)，應重新採檢。\n（D）若混入靜脈血，PaO2 應反而下降而非升高，故不合理。'
+      },
+      {
+        q: '意識清楚病人因持續呼吸短促至急診室，室內空氣之動脈血氣體分析 ABG 如下：pH:7.2，PaCO2:60 mmHg，PaO2:55 mmHg，HCO3⁻:23 mEq/L，下列敘述何者正確？',
+        options: {
+          A: '病人處於 respiratory alkalosis 狀態',
+          B: '病人處於 metabolic acidosis 狀態',
+          C: '可優先考慮使用非侵襲性正壓呼吸器',
+          D: '須立即插管'
+        },
+        answer: 'C',
+        explanation: '判讀：pH=7.2（酸血症）、PaCO2=60（升高）、HCO3⁻=23（正常）→ 急性呼吸性酸中毒合併第二型呼吸衰竭（hypercapnic respiratory failure），同時有低血氧（PaO2 55）。\n（A）錯：是 respiratory acidosis，不是 alkalosis。\n（B）錯：HCO3⁻ 正常，非代謝性酸中毒。\n（C）正確：病人意識清楚、呼吸驅力存在，是 NIV / NIPPV（如 BiPAP）的良好適應症，可避免插管，為「優先選擇」。\n（D）不正確：意識清楚、無分泌物無法處理、無上呼吸道阻塞，可先嘗試 NIV。若 NIV 失敗或意識惡化才考慮插管。\n→ 故選 (C)。'
+      },
+      {
+        q: '人體血液中的酸鹼平衡，會遵循下方所列之「亨德森-哈塞爾巴爾赫方程式」（Henderson-Hasselbalch equation）。若血液 pH ＝ 7.4，PaCO2 ＝ 40 mmHg 時，[HCO3⁻] 應為多少 mEq/L？',
+        options: {
+          A: '16',
+          B: '20',
+          C: '24',
+          D: '28'
+        },
+        answer: 'C',
+        explanation: 'Henderson-Hasselbalch 方程式：pH = 6.1 + log([HCO3⁻] / (0.03 × PaCO2))\n代入：7.4 = 6.1 + log([HCO3⁻] / (0.03 × 40))\n→ log([HCO3⁻]/1.2) = 1.3\n→ [HCO3⁻]/1.2 = 10^1.3 ≈ 20\n→ [HCO3⁻] ≈ 24 mEq/L\n這也是人體正常 ABG 數值（pH 7.4、PaCO2 40、HCO3⁻ 24）的標準三角關係，故正解為 (C)。'
+      },
+      {
+        q: '動脈血氣體分析若為呼吸性酸中毒無代償，HCO3⁻ 26 mEq/L，其酸鹼值與 PaCO2 mmHg 各為何？',
+        options: {
+          A: '7.25，45',
+          B: '7.42，53',
+          C: '7.30，55',
+          D: '7.20，50'
+        },
+        answer: 'C',
+        explanation: '呼吸性酸中毒無代償：pH < 7.35，PaCO2 > 45，HCO3⁻ 仍接近正常（22～26）。\n本題已知 HCO3⁻=26（接近正常上限，未代償）→ 須選 pH < 7.35 且 PaCO2 > 45 的組合。\n（A）pH 7.25, PaCO2 45：PaCO2 僅 45，未明顯上升，且若 HCO3=26 估算 pH 應更接近 7.35，pH 7.25 偏低，與「未代償」不太相符。\n（B）pH 7.42（正常）→ 不是酸中毒，淘汰。\n（C）pH 7.30、PaCO2 55：pH 偏酸、PaCO2 明顯升高、HCO3⁻ 維持正常，符合典型急性（無代償）呼吸性酸中毒，正解。\n（D）pH 7.20、PaCO2 50：以 Henderson-Hasselbalch 估算 HCO3⁻ 約 19，與題給 26 不一致。\n→ 故選 (C)。'
+      },
+      {
+        q: '當動脈血 pH 為 7.3，PaCO2 為 27 mmHg，此人可能是：',
+        options: {
+          A: '代謝性酸中毒',
+          B: '代謝性鹼中毒',
+          C: '呼吸性酸中毒',
+          D: '呼吸性鹼中毒'
+        },
+        answer: 'A',
+        explanation: '判讀：\n①pH=7.3 < 7.35 → 酸血症（acidosis）。\n②PaCO2=27 < 35 → PaCO2 下降。若為原發性呼吸問題，PaCO2 下降會造成「鹼中毒」而非酸中毒，故矛盾 → 病因不在呼吸端。\n③ 因此原因應為「代謝性酸中毒」，呼吸系統正在過度換氣以代償（呼出 CO2 試圖拉回 pH），故 PaCO2 下降。\n→ 正解 (A)：代謝性酸中毒（合併呼吸性代償）。\nWinter\'s formula 驗證：預期 PaCO2 = 1.5×HCO3⁻ + 8 ± 2，呼吸性代償方向正確。'
+      },
+      {
+        q: '呼吸性酸中毒（respiratory acidosis）時的動脈血氣體分析結果，最有可能是下列何種組合？',
+        options: {
+          A: 'PaCO2 上升，[HCO3⁻] 上升',
+          B: 'PaCO2 下降，[HCO3⁻] 上升',
+          C: 'PaCO2 上升，[HCO3⁻] 下降',
+          D: 'PaCO2 下降，[HCO3⁻] 下降'
+        },
+        answer: 'A',
+        explanation: '呼吸性酸中毒原發病因為 PaCO2 ↑（因肺泡換氣不足，CO2 蓄積）。\n身體為了代償酸血症，腎臟會增加 HCO3⁻ 再吸收，使 [HCO3⁻] ↑（特別是慢性病人，數天才完成代償）。\n→ 「PaCO2 ↑ 且 [HCO3⁻] ↑」為呼吸性酸中毒（多為慢性／部分至完全代償）最常見組合。\n→ 正解 (A)。\n（B）為呼吸性鹼中毒代償。（C）為混合性酸中毒（呼吸+代謝同時酸）少見組合。（D）為呼吸性鹼中毒。'
+      },
+      {
+        q: '有關動脈血氣體分析檢測，下列何者為直接測量？',
+        options: {
+          A: 'PaO2',
+          B: '鹼過多或減少（base excess/deficit）',
+          C: 'HCO3⁻',
+          D: '血紅素氧飽和度'
+        },
+        answer: 'A',
+        explanation: '血液氣體分析儀的「直接測量」（measured）參數通常只有三項：pH、PaO2、PaCO2（透過電極法直接讀取血液中的氫離子、氧分壓、二氧化碳分壓）。\n其他數值多為「計算值（calculated）」：\n• HCO3⁻：由 Henderson-Hasselbalch 公式從 pH 與 PaCO2 推算。\n• Base excess / deficit：由 pH、PaCO2、HCO3⁻ 推算。\n• SaO2（血紅素氧飽和度）：在多數氣血機是依氧解離曲線「估算」而得；若要直接測量需使用「co-oximeter」。\n→ 故選 (A) PaO2 為直接測量。'
+      }
+    ]
+  }
+  // ⚠ 之後再提供其他 11 堂課的題庫，依此格式新增即可（key 為 F-CT02、F-CT03 …）。
+};
+
+/* 取得課後測驗題庫資訊（含題目陣列） */
+function getCourseTestBank(fid){
+  // fid 可能是 'F-CT01' 或 'F-CT01_<sid>'，取出前綴
+  var bareId = String(fid||'').split('_')[0];
+  return COURSE_TEST_BANK[bareId] || null;
+}
+
+/* 課後測驗計分（前端直接計算，不需呼叫後端） */
+function _courseTestCalcScore(fid){
+  var bank = getCourseTestBank(fid);
+  if(!bank) return null;
+  var d = APP.formData[fid] || {};
+  var qs = bank.questions;
+  var correct = 0, wrongList = [], answered = 0;
+  for(var i=0; i<qs.length; i++){
+    var qNum = i + 1;
+    var u = String(d['q'+qNum]||'').toUpperCase();
+    var corr = String(qs[i].answer||'').toUpperCase();
+    if(u) answered++;
+    if(u === corr){
+      correct++;
+    } else {
+      // 答錯或未作答都算錯
+      wrongList.push(qNum);
+    }
+  }
+  return {
+    score: correct * COURSE_TEST_PER_QUESTION_SCORE,
+    correctCnt: correct,
+    wrongList: wrongList,
+    answered: answered,
+    total: qs.length
+  };
+}
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
 function getFormKey(id){
@@ -1965,6 +2140,9 @@ const REQUIRED_STUDENT_FIELDS = {
   // 筆試後測（25 題；同上）
   'F-POST': ['s_name','school','intern_cat','s_date','submitted']
     .concat(Array.from({length:25},function(_,i){return 'q'+(i+1);})),
+  // 核心課程-課後測驗 F-CT01：ABG 判讀（10 題；submitted=true 即代表已送出）
+  'F-CT01': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -2119,6 +2297,16 @@ function getStatus(id){
     return 'draft';
   }
 
+  // ── 核心課程-課後測驗（F-CT01 等）：以 submitted 標記為 done ──
+  if(typeof id==='string' && id.indexOf('F-CT')===0){
+    var ctSubVal=d['submitted'];
+    var ctIsSubmitted=(ctSubVal==='true'||ctSubVal===true);
+    var ctBasicReq=['s_name','school','intern_cat','s_date'];
+    var ctBasicOk=ctBasicReq.every(function(k){return checkField(k);});
+    if(ctIsSubmitted && ctBasicOk) return 'done';
+    return 'draft';
+  }
+
   // ── 一般表單：REQUIRED_STUDENT_FIELDS ──
   const req=(REQUIRED_STUDENT_FIELDS[id]||[]).slice();
 
@@ -2167,6 +2355,7 @@ function renderSidebar(){
     const groups=[
       {label:'學習風格',ids:['F16']},
       {label:'筆試評估',ids:['F-PRE','F-POST']},
+      {label:'核心課程-課後測驗',ids:['F-CT01']},
       {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
       {label:'個案報告',ids:['F13','F14']},
       {label:'DOPS',ids:['D01','D02','D03','D04']},
@@ -2196,6 +2385,7 @@ function renderSidebar(){
   const groups=[
     {label:'學習風格',ids:['F16']},
     {label:'筆試評估',ids:['F-PRE','F-POST']},
+    {label:'核心課程-課後測驗',ids:['F-CT01']},
     {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
@@ -2254,6 +2444,7 @@ function selectStudent(sid){
   const groups=[
     {label:'學習風格自我評估',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',ids:['F-PRE','F-POST']},
+    {label:'核心課程-課後測驗',ids:['F-CT01']},
     {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
@@ -2319,6 +2510,7 @@ function renderFormList(){
   const groups=[
     {label:'學習風格自我評估',count:'1份',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',count:'2份',ids:['F-PRE','F-POST']},
+    {label:'核心課程-課後測驗',count:'1份',ids:['F-CT01']},
     {label:'學習評估表單',count:'14份',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
@@ -5127,6 +5319,245 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 核心課程-課後測驗（F-CT01 等）
+  // 10 題單選 + 基本資料 + 分數結果 + 完整正解＋逐題解析
+  // ─ 與筆試前後測差異：題序固定（不洗牌）、無 PIN、答案存在前端、送出即揭露解析
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(typeof id==='string' && id.indexOf('F-CT')===0){
+    var ctBank = (typeof getCourseTestBank==='function') ? getCourseTestBank(id) : null;
+    if(!ctBank){
+      html += '<div style="color:#DC2626;padding:10px;">⚠ 找不到此份課後測驗的題庫設定</div>';
+      return html;
+    }
+    var ctQuestions = ctBank.questions;
+    var ctTotalQ = ctQuestions.length;
+    var ctPerQ = (typeof COURSE_TEST_PER_QUESTION_SCORE!=='undefined') ? COURSE_TEST_PER_QUESTION_SCORE : 10;
+    var ctPassLine = (typeof COURSE_TEST_PASS_SCORE!=='undefined') ? COURSE_TEST_PASS_SCORE : 60;
+
+    var ctSubmitted = (d['submitted']==='true' || d['submitted']===true);
+    var ctFinalScore = parseInt(d['final_score']||'0',10) || 0;
+    var ctCorrectCnt = parseInt(d['final_correct']||'0',10) || 0;
+    var ctAnsweredCnt = 0;
+    var ctUnansweredList = [];
+    for(var iCt=0; iCt<ctTotalQ; iCt++){
+      var ctUA = String(d['q'+(iCt+1)]||'').toUpperCase();
+      if(ctUA){ ctAnsweredCnt++; }
+      else{ ctUnansweredList.push(iCt+1); }
+    }
+    var ctWrongList = [];
+    try{
+      var ctRawW = d['wrong_list'];
+      if(typeof ctRawW==='string' && ctRawW){ ctWrongList = JSON.parse(ctRawW); }
+      else if(Array.isArray(ctRawW)){ ctWrongList = ctRawW; }
+    }catch(e){}
+    var ctWrongSet = {};
+    if(Array.isArray(ctWrongList)){
+      ctWrongList.forEach(function(n){ ctWrongSet[n] = true; });
+    }
+    var ctPassed = ctFinalScore >= ctPassLine;
+
+    // ── 課程資訊區（基本資料前的標題卡） ──
+    html += '<div class="section-head">課程資訊</div>';
+    html += '<table>';
+    html += pdfR('課程名稱', ctBank.title, false);
+    html += pdfR('授課講師', ctBank.teacher, false);
+    html += pdfR('課程主題', ctBank.topic, false);
+    html += pdfR('題目數量', ctTotalQ + ' 題（每題 ' + ctPerQ + ' 分，總分 100，及格 ' + ctPassLine + ' 分）', false);
+    html += '</table>';
+
+    // ── 基本資料 ──
+    html += '<div class="section-head">基本資料</div>';
+    html += '<table>';
+    html += pdfR('學生姓名', val('s_name')||studentName||'—', false);
+    html += pdfR('實習學校', val('school')||studentSchool||'—', false);
+    html += pdfR('實習類別', val('intern_cat')||'—', false);
+    html += pdfR('實習日期', cleanDate(val('s_date')), false);
+    html += '</table>';
+
+    // ── 作答狀態與分數 ──
+    html += '<div class="section-head">作答結果</div>';
+    html += '<table>';
+    if(ctSubmitted){
+      var ctStatusColor = ctPassed ? '#10B981' : '#EF4444';
+      var ctStatusBg = ctPassed ? '#ECFDF5' : '#FEF2F2';
+      var ctStatusText = ctPassed ? '✓ 及格' : '✗ 未達及格標準';
+      html += '<tr><td style="background:'+ctStatusBg+';font-weight:600;padding:8px 10px;border:1px solid #DDD;width:35%;font-size:11pt;color:'+ctStatusColor+';">測驗狀態</td>';
+      html += '<td style="background:'+ctStatusBg+';padding:8px 10px;border:1px solid #DDD;font-size:11pt;color:'+ctStatusColor+';font-weight:700;">已送出　'+ctStatusText+'</td></tr>';
+      html += '<tr><td style="background:'+ctStatusBg+';font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">總分</td>';
+      html += '<td style="background:'+ctStatusBg+';padding:8px 10px;border:1px solid #DDD;font-size:13pt;font-weight:700;color:'+ctStatusColor+';">'+ctFinalScore+' / 100 分</td></tr>';
+      html += '<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">答對題數</td>';
+      html += '<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+ctCorrectCnt+' / '+ctTotalQ+' 題（每題 '+ctPerQ+' 分）</td></tr>';
+      html += '<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">及格標準</td>';
+      html += '<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+ctPassLine+' 分</td></tr>';
+      if(val('submit_time')){
+        html += '<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">送出時間</td>';
+        html += '<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+val('submit_time')+'</td></tr>';
+      }
+    } else {
+      html += '<tr><td style="background:#FFFBEB;font-weight:600;padding:8px 10px;border:1px solid #DDD;width:35%;font-size:11pt;color:#92400E;">測驗狀態</td>';
+      html += '<td style="background:#FFFBEB;padding:8px 10px;border:1px solid #DDD;font-size:11pt;color:#92400E;font-weight:700;">尚未送出（草稿）</td></tr>';
+      html += '<tr><td style="background:#FAFBFF;font-weight:600;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">作答進度</td>';
+      html += '<td style="background:#FAFBFF;padding:8px 10px;border:1px solid #DDD;font-size:11pt;">'+ctAnsweredCnt+' / '+ctTotalQ+' 題</td></tr>';
+    }
+    html += '</table>';
+
+    // ── 題目作答列表 ──
+    html += '<div class="section-head">考題作答內容（共 '+ctTotalQ+' 題，每題 '+ctPerQ+' 分）</div>';
+    html += '<table style="font-size:10pt;">';
+    html += '<tr>';
+    html += '<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:6%;">題號</th>';
+    html += '<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;">題目與選項</th>';
+    html += '<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:11%;">您的答案</th>';
+    if(ctSubmitted){
+      html += '<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:11%;">正確答案</th>';
+    }
+    html += '<th style="background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid #DDD;text-align:center;width:9%;">結果</th>';
+    html += '</tr>';
+
+    for(var ctq=0; ctq<ctTotalQ; ctq++){
+      var ctQ = ctQuestions[ctq];
+      var ctqNum = ctq + 1;
+      var ctUserA = String(d['q'+ctqNum]||'').toUpperCase();
+      var ctCorrA = String(ctQ.answer||'').toUpperCase();
+      var ctIsWrong = ctSubmitted && (ctWrongSet[ctqNum]===true);
+      var ctIsCorrect = ctSubmitted && ctUserA && !ctIsWrong;
+      var ctUnanswered = !ctUserA;
+
+      var ctResultCell = '';
+      var ctRowBg = (ctqNum%2===0) ? '#FAFBFF' : '#FFFFFF';
+      if(ctSubmitted){
+        if(ctIsCorrect){
+          ctResultCell = '<span style="color:#059669;font-weight:700;">✓ 答對</span>';
+          ctRowBg = '#F0FDF4';
+        } else if(ctIsWrong && !ctUnanswered){
+          ctResultCell = '<span style="color:#DC2626;font-weight:700;">✗ 答錯</span>';
+          ctRowBg = '#FEF2F2';
+        } else if(ctUnanswered){
+          ctResultCell = '<span style="color:#92400E;font-weight:700;">— 未作答</span>';
+          ctRowBg = '#FFFBEB';
+        }
+      } else {
+        ctResultCell = ctUnanswered
+          ? '<span style="color:#9CA3AF;">—</span>'
+          : '<span style="color:#1E40AF;">已選</span>';
+      }
+
+      // 題目本體 + 4 選項
+      var ctqBlock = '<div style="font-weight:700;color:#1E40AF;margin-bottom:4px;">第 '+ctqNum+' 題.</div>';
+      ctqBlock += '<div style="white-space:pre-wrap;color:#111827;line-height:1.6;margin-bottom:6px;">'+escapeExamHtml(ctQ.q)+'</div>';
+      var ctOptKeys = ['A','B','C','D'];
+      for(var cto=0; cto<ctOptKeys.length; cto++){
+        var ctL = ctOptKeys[cto];
+        var ctOptTxt = ctQ.options[ctL];
+        var ctLineColor = '#374151', ctLineWeight = '400', ctLineBg = 'transparent', ctLineBorder = 'none';
+        var ctMarker = '';
+        if(ctSubmitted){
+          if(ctL === ctCorrA){
+            ctLineColor = '#065F46';
+            ctLineWeight = '700';
+            ctLineBg = '#D1FAE5';
+            ctLineBorder = '1px solid #10B981';
+            ctMarker = '　✓ 正解';
+          }
+          if(ctL === ctUserA && ctL !== ctCorrA){
+            ctLineColor = '#991B1B';
+            ctLineWeight = '700';
+            ctLineBg = '#FEE2E2';
+            ctLineBorder = '1px solid #EF4444';
+            ctMarker = '　← 您的選擇';
+          } else if(ctL === ctUserA && ctL === ctCorrA){
+            ctMarker = '　← 您的選擇';
+          }
+        } else {
+          if(ctL === ctUserA){
+            ctLineColor = '#1E40AF';
+            ctLineWeight = '700';
+            ctLineBg = '#DBEAFE';
+            ctMarker = '　← 已選';
+          }
+        }
+        ctqBlock += '<div style="padding:4px 8px;margin:2px 0;border-radius:3px;background:'+ctLineBg+';border:'+ctLineBorder+';color:'+ctLineColor+';font-weight:'+ctLineWeight+';font-size:10pt;line-height:1.5;">'
+          + '<b>('+ctL+')</b> '+escapeExamHtml(ctOptTxt)+ctMarker
+          + '</div>';
+      }
+
+      var ctUserAnsCell = ctUserA
+        ? '<span style="font-weight:700;color:'+(ctSubmitted ? (ctIsCorrect?'#059669':'#DC2626') : '#1E40AF')+';font-size:13pt;">'+ctUserA+'</span>'
+        : '<span style="color:#9CA3AF;">—</span>';
+
+      html += '<tr style="background:'+ctRowBg+';">';
+      html += '<td style="padding:6px 6px;border:1px solid #DDD;text-align:center;font-weight:700;font-size:11pt;color:#1E40AF;vertical-align:top;">'+ctqNum+'</td>';
+      html += '<td style="padding:8px 10px;border:1px solid #DDD;vertical-align:top;">'+ctqBlock+'</td>';
+      html += '<td style="padding:6px;border:1px solid #DDD;text-align:center;vertical-align:middle;">'+ctUserAnsCell+'</td>';
+      if(ctSubmitted){
+        html += '<td style="padding:6px;border:1px solid #DDD;text-align:center;vertical-align:middle;background:#ECFDF5;font-weight:700;color:#059669;font-size:13pt;">'+ctCorrA+'</td>';
+      }
+      html += '<td style="padding:6px;border:1px solid #DDD;text-align:center;vertical-align:middle;font-size:10pt;">'+ctResultCell+'</td>';
+      html += '</tr>';
+    }
+    html += '</table>';
+
+    // ── 完整正解總表（送出後顯示） ──
+    if(ctSubmitted){
+      html += '<div class="section-head">正確答案總表</div>';
+      html += '<table style="font-size:10pt;">';
+      html += '<tr>';
+      // 5 欄一列：題號 / 答案
+      for(var ctH=0; ctH<5; ctH++){
+        html += '<th style="background:#10B981;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:8%;">題號</th>';
+        html += '<th style="background:#10B981;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:7%;">答案</th>';
+        if(ctH<4) html += '<th style="background:#fff;border:none;width:1%;"></th>';
+      }
+      html += '</tr>';
+      // 2 列 × 5 題 = 10 題
+      var ctTotalRows = Math.ceil(ctTotalQ / 5);
+      for(var ctRR=0; ctRR<ctTotalRows; ctRR++){
+        html += '<tr>';
+        for(var ctCC=0; ctCC<5; ctCC++){
+          var ctQIdx = ctRR*5 + ctCC;
+          if(ctQIdx < ctTotalQ){
+            var ctRowAns = String(ctQuestions[ctQIdx].answer||'—');
+            html += '<td style="padding:4px 6px;border:1px solid #DDD;text-align:center;font-weight:700;color:#1E40AF;">'+(ctQIdx+1)+'</td>';
+            html += '<td style="padding:4px 6px;border:1px solid #DDD;text-align:center;font-weight:700;color:#059669;background:#F0FDF4;">'+ctRowAns+'</td>';
+          } else {
+            html += '<td style="padding:4px 6px;border:1px solid #DDD;background:#fff;"></td>';
+            html += '<td style="padding:4px 6px;border:1px solid #DDD;background:#fff;"></td>';
+          }
+          if(ctCC<4) html += '<td style="background:#fff;border:none;"></td>';
+        }
+        html += '</tr>';
+      }
+      html += '</table>';
+
+      // ── 逐題正解分析 ──
+      var ctHasAnyExp = ctQuestions.some(function(q){ return q.explanation; });
+      if(ctHasAnyExp){
+        html += '<div class="section-head" style="page-break-before:always;">逐題正解分析</div>';
+        html += '<div style="font-size:9pt;color:#666;background:#EFF6FF;border-left:3px solid #1E40AF;padding:6px 10px;margin:6px 0;">';
+        html += '出題範疇參考：台灣考選部歷屆國考題（專門職業及技術人員高等考試「呼吸治療師」歷屆試題）。';
+        html += '</div>';
+        for(var ctEx=0; ctEx<ctTotalQ; ctEx++){
+          var ctEQ = ctQuestions[ctEx];
+          var ctExText = String(ctEQ.explanation||'');
+          var ctExAns = String(ctEQ.answer||'—');
+          if(!ctExText) continue;
+          html += '<div style="margin-bottom:14px;border:1px solid #BFDBFE;border-radius:5px;page-break-inside:avoid;">';
+          html += '<div style="background:#1E40AF;color:#fff;padding:5px 10px;font-weight:700;font-size:10.5pt;">第 '+(ctEx+1)+' 題　正解：'+ctExAns+'</div>';
+          html += '<div style="padding:8px 12px;background:#F8FAFC;font-size:10pt;color:#1E293B;line-height:1.7;border-bottom:1px dashed #CBD5E1;">';
+          html += '<b style="color:#475569;">題目：</b>'+escapeExamHtml(ctEQ.q).replace(/\n/g,'<br>');
+          html += '</div>';
+          html += '<div style="padding:10px 12px;font-size:10pt;color:#1E293B;line-height:1.85;white-space:pre-wrap;background:#FFFFFF;">';
+          html += escapeExamHtml(ctExText);
+          html += '</div>';
+          html += '</div>';
+        }
+      }
+    }
+
+    return html;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // F16 Learning-Style 評估表
   // 70 題自我評估 → 7 種學習風格分數 → 雷達圖 + 主要風格
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -5674,6 +6105,8 @@ function buildFormBody(f,d,canT,formKey,canS){
     F16:buildF16,
     'F-PRE':buildExamPre,
     'F-POST':buildExamPost,
+    // 核心課程-課後測驗（每堂課一份；目前只有 F-CT01）
+    'F-CT01':buildCourseTest,
   };
   return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
@@ -8105,6 +8538,343 @@ function buildExamPost(f,d,canT,fkey,canS){
     return _buildExamPostPinGate(fid);
   }
   return _buildExamCommon(f, d, fid, 'post');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   核心課程-課後測驗 共用元件（F-CT01 等）
+   ─────────────────────────────────────────────────────────────────
+   • 不需 PIN 解鎖、題目順序固定（不洗牌）
+   • 每題 10 分、共 10 題、總分 100、及格 60
+   • 送出後立即在前端計分並顯示完整正解＋解析（題目皆來自台灣考選部歷屆國考題）
+   • 與筆試前/後測的差異：答案存在前端 COURSE_TEST_BANK，不需呼叫後端
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 點選某題某選項（課後測驗版） */
+function courseTestPick(fid, qnum, opt){
+  var d = APP.formData[fid] || {};
+  if(d.submitted==='true' || d.submitted===true){
+    toast('表單已送出，無法再修改答案');
+    return;
+  }
+  saveDraftField(fid, 'q'+qnum, opt);
+  // 重繪該題的選項按鈕
+  for(var i=0; i<4; i++){
+    var L = ['A','B','C','D'][i];
+    var btn = document.querySelector('button[data-coursetest-q="'+fid+'-'+qnum+'-'+L+'"]');
+    if(btn){
+      if(L === opt){
+        btn.style.background = '#2563EB';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#1E40AF';
+      } else {
+        btn.style.background = '#fff';
+        btn.style.color = 'var(--ink)';
+        btn.style.borderColor = 'var(--border)';
+      }
+    }
+  }
+  // 更新進度提示
+  var prog = document.getElementById('course-test-progress-'+fid);
+  if(prog){
+    var bank = getCourseTestBank(fid);
+    if(bank){
+      var cnt = 0;
+      for(var k=1; k<=bank.questions.length; k++){
+        if(d['q'+k]) cnt++;
+      }
+      prog.textContent = '已作答 ' + cnt + ' / ' + bank.questions.length + ' 題';
+    }
+  }
+}
+
+/* 送出課後測驗（學生按下「送出」）— 前端直接計分，不需後端 */
+function courseTestSubmit(fid){
+  var d = APP.formData[fid] || {};
+  if(d.submitted==='true' || d.submitted===true){
+    toast('此份測驗已送出');
+    return;
+  }
+  var bank = getCourseTestBank(fid);
+  if(!bank){
+    alert('找不到此份課後測驗的題庫');
+    return;
+  }
+
+  // 學生登入時自動帶入姓名／學校
+  if(APP.currentRole==='student' && APP.currentUser){
+    if(!APP.formData[fid]) APP.formData[fid] = {};
+    if(!APP.formData[fid].s_name && APP.currentUser.name){
+      APP.formData[fid].s_name = APP.currentUser.name;
+      try{ saveDraftField(fid,'s_name',APP.currentUser.name); }catch(e){}
+    }
+    if(!APP.formData[fid].school && APP.currentUser.school){
+      APP.formData[fid].school = APP.currentUser.school;
+      try{ saveDraftField(fid,'school',APP.currentUser.school); }catch(e){}
+    }
+    d = APP.formData[fid];
+  }
+
+  // 必填基本資料檢查
+  var missing = [];
+  if(!d.s_name) missing.push('學生姓名');
+  if(!d.school) missing.push('實習學校');
+  if(!d.intern_cat) missing.push('實習類別');
+  if(!d.s_date) missing.push('實習日期');
+  if(missing.length){
+    alert('請先填寫基本資料：' + missing.join('、'));
+    return;
+  }
+
+  // 統計未作答
+  var unanswered = [];
+  for(var i=1; i<=bank.questions.length; i++){
+    if(!d['q'+i]) unanswered.push(i);
+  }
+  var confirmMsg = '送出後將無法再修改答案。';
+  if(unanswered.length){
+    confirmMsg = '您尚有 ' + unanswered.length + ' 題未作答（第 ' + unanswered.join('、') +
+                 ' 題），這些題目將以「錯誤」計分。\n\n' + confirmMsg;
+  }
+  confirmMsg += '\n是否確定送出？';
+  if(!confirm(confirmMsg)) return;
+
+  // ★ 前端直接計分（與筆試後測不同——答案直接存於 COURSE_TEST_BANK）
+  var res = _courseTestCalcScore(fid);
+  if(!res){
+    toast('⚠ 計分失敗：找不到題庫');
+    return;
+  }
+
+  // 寫入結果
+  saveDraftField(fid,'submitted','true');
+  saveDraftField(fid,'final_score',String(res.score));
+  saveDraftField(fid,'final_correct',String(res.correctCnt));
+  saveDraftField(fid,'final_total',String(res.total));
+  saveDraftField(fid,'final_passed',(res.score>=COURSE_TEST_PASS_SCORE)?'true':'false');
+  saveDraftField(fid,'submit_time', new Date().toLocaleString('zh-TW',{hour12:false}));
+  saveDraftField(fid,'wrong_list', JSON.stringify(res.wrongList||[]));
+
+  toast('測驗已送出 ✓ 您的分數：' + res.score + ' 分');
+
+  try{
+    // 取得裸 id（去掉學號後綴）以呼叫 saveForm
+    var bareId = String(fid||'').split('_')[0];
+    saveForm(bareId);
+  }catch(e){ console.warn('courseTest saveForm failed:', e); }
+
+  setTimeout(function(){
+    var bareId2 = String(fid||'').split('_')[0];
+    if(typeof openForm==='function') openForm(bareId2);
+  }, 350);
+}
+
+/* 重置課後測驗（管理員/老師用） */
+function courseTestReset(fid){
+  if(APP.currentRole!=='admin' && APP.currentRole!=='teacher'){
+    toast('僅管理員或老師可重置測驗');
+    return;
+  }
+  if(!confirm('確定要重置此份課後測驗？學生將可重新作答。\n（原始分數紀錄會保留在歷史紀錄中）')) return;
+  var bank = getCourseTestBank(fid);
+  if(!APP.formData[fid]) APP.formData[fid] = {};
+  APP.formData[fid].submitted = '';
+  APP.formData[fid].final_score = '';
+  APP.formData[fid].final_correct = '';
+  APP.formData[fid].final_total = '';
+  APP.formData[fid].final_passed = '';
+  if(bank){
+    for(var i=1; i<=bank.questions.length; i++){
+      APP.formData[fid]['q'+i] = '';
+    }
+  }
+  saveDraftField(fid,'submitted','');
+  saveDraftField(fid,'final_score','');
+  saveDraftField(fid,'final_correct','');
+  if(bank){
+    for(var j=1; j<=bank.questions.length; j++){
+      saveDraftField(fid,'q'+j,'');
+    }
+  }
+  toast('測驗已重置，可重新作答');
+  setTimeout(function(){
+    var bareId = String(fid||'').split('_')[0];
+    if(typeof openForm==='function') openForm(bareId);
+  }, 200);
+}
+
+/* 課後測驗 builder：題目固定順序、無 PIN、送出後直接揭露正解+解析 */
+function buildCourseTest(f, d, canT, fkey, canS){
+  var fid = fkey || f.id;
+  var bank = getCourseTestBank(fid);
+  if(!bank){
+    return '<div class="card"><div class="card-body" style="color:#DC2626;">⚠ 找不到此份課後測驗的題庫設定（' + escapeExamHtml(f.id) + '）</div></div>';
+  }
+  var qs = bank.questions;
+  var totalQ = qs.length;
+  var perQ = COURSE_TEST_PER_QUESTION_SCORE;
+  var passLine = COURSE_TEST_PASS_SCORE;
+
+  var submitted = (d.submitted==='true' || d.submitted===true);
+
+  // 已送出的話，從 formData 讀取送出時保存的計分結果
+  var res = null;
+  var wrongSet = {};
+  if(submitted){
+    var sc = parseInt(d.final_score||'0',10) || 0;
+    var cc = parseInt(d.final_correct||'0',10) || 0;
+    var tt = parseInt(d.final_total||totalQ,10) || totalQ;
+    var wList = [];
+    try{
+      var rawW = d.wrong_list;
+      if(typeof rawW==='string' && rawW){ wList = JSON.parse(rawW); }
+      else if(Array.isArray(rawW)){ wList = rawW; }
+    }catch(e){ wList = []; }
+    if(Array.isArray(wList)){
+      wList.forEach(function(n){ wrongSet[n] = true; });
+    }
+    res = { score: sc, correctCnt: cc, total: tt, wrongList: wList };
+  }
+  var passed = res ? res.score >= passLine : false;
+
+  // ── 基本資料區（沿用筆試的 helper） ──
+  var h = basicInfoCard(fid, d, '');
+
+  // ── 課程資訊卡 ──
+  h += '<div class="card" style="border:1px solid #6366F1;">' +
+       '<div class="card-head" style="background:linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);">' +
+       '<div class="card-head-title" style="color:#fff;">📚 ' + escapeExamHtml(bank.title) + '</div></div>' +
+       '<div class="card-body" style="background:#EEF2FF;">' +
+       '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:#1E1B4B;">' +
+       '<div><b>授課講師：</b>' + escapeExamHtml(bank.teacher) + '</div>' +
+       '<div><b>課程主題：</b>' + escapeExamHtml(bank.topic) + '</div>' +
+       '<div><b>題數：</b>' + totalQ + ' 題</div>' +
+       '<div><b>計分：</b>每題 ' + perQ + ' 分（總分 100）</div>' +
+       '<div><b>及格：</b>' + passLine + ' 分</div>' +
+       '</div></div></div>';
+
+  // ── 結果摘要卡（送出後顯示） ──
+  if(submitted && res){
+    var bg = passed ? '#ECFDF5' : '#FEF2F2';
+    var bd = passed ? '#10B981' : '#EF4444';
+    var ic = passed ? '✅' : '❌';
+    var label = passed ? '及格' : '未達及格標準';
+    h += '<div class="card" style="border:2px solid '+bd+';">'+
+      '<div class="card-head" style="background:'+bd+';color:#fff;"><div class="card-head-title">'+ic+' 作答結果</div></div>'+
+      '<div class="card-body" style="background:'+bg+';">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:14px;">'+
+      '<div><b>分數：</b><span style="font-size:22px;font-weight:700;color:'+bd+';">'+res.score+'</span> / 100</div>'+
+      '<div><b>答對：</b>'+res.correctCnt+' / '+res.total+' 題</div>'+
+      '<div><b>狀態：</b><span style="color:'+bd+';font-weight:700;">'+label+'</span>（及格標準 '+passLine+' 分）</div>'+
+      (d.submit_time?'<div><b>送出時間：</b>'+d.submit_time+'</div>':'')+
+      '</div>';
+    h += '<div style="margin-top:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:13px;color:#1E3A8A;">'+
+         '<b>📖 正確答案與解析（送出後揭露）</b>'+
+         '<div style="margin-top:6px;font-size:12px;color:#1E40AF;">完整作答對照請見下方題目區，正解會以綠色框標示，並提供逐題解析。</div>'+
+         '</div>';
+    // 重置按鈕（管理員/老師可見）
+    if(APP.currentRole==='admin' || APP.currentRole==='teacher'){
+      h += '<div style="margin-top:12px;text-align:right;">'+
+        '<button onclick="courseTestReset(\''+fid+'\')" style="padding:6px 12px;background:#F59E0B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">🔄 重置測驗（允許重作）</button>'+
+        '</div>';
+    }
+    h += '</div></div>';
+  } else {
+    // 未送出：顯示作答進度
+    var c = 0;
+    for(var kk=1; kk<=totalQ; kk++){ if(d['q'+kk]) c++; }
+    h += '<div class="card"><div class="card-head"><div class="card-head-title">作答進度</div></div>'+
+      '<div class="card-body" style="font-size:13px;color:var(--ink2);">'+
+      '<div id="course-test-progress-'+fid+'" style="font-weight:600;color:#1E40AF;">已作答 '+c+' / '+totalQ+' 題</div>'+
+      '<div style="margin-top:6px;font-size:11px;color:var(--ink3);">每題 '+perQ+' 分，共 '+totalQ+' 題（總分 100 分），及格分數 '+passLine+' 分。</div>'+
+      '<div style="margin-top:4px;font-size:11px;color:var(--ink3);">送出後將自動計分並鎖定，無法再修改答案；同時揭露完整正解與解析。</div>'+
+      '</div></div>';
+  }
+
+  // ── 題目區（依固定順序） ──
+  h += '<div class="card"><div class="card-head"><div class="card-head-title">考題作答（共 '+totalQ+' 題，每題 '+perQ+' 分）</div></div><div class="card-body">';
+  for(var qi=0; qi<totalQ; qi++){
+    var Q = qs[qi];
+    var qnum = qi + 1;
+    var userAns = String(d['q'+qnum]||'').toUpperCase();
+    var corrAns = String(Q.answer||'').toUpperCase();
+    var isWrong = submitted && (wrongSet[qnum]===true);
+    var qBorder = '#E5E7EB';
+    var qBg = '#FFFFFF';
+    if(submitted){
+      qBorder = isWrong ? '#FCA5A5' : '#A7F3D0';
+      qBg = isWrong ? '#FEF2F2' : '#F0FDF4';
+    }
+    h += '<div style="margin-bottom:14px;padding:12px 14px;border:1px solid '+qBorder+';border-radius:8px;background:'+qBg+';">';
+    h += '<div style="font-size:13px;line-height:1.7;color:#111827;margin-bottom:8px;white-space:pre-wrap;"><b style="color:#1E40AF;">第 '+qnum+' 題.</b> '+escapeExamHtml(Q.q)+'</div>';
+    h += '<div style="display:flex;flex-direction:column;gap:6px;">';
+    var keys = ['A','B','C','D'];
+    for(var oi=0; oi<keys.length; oi++){
+      var L = keys[oi];
+      var optText = Q.options[L];
+      var selected = (userAns === L);
+      var isCorrectOpt = (submitted && L === corrAns);
+
+      var btnBg='#fff', btnColor='var(--ink)', btnBorder='var(--border)';
+      var marker = '';
+
+      if(selected){
+        btnBg = '#2563EB'; btnColor = '#fff'; btnBorder = '#1E40AF';
+      }
+      // 送出後：標示正解（綠色）；錯誤選擇用紅色
+      if(submitted){
+        if(isCorrectOpt){
+          btnBg = '#10B981'; btnColor = '#fff'; btnBorder = '#059669';
+          marker = ' ✓';
+        }
+        if(selected && !isCorrectOpt && isWrong){
+          btnBg = '#EF4444'; btnColor = '#fff'; btnBorder = '#DC2626';
+          marker = ' ✗';
+        }
+      }
+
+      var disabled = submitted ? 'disabled' : '';
+      var cur = 'cursor:'+(submitted?'not-allowed':'pointer')+';';
+      h += '<button '+disabled+' data-coursetest-q="'+fid+'-'+qnum+'-'+L+'" onclick="courseTestPick(\''+fid+'\','+qnum+',\''+L+'\')" '+
+        'style="text-align:left;padding:8px 12px;border:1.5px solid '+btnBorder+';border-radius:6px;background:'+btnBg+';color:'+btnColor+';font-size:13px;'+cur+'transition:all .15s;">';
+      h += '<b>('+L+')</b> '+escapeExamHtml(optText)+marker;
+      h += '</button>';
+    }
+    h += '</div>';
+
+    // 送出後：顯示「您的答案 / 正確答案」摘要 + 解析
+    if(submitted){
+      h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(255,255,255,0.7);border-radius:4px;font-size:11px;color:#374151;">';
+      h += '您的答案：<b>'+(userAns||'（未作答）')+'</b>　｜　正確答案：<b style="color:#059669;">'+(corrAns||'—')+'</b>';
+      h += '</div>';
+      // 正解分析（可摺疊）
+      var explainText = String(Q.explanation||'');
+      if(explainText){
+        h += '<details style="margin-top:8px;border:1px solid #BFDBFE;border-radius:6px;background:#EFF6FF;">';
+        h += '<summary style="cursor:pointer;padding:8px 12px;font-size:12px;font-weight:700;color:#1E40AF;list-style:none;display:flex;align-items:center;justify-content:space-between;">';
+        h += '<span>📖 正解分析（點擊展開／收合）</span>';
+        h += '<span style="font-size:10px;color:#64748B;font-weight:400;">出題範疇參考：台灣考選部歷屆國考題</span>';
+        h += '</summary>';
+        h += '<div style="padding:12px 14px;border-top:1px solid #BFDBFE;background:#FFFFFF;font-size:12.5px;line-height:1.85;color:#1E293B;white-space:pre-wrap;">';
+        h += escapeExamHtml(explainText);
+        h += '</div>';
+        h += '</details>';
+      }
+    }
+
+    h += '</div>';
+  }
+  h += '</div></div>';
+
+  // ── 送出按鈕（未送出時才顯示） ──
+  if(!submitted){
+    h += '<div class="card" style="border:2px dashed #FBBF24;background:#FFFBEB;">'+
+      '<div class="card-body" style="text-align:center;">'+
+      '<div style="font-size:13px;color:#92400E;margin-bottom:10px;">⚠ 確認所有答案後請按下送出。送出後將自動計分並揭露正解與解析，無法再修改。</div>'+
+      '<button onclick="courseTestSubmit(\''+fid+'\')" style="padding:10px 28px;background:linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.3);">📨 送出測驗並計算分數</button>'+
+      '</div></div>';
+  }
+
+  return h;
 }
 
 /* 後測 PIN 鎖屏 */
