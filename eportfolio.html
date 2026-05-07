@@ -6483,10 +6483,12 @@ function buildF13(f,d,canT,fkey,canS){
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   items.forEach(([key,label,max])=>{
     const cur=parseInt(d[key]||0)||0;
-    const oc=`(function(){var v=parseInt(this.value)||0;if(v>${max})v=${max};if(v<0)v=0;this.value=v;saveDraftField('${fid}','${key}',v);calcF13Score('${fid}');})(this)`;
+    // 用通用驗證函式：超分時跳警示 toast、視覺紅色閃一下、自動夾鉗到 0~max
+    const labelEsc = String(label).replace(/'/g,"\\'");
+    const oc=`validateScoreInput(this,'${fid}','${key}',${max},'${labelEsc}',calcF13Score)`;
     h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);">
       <span style="flex:1;font-size:12px;">${label}（滿分${max}分）</span>
-      <input type="number" min="0" max="${max}" value="${cur}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" data-teacher="1" onchange="${oc}" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
+      <input type="number" min="0" max="${max}" value="${cur}" ${!canT?'disabled':''} data-fid="${fid}" data-key="${key}" data-teacher="1" oninput="${oc}" onchange="${oc}" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:${!canT?'var(--cream)':'#fff'};color:var(--ink);">
     </div>`;
   });
   h+=`</div></div>`;
@@ -6508,6 +6510,70 @@ function buildF13(f,d,canT,fkey,canS){
 
   setTimeout(function(){calcF13Score(fid);},50);
   return h;
+}
+
+/* ─── 共用：評分欄位輸入驗證（超出最高分時跳警示並夾鉗到 0~max） ───
+   - 在 onchange 時呼叫，會檢查值並彈出 toast 提醒
+   - 自動把欄位值修正為「0 ≤ v ≤ max」
+   - 同時做防抖：同一個欄位連續錯誤輸入只跳一次警示
+*/
+window.__scoreWarnTimer = window.__scoreWarnTimer || {};
+function validateScoreInput(input, fid, key, max, label, calcFn){
+  if(!input) return;
+  var rawVal = String(input.value||'').trim();
+  // 允許空值（未填）
+  if(rawVal===''){
+    input.value = '';
+    saveDraftField(fid, key, '');
+    if(typeof calcFn==='function') try{ calcFn(fid); }catch(e){}
+    return;
+  }
+  var v = parseInt(rawVal, 10);
+  // 非數字 → 清掉
+  if(isNaN(v)){
+    input.value = '';
+    saveDraftField(fid, key, '');
+    if(typeof calcFn==='function') try{ calcFn(fid); }catch(e){}
+    return;
+  }
+  var origV = v;
+  var clamped = false;
+  // 上限：超過最高分
+  if(v > max){
+    v = max;
+    clamped = true;
+  }
+  // 下限：負數
+  if(v < 0){
+    v = 0;
+    clamped = true;
+  }
+  // 視覺反饋 + toast 警示
+  if(clamped && v !== origV){
+    // 紅色閃一下提示
+    var origBg = input.style.background;
+    var origBorder = input.style.border;
+    input.style.background = '#FEE2E2';
+    input.style.border = '2px solid #EF4444';
+    setTimeout(function(){
+      input.style.background = origBg;
+      input.style.border = origBorder;
+    }, 1200);
+    // 防抖：同一個欄位 800ms 內只跳一次
+    var warnKey = fid + '|' + key;
+    if(window.__scoreWarnTimer[warnKey]) clearTimeout(window.__scoreWarnTimer[warnKey]);
+    window.__scoreWarnTimer[warnKey] = setTimeout(function(){
+      delete window.__scoreWarnTimer[warnKey];
+    }, 800);
+    if(origV > max){
+      toast('⚠ '+(label||'此項')+' 最高分為 '+max+' 分，已自動修正為 '+max, false);
+    } else if(origV < 0){
+      toast('⚠ '+(label||'此項')+' 不可低於 0 分，已自動修正為 0', false);
+    }
+  }
+  input.value = v;
+  saveDraftField(fid, key, v);
+  if(typeof calcFn==='function') try{ calcFn(fid); }catch(e){}
 }
 
 function calcF13Score(fid){
@@ -6561,7 +6627,9 @@ function buildF14(f,d,canT,fkey,canS){
   items.forEach(function(item,i){
     var key='f14_sc_'+i;
     var cur=parseInt(d[key]||0)||0;
-    var oc="(function(){var v=parseInt(this.value)||0;if(v>"+item.max+")v="+item.max+";if(v<0)v=0;this.value=v;saveDraftField('"+fid+"','"+key+"',v);calcF14Score('"+fid+"');})(this)";
+    // 用通用驗證函式：超分時跳警示 toast、視覺紅色閃一下、自動夾鉗到 0~max
+    var labelEsc = String(item.label).replace(/'/g,"\\'");
+    var oc="validateScoreInput(this,'"+fid+"','"+key+"',"+item.max+",'"+labelEsc+"',calcF14Score)";
     h+='<tr>';
     // 分類欄：每個分類只在第一行顯示，rowspan 跨越同分類的所有項目
     if(!catRendered[item.cat]){
@@ -6570,7 +6638,7 @@ function buildF14(f,d,canT,fkey,canS){
     }
     h+='<td class="row-label" style="text-align:left;">'+item.label+'</td>';
     h+='<td style="text-align:center;color:var(--ink3);font-size:11px;">'+item.max+'</td>';
-    h+='<td style="text-align:center;"><input type="number" min="0" max="'+item.max+'" value="'+cur+'" '+(canT?'':'disabled')+' data-fid="'+fid+'" data-key="'+key+'" data-teacher="1" onchange="'+oc+'" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;text-align:center;background:'+(canT?'#fff':'var(--cream)')+';">分</td>';
+    h+='<td style="text-align:center;"><input type="number" min="0" max="'+item.max+'" value="'+cur+'" '+(canT?'':'disabled')+' data-fid="'+fid+'" data-key="'+key+'" data-teacher="1" oninput="'+oc+'" onchange="'+oc+'" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;text-align:center;background:'+(canT?'#fff':'var(--cream)')+';">分</td>';
     h+='</tr>';
   });
   h+='</table></div></div>';
