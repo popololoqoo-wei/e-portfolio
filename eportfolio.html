@@ -8046,20 +8046,24 @@ function renderAdmin(){
       </div>
     </div>
 
-    <!-- 筆試後測專用 PIN（與老師 PIN 獨立） -->
+    <!-- 筆試後測專用 PIN（與老師 PIN 獨立；同步至 GAS 伺服器） -->
     <div class="admin-card" style="border-color:#DC2626;">
-      <div class="admin-card-head" style="background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);">📝 筆試後測 PIN 碼設定（獨立）</div>
+      <div class="admin-card-head" style="background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);">📝 筆試後測 PIN 碼設定（即時同步至伺服器）</div>
       <div class="admin-card-body">
         <div style="font-size:12px;color:#7F1D1D;background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:10px 12px;margin-bottom:10px;line-height:1.7;">
           ⚠ 此 PIN 碼<b>專供「筆試後測－重症呼吸照護實習」</b>表單作答前解鎖使用，與一般「老師 PIN」<b>完全獨立</b>。<br>
           建議用於監考時控管：學生需向監考老師索取此 PIN 才能開始作答後測。
         </div>
+        <div style="font-size:11px;color:#1E40AF;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;padding:8px 10px;margin-bottom:10px;line-height:1.7;">
+          💡 <b>更新流程：</b>按下「更新」後，系統會要求輸入「<b>管理員密碼</b>」做身份驗證，新 PIN 會即時同步到 GAS 伺服器（<code>EXAM_PIN</code>）。<br>
+          <span style="color:#7F1D1D;">⚠ 首次使用前，需在 GAS 編輯器執行 <code>setupAdminPassword</code> 設定管理員密碼。</span>
+        </div>
         <div class="admin-row">
           <span style="font-size:12px;width:120px;">設定新後測 PIN：</span>
-          <input id="exam-pin-display" type="password" placeholder="請輸入新 PIN（4-16 碼）" maxlength="16" style="width:220px;">
+          <input id="exam-pin-display" type="password" placeholder="請輸入新 PIN（4-32 碼）" maxlength="32" style="width:220px;">
           <button class="btn-update" onclick="updateExamPIN()">更新</button>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;">🔒 PIN 碼以雜湊形式儲存，無法檢視原始值。若忘記請重新設定。</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;">🔒 PIN 直接寫入 GAS 後端 Script Properties，前端沒有保留原始 PIN。</div>
       </div>
     </div>
 
@@ -8289,17 +8293,50 @@ async function updatePIN(){
   }
 }
 async function updateExamPIN(){
-  const v=clipInput((document.getElementById('exam-pin-display').value||'').trim(), 16);
-  if(!v){ toast('請輸入新 PIN 碼', false); return; }
-  if(v.length<4){ toast('PIN 碼至少 4 碼', false); return; }
-  // 【安全】PIN 不存明文
-  APP.examPIN = 'h:' + (await sha256(v));
-  saveConfigToSheets();
-  toast('✓ 筆試後測 PIN 已更新（已雜湊化儲存）');
+  const newPin=clipInput((document.getElementById('exam-pin-display').value||'').trim(), 32);
+  if(!newPin){ toast('請輸入新 PIN 碼', false); return; }
+  if(newPin.length<4){ toast('PIN 碼至少 4 碼', false); return; }
+
+  // 【方案 A】同步更新到 GAS 後端
+  // 為避免任何人都能改 PIN，要求管理員輸入管理員密碼做身份驗證
+  var adminPwd = prompt('⚠ 此 PIN 將即時同步至伺服器（GAS 後端）。\n為避免未授權更動，請輸入「管理員密碼」確認身份：\n\n（這是您在 GAS 後端 setupAdminPassword 設定的密碼，與一般帳號密碼可不同）');
+  if(adminPwd===null) return;  // 使用者取消
+  adminPwd = (adminPwd||'').trim();
+  if(!adminPwd){ toast('未輸入管理員密碼，已取消',false); return; }
+
+  // 在前端先把管理員密碼雜湊化，再送到 GAS（GAS 有相同雜湊存放，不需明文比對）
+  toast('PIN 同步中…');
+  var adminPwdHash;
+  try{
+    adminPwdHash = await sha256(adminPwd);
+  }catch(e){
+    toast('密碼雜湊失敗：'+(e.message||e), false);
+    return;
+  }
+
+  // 呼叫 GAS examSetPin
+  try{
+    var apiResp = await _examCallApi('examSetPin', {
+      newPin: newPin,
+      adminPwdHash: adminPwdHash
+    });
+    if(!apiResp || !apiResp.ok){
+      toast('⚠ 同步失敗：'+((apiResp&&apiResp.error)||'伺服器無回應'), false);
+      return;
+    }
+    // 成功 → 同時更新前端 examPIN（保留向下相容，但實際以伺服器為準）
+    APP.examPIN = 'h:' + (await sha256(newPin));
+    saveConfigToSheets();
+    toast('✓ 筆試後測 PIN 已更新並同步至伺服器');
+  }catch(err){
+    toast('⚠ 連線後端失敗：'+(err.message||err), false);
+    return;
+  }
+
   var ep=document.getElementById('exam-pin-display');
   if(ep){
     ep.type='password';
-    ep.value='********';
+    ep.value='';
   }
 }
 async function updateAdminPwd(){
