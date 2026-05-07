@@ -12,6 +12,8 @@
 <style>
 :root{
   /* ─── 配色系統 v2 ─── 現代醫療專業風 ─── */
+  /* 頂列高度(全域使用 — sticky 表頭等需要參照) */
+  --topbar-h:     56px;
   /* 中性色（主背景與文字）*/
   --bg:           #F4F6FA;       /* 主背景：清爽灰藍 */
   --bg-soft:      #EAEEF5;       /* 次背景 */
@@ -118,6 +120,10 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .chip-a{background:rgba(255,255,255,.95);color:var(--gold);}
 .logout-btn{padding:6px 14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:var(--r);color:#fff;font-size:11px;cursor:pointer;transition:all .15s;font-weight:500;}
 .logout-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4);}
+
+/* ─── 全域 sticky 表頭(F16 學習風格 70 題等長表單用) ─── */
+/* 黏附在 topbar 下方,避免滑到下面題目時忘記欄位意義 */
+.sticky-th{position:sticky !important;top:var(--topbar-h) !important;z-index:5 !important;background:#1A3A5C;color:#fff;border:1px solid #DDD;border-bottom:2px solid #B8860B;box-shadow:0 2px 4px rgba(0,0,0,.15);}
 
 /* ─── BODY LAYOUT ─── */
 .app-body{display:flex;min-height:calc(100vh - 56px);}
@@ -9555,14 +9561,14 @@ function buildF16(f,d,canT,fkey,canS){
   h+='</div></div></div>';
 
   // ── 70 道題目 ──
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">學習風格自我評估（共 70 題）</div></div><div class="card-body" style="overflow-x:auto;">';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學習風格自我評估（共 70 題）</div></div><div class="card-body">';
   h+='<table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;">';
   h+='<thead><tr>';
-  h+='<th style="position:sticky;top:0;z-index:5;background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;border-bottom:2px solid #B8860B;text-align:center;width:48px;box-shadow:0 2px 4px rgba(0,0,0,.15);">#</th>';
-  h+='<th style="position:sticky;top:0;z-index:5;background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;border-bottom:2px solid #B8860B;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,.15);">題目敘述</th>';
-  h+='<th style="position:sticky;top:0;z-index:5;background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;border-bottom:2px solid #B8860B;text-align:center;width:80px;box-shadow:0 2px 4px rgba(0,0,0,.15);">0<br><span style="font-size:10px;font-weight:400;">不像</span></th>';
-  h+='<th style="position:sticky;top:0;z-index:5;background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;border-bottom:2px solid #B8860B;text-align:center;width:80px;box-shadow:0 2px 4px rgba(0,0,0,.15);">1<br><span style="font-size:10px;font-weight:400;">有點像</span></th>';
-  h+='<th style="position:sticky;top:0;z-index:5;background:#1A3A5C;color:#fff;padding:6px 8px;border:1px solid #DDD;border-bottom:2px solid #B8860B;text-align:center;width:80px;box-shadow:0 2px 4px rgba(0,0,0,.15);">2<br><span style="font-size:10px;font-weight:400;">很像</span></th>';
+  h+='<th class="sticky-th" style="padding:6px 8px;text-align:center;width:48px;">#</th>';
+  h+='<th class="sticky-th" style="padding:6px 8px;text-align:left;">題目敘述</th>';
+  h+='<th class="sticky-th" style="padding:6px 8px;text-align:center;width:80px;">0<br><span style="font-size:10px;font-weight:400;">不像</span></th>';
+  h+='<th class="sticky-th" style="padding:6px 8px;text-align:center;width:80px;">1<br><span style="font-size:10px;font-weight:400;">有點像</span></th>';
+  h+='<th class="sticky-th" style="padding:6px 8px;text-align:center;width:80px;">2<br><span style="font-size:10px;font-weight:400;">很像</span></th>';
   h+='</tr></thead><tbody>';
   for(var i=0; i<F16_QUESTIONS.length; i++){
     var qnum = i+1;
@@ -10784,7 +10790,21 @@ function renderAdmin(){
 // 頁面載入時自動從 Google Sheets 讀取最新帳號設定（不需要 OAuth）
 window.addEventListener('DOMContentLoaded', ()=>{
   autoLoadConfig();
+  // 量測 topbar 實際高度,寫入 CSS 變數讓 sticky 表頭(F16 等長表單)能黏在正確位置
+  setTopbarHeightVar();
 });
+
+/* 量測 topbar 實際高度,用於 sticky 表頭(支援手機版多行排版) */
+function setTopbarHeightVar(){
+  try{
+    var tb = document.querySelector('.topbar');
+    if(!tb) return;
+    var h = tb.offsetHeight || 56;
+    document.documentElement.style.setProperty('--topbar-h', h + 'px');
+  }catch(e){}
+}
+// 視窗縮放時重新量測(直橫向切換、視窗大小變化時)
+window.addEventListener('resize', function(){ setTopbarHeightVar(); });
 
 // 全域監聽所有 input/textarea/select 變更，立即更新 APP.formData 並存草稿
 document.addEventListener('change', function(e){
