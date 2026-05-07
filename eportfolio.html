@@ -162,6 +162,37 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .section-header:first-child{margin-top:0;}
 .section-header h2{font-family:var(--ff-serif);font-size:17px;font-weight:600;color:var(--ink);}
 .section-header span{font-size:11px;color:var(--ink3);background:var(--bg-soft);padding:3px 9px;border-radius:999px;}
+
+/* ─── 可摺疊群組(總覽用) ─── */
+.collapsible-group{margin:1.25rem 0;border:1px solid var(--border);border-radius:10px;background:var(--paper);overflow:hidden;transition:box-shadow .2s;}
+.collapsible-group:hover{box-shadow:var(--shadow-sm);}
+.collapsible-group.is-open{box-shadow:var(--shadow);}
+.collapsible-group:first-child{margin-top:0;}
+.collapsible-header{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;user-select:none;background:linear-gradient(180deg,var(--cream) 0%,var(--paper) 100%);border-bottom:1px solid transparent;transition:all .15s;}
+.collapsible-group.is-open .collapsible-header{border-bottom-color:var(--border2);background:linear-gradient(180deg,var(--cream) 0%,var(--cream) 100%);}
+.collapsible-header:hover{background:var(--cream);}
+.collapsible-caret{font-size:12px;color:var(--ink3);transition:transform .2s;flex-shrink:0;width:14px;text-align:center;font-weight:700;}
+.collapsible-group.is-open .collapsible-caret{transform:rotate(90deg);color:var(--primary);}
+.collapsible-title{flex:1;font-family:var(--ff-serif);font-size:15px;font-weight:600;color:var(--ink);}
+.collapsible-summary{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink3);}
+.collapsible-progress{display:inline-flex;align-items:center;gap:6px;background:var(--bg-soft);padding:3px 10px;border-radius:999px;font-weight:600;}
+.collapsible-progress-bar{width:50px;height:5px;background:var(--border2);border-radius:3px;overflow:hidden;display:flex;}
+.collapsible-progress-bar > div{height:100%;transition:width .4s;}
+.collapsible-progress-bar .pb-done{background:var(--green);}
+.collapsible-progress-bar .pb-draft{background:#7DD3FC;}
+.collapsible-status-tags{display:flex;gap:4px;flex-wrap:wrap;}
+.collapsible-status-tags .stag{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:600;line-height:1.4;}
+.collapsible-status-tags .stag-done{background:#DCFCE7;color:#166534;}
+.collapsible-status-tags .stag-draft{background:#E0F2FE;color:#075985;}
+.collapsible-status-tags .stag-new{background:#F1F5F9;color:#64748B;}
+.collapsible-status-tags .stag-allgood{background:#FEF3C7;color:#92400E;}
+.collapsible-body{display:none;padding:14px 16px 16px;}
+.collapsible-group.is-open .collapsible-body{display:block;animation:collFadeIn .25s ease-out;}
+@keyframes collFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.collapsible-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.collapsible-toolbar-actions{display:flex;gap:8px;}
+.collapsible-toolbar-btn{font-size:12px;padding:6px 12px;border:1px solid var(--border);background:var(--paper);border-radius:6px;cursor:pointer;color:var(--ink2);font-weight:500;transition:all .15s;}
+.collapsible-toolbar-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--cream);}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
 .form-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);padding:1rem 1.15rem;cursor:pointer;transition:all .2s;position:relative;box-shadow:var(--shadow-sm);}
 .form-card:hover{border-color:var(--primary);box-shadow:var(--shadow);transform:translateY(-2px);}
@@ -3845,13 +3876,22 @@ function selectStudent(sid){
     {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
     {label:'實習課程總評值',ids:['F15']},
   ];
+  // 工具列(全部展開/收起/智慧重設)
+  html += _collGrpRenderToolbar('studentOverview', null);
   groups.forEach(g=>{
-    html+=`<div class="section-header"><h2>${g.label}</h2></div><div class="form-grid">`;
+    const stats = _collGrpStats(g, function(id){ return getStudentFormStatus(id, sid); });
+    if(stats.total === 0) return; // 沒有任何表單就跳過
+    const VIEW_KEY = 'studentOverview';
+    const isOpen = _collGrpIsOpen(VIEW_KEY, g.label, stats);
+    const defOpen = _collGrpDefaultOpen(stats);
+    html += '<div class="collapsible-group'+(isOpen?' is-open':'')+'" data-vk="'+VIEW_KEY+'" data-grp="'+VIEW_KEY+':'+g.label+'" data-label="'+g.label+'" data-default-open="'+(defOpen?'1':'0')+'">';
+    html += _collGrpRenderHead(g, stats, isOpen);
+    html += '<div class="collapsible-body"><div class="form-grid">';
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStudentFormStatus(id,sid);
       const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中(未完成)':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
       html+=`<div class="form-card" onclick="openForm('${id}')">
         <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
@@ -3859,7 +3899,7 @@ function selectStudent(sid){
         <div class="form-card-meta"><span class="sidebar-dot ${dotC}" style="display:inline-block;"></span><span class="form-card-status">${stLabel}</span></div>
       </div>`;
     });
-    html+='</div>';
+    html+='</div></div></div>';
   });
   html+='</div>';
   mc.innerHTML=html;
@@ -3894,6 +3934,105 @@ function getStudentFormStatus(formId, sid){
 
 
 function renderMobileNav(){return;}
+
+
+/* ═══════════ 可摺疊群組(總覽用)— 共用工具 ═══════════ */
+/* 用 localStorage 記住每個 view+group 的展開/收起狀態,key 格式: collGrp:<viewKey>:<groupLabel> = '1'/'0' */
+function _collGrpKey(viewKey, groupLabel){ return 'collGrp:'+viewKey+':'+groupLabel; }
+function _collGrpRead(viewKey, groupLabel){
+  try{ return localStorage.getItem(_collGrpKey(viewKey, groupLabel)); }catch(e){ return null; }
+}
+function _collGrpWrite(viewKey, groupLabel, isOpen){
+  try{ localStorage.setItem(_collGrpKey(viewKey, groupLabel), isOpen?'1':'0'); }catch(e){}
+}
+/* 計算單一群組的進度統計(依目前角色 / 學生)
+ * statusFn(id) 由呼叫者傳入,回傳 'done'/'draft'/'new'
+ */
+function _collGrpStats(group, statusFn){
+  let done=0, draft=0, newF=0;
+  group.ids.forEach(function(id){
+    const f = findForm(id); if(!f) return;
+    const st = statusFn(id);
+    if(st==='done') done++;
+    else if(st==='draft') draft++;
+    else newF++;
+  });
+  const total = done + draft + newF;
+  return {done:done, draft:draft, newF:newF, total:total};
+}
+/* 是否預設展開:預設「全部收起」 — 點大標題才展開;但若使用者手動設過則尊重使用者選擇 */
+function _collGrpDefaultOpen(stats){ return false; }
+function _collGrpIsOpen(viewKey, groupLabel, stats){
+  const saved = _collGrpRead(viewKey, groupLabel);
+  if(saved === '1') return true;
+  if(saved === '0') return false;
+  return _collGrpDefaultOpen(stats);
+}
+/* 切換單一群組 */
+window.toggleCollGrp = function(viewKey, groupLabel){
+  const groupEl = document.querySelector('.collapsible-group[data-grp="'+CSS.escape(viewKey+':'+groupLabel)+'"]');
+  if(!groupEl) return;
+  const willOpen = !groupEl.classList.contains('is-open');
+  groupEl.classList.toggle('is-open', willOpen);
+  _collGrpWrite(viewKey, groupLabel, willOpen);
+};
+/* 全部展開 / 全部收起 / 智慧重設 */
+window.collGrpExpandAll = function(viewKey){
+  document.querySelectorAll('.collapsible-group[data-vk="'+CSS.escape(viewKey)+'"]').forEach(function(el){
+    el.classList.add('is-open');
+    _collGrpWrite(viewKey, el.getAttribute('data-label'), true);
+  });
+};
+window.collGrpCollapseAll = function(viewKey){
+  document.querySelectorAll('.collapsible-group[data-vk="'+CSS.escape(viewKey)+'"]').forEach(function(el){
+    el.classList.remove('is-open');
+    _collGrpWrite(viewKey, el.getAttribute('data-label'), false);
+  });
+};
+window.collGrpResetSmart = function(viewKey){
+  // 清除使用者手動偏好,改回「智慧預設」(未完成展開、全完成收起)
+  document.querySelectorAll('.collapsible-group[data-vk="'+CSS.escape(viewKey)+'"]').forEach(function(el){
+    const lbl = el.getAttribute('data-label');
+    try{ localStorage.removeItem(_collGrpKey(viewKey, lbl)); }catch(e){}
+    // 用元素上預先儲存的 default 屬性復原
+    const def = el.getAttribute('data-default-open') === '1';
+    el.classList.toggle('is-open', def);
+  });
+};
+/* 渲染單一群組頭部 — 標題 + 進度小條 + 狀態 chip */
+function _collGrpRenderHead(group, stats, isOpen){
+  const pct = stats.total > 0 ? Math.round(stats.done / stats.total * 100) : 0;
+  const draftPct = stats.total > 0 ? Math.round(stats.draft / stats.total * 100) : 0;
+  let chips = '';
+  if(stats.done > 0) chips += '<span class="stag stag-done">✅ '+stats.done+'</span>';
+  if(stats.draft > 0) chips += '<span class="stag stag-draft">✏️ '+stats.draft+'</span>';
+  if(stats.newF > 0) chips += '<span class="stag stag-new">⭕ '+stats.newF+'</span>';
+  if(stats.done === stats.total && stats.total > 0) chips = '<span class="stag stag-allgood">🎉 全部完成</span>';
+  return '<div class="collapsible-header" onclick="toggleCollGrp(this.parentElement.getAttribute(\'data-vk\'), this.parentElement.getAttribute(\'data-label\'))">'
+    + '<span class="collapsible-caret">▶</span>'
+    + '<span class="collapsible-title">'+escapeExamHtml(group.label)+'</span>'
+    + '<span class="collapsible-summary">'
+      + '<span class="collapsible-progress">'+stats.done+' / '+stats.total
+        + '<span class="collapsible-progress-bar">'
+          + '<span class="pb-done" style="width:'+pct+'%;"></span>'
+          + '<span class="pb-draft" style="width:'+draftPct+'%;"></span>'
+        + '</span>'
+      + '</span>'
+      + '<span class="collapsible-status-tags">'+chips+'</span>'
+    + '</span>'
+  + '</div>';
+}
+/* 渲染上方工具列(展開全部/收起全部/重設) */
+function _collGrpRenderToolbar(viewKey, sm){
+  return '<div class="collapsible-toolbar">'
+    + '<div style="font-size:12px;color:var(--ink3);">點擊群組標題即可展開／收起；預設全部收起,展開後系統會記住您的選擇</div>'
+    + '<div class="collapsible-toolbar-actions">'
+      + '<button class="collapsible-toolbar-btn" onclick="collGrpExpandAll(\''+viewKey+'\')">▼ 全部展開</button>'
+      + '<button class="collapsible-toolbar-btn" onclick="collGrpCollapseAll(\''+viewKey+'\')">▲ 全部收起</button>'
+      + '<button class="collapsible-toolbar-btn" onclick="collGrpResetSmart(\''+viewKey+'\')" title="清除手動展開記錄,回到「全部收起」預設">↺ 重設</button>'
+    + '</div>'
+  + '</div>';
+}
 
 
 /* ═══════════ FORM LIST ═══════════ */
@@ -3932,13 +4071,22 @@ function renderFormList(){
       </div>
     </div>
   </div>`;
+  // 工具列(全部展開/收起/智慧重設)
+  html += _collGrpRenderToolbar('formList', sm);
   groups.forEach(g=>{
-    html+=`<div class="section-header"><h2>${g.label}</h2><span>${g.count}</span></div><div class="form-grid">`;
+    const stats = _collGrpStats(g, function(id){ return getStatus(id); });
+    if(stats.total === 0) return;
+    const VIEW_KEY = 'formList';
+    const isOpen = _collGrpIsOpen(VIEW_KEY, g.label, stats);
+    const defOpen = _collGrpDefaultOpen(stats);
+    html += '<div class="collapsible-group'+(isOpen?' is-open':'')+'" data-vk="'+VIEW_KEY+'" data-grp="'+VIEW_KEY+':'+g.label+'" data-label="'+g.label+'" data-default-open="'+(defOpen?'1':'0')+'">';
+    html += _collGrpRenderHead(g, stats, isOpen);
+    html += '<div class="collapsible-body"><div class="form-grid">';
     g.ids.forEach(id=>{
       const f=findForm(id);if(!f)return;
       const st=getStatus(id);
       const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
+      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中(未完成)':'⭕ 未填寫';
       const stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
       const rolesTag=f.roles==='both'?`<span class="tag tag-both">學生＋老師</span>`:f.roles==='student'?`<span class="tag tag-student">學生填寫</span>`:`<span class="tag tag-teacher">老師填寫</span>`;
       html+=`<div class="form-card" onclick="openForm('${id}')">
@@ -3947,7 +4095,7 @@ function renderFormList(){
         <div class="form-card-meta">${rolesTag}<span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
       </div>`;
     });
-    html+='</div>';
+    html+='</div></div></div>';
   });
   html+='</div>';
   mc.innerHTML=html;
