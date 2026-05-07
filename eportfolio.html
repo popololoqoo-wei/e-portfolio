@@ -7936,7 +7936,8 @@ async function examPostUnlock(){
   var inp = document.getElementById('exam-pin-input');
   var msg = document.getElementById('exam-pin-msg');
   if(!inp || !msg) return;
-  var pin = clipInput(inp.value, 32);
+  // 同步 trim 前後空白，避免使用者誤輸入空白導致比對失敗
+  var pin = clipInput((inp.value||'').trim(), 32);
   if(!pin){
     msg.style.color='#DC2626';
     msg.textContent='請輸入 PIN 碼';
