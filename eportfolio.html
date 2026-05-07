@@ -662,6 +662,25 @@ let CONFIG_GID = localStorage.getItem('config_gid') || '0';
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzb7fqaZOdE-SC9rodO0nxITrRCA2OfWszIlWsMrUpqAl9KLy6WJd3g9_d4Xvx3Dt9K4Q/exec';
 
+/* ─── GAS 寫入 secret ───
+   這個值用於 saveForm/saveConfig API,防止任意第三方把 GAS 當成資料庫亂寫。
+   ⚠ 安全提醒:這個 secret 存在 HTML 中,並非完美防禦(熟練攻擊者仍可從 HTML 看到),
+      但能阻擋:
+      • 隨機掃描 GAS_URL 的 bot
+      • 不會 F12 的非技術使用者
+      • 一般網路爬蟲
+   要徹底安全需用 Google OAuth(較複雜)。
+   ── 設定方式 ──
+   1. 隨機產生一組長字串(建議 32 字元以上),例如:`Ka9j2mNvQrPxYhTzL3sBwE8fGuD6cVjA`
+   2. GAS 編輯器 → 專案設定 ⚙ → 指令碼屬性 → 新增屬性
+      名稱:WRITE_SECRET   值:(您剛才產生的字串)
+   3. 把同一個字串貼到下方 GAS_WRITE_SECRET 變數,讓兩端一致
+   4. 重新部署 GAS
+
+   ⚠ 若 GAS 端尚未設定 WRITE_SECRET,此值留空也能運作(向下相容),
+      但建議盡快設定以提升安全性。 */
+const GAS_WRITE_SECRET = '';  // ★ 請貼入您 GAS 設定的 WRITE_SECRET 值
+
 async function autoLoadConfig() {
   // 1. 先從 localStorage 讀取（速度最快，讓登入畫面立即可用）
   const local = localStorage.getItem('app_config');
@@ -1122,14 +1141,41 @@ async function doRegister(){
   const pwd=clipInput(document.getElementById('r-pwd').value, MAX_SHORT_LENGTH);
   const pwd2=clipInput(document.getElementById('r-pwd2').value, MAX_SHORT_LENGTH);
   const err=document.getElementById('r-err');
+
+  // 【安全】註冊頻率限制:每 5 分鐘最多註冊 3 個帳號(防自動化建大量假帳號)
+  try{
+    var now=Date.now();
+    var regLog=JSON.parse(localStorage.getItem('register_log')||'[]');
+    regLog=regLog.filter(function(t){return (now-t)<300000;});  // 5 分鐘內
+    if(regLog.length>=3){
+      err.textContent='⚠ 註冊次數過多，請 5 分鐘後再試';err.style.display='block';return;
+    }
+  }catch(e){}
+
   if(!sid||!name||!school||!pwd){err.textContent='請填寫所有欄位';err.style.display='block';return;}
   if(pwd.length<6){err.textContent='密碼至少6個字元';err.style.display='block';return;}
+  // 【安全】密碼長度上限,避免 DoS
+  if(pwd.length>64){err.textContent='密碼過長（上限 64 碼）';err.style.display='block';return;}
   if(pwd!==pwd2){err.textContent='兩次密碼不一致';err.style.display='block';return;}
   // 【安全】驗證學號格式（防止特殊字元、HTML 注入）
   if(!/^[A-Za-z0-9_-]+$/.test(sid)){err.textContent='學號只能包含英文字母、數字、底線或減號';err.style.display='block';return;}
+  // 【安全】學號長度檢查
+  if(sid.length<3 || sid.length>20){err.textContent='學號長度應為 3-20 碼';err.style.display='block';return;}
+  // 【安全】姓名只允許中英文、空格、撇號(O'Brien 之類)、連字號;不允許 < > & " 等可能 HTML 注入的字元
+  if(/[<>&"\\\/]/.test(name)){err.textContent='姓名包含不允許的特殊字元';err.style.display='block';return;}
   // 檢查學號是否已存在
   if(APP.students[sid]){err.textContent='此學號已被註冊，請聯繫管理員';err.style.display='block';return;}
   err.style.display='none';
+
+  // 記錄註冊時間
+  try{
+    var now2=Date.now();
+    var regLog2=JSON.parse(localStorage.getItem('register_log')||'[]');
+    regLog2=regLog2.filter(function(t){return (now2-t)<300000;});
+    regLog2.push(now2);
+    localStorage.setItem('register_log',JSON.stringify(regLog2));
+  }catch(e){}
+
   // 依管理需求：學生密碼以明文儲存
   APP.students[sid]={name,school,pwd:pwd,registeredAt:new Date().toISOString(),selfRegistered:true};
   // ★★★ 同步到 GAS，讓管理員後台看得到 ★★★
@@ -1183,7 +1229,25 @@ async function changeStudentPwd(){
   },50);
 }
 function doLogout(){
+  // 【安全】登出時清掉所有可能含他人帳號資料的 localStorage
+  // 這樣下一位使用同一台電腦的人無法從 F12 看到上一位的草稿、密碼等
+  try{
+    // app_config(含所有人密碼)— 學生不會有,但為了保險清掉
+    localStorage.removeItem('app_config');
+    // 表單草稿 — 不要把上一位學生的草稿留給下一位
+    localStorage.removeItem('form_drafts');
+    // 歷史紀錄
+    localStorage.removeItem('history_logs');
+    // 註冊頻率限制紀錄(避免影響下一位)— 保留(這是防濫用機制,不該被輕易清除)
+    // 失敗計次紀錄 — 保留
+  }catch(e){}
+
   APP.currentRole=null;APP.currentUser=null;APP.teacherUnlocked=false;APP.examUnlocked=false;APP.currentFormId=null;
+  // 也清除記憶體中的表單資料
+  APP.formData = {};
+  APP.historyLog = {};
+  // 注意:APP.students / APP.teachers / APP.adminPwd 等仍保留(下次登入時 autoLoadConfig 會重抓)
+
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app-screen').style.display='none';
   document.getElementById('login-screen').classList.add('active');
@@ -3112,7 +3176,9 @@ async function saveFormToSheets(id){
     formId: formKey,
     data: JSON.stringify(mergedData),
     history: JSON.stringify(deduped),
-    studentId: APP.currentRole==='student' ? APP.currentUser.sid : (APP.currentRole==='teacher'?APP.currentUser.card:'admin')
+    studentId: APP.currentRole==='student' ? APP.currentUser.sid : (APP.currentRole==='teacher'?APP.currentUser.card:'admin'),
+    // 【安全】帶上 WRITE_SECRET 通過 GAS 端身份驗證
+    secret: (typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET) ? GAS_WRITE_SECRET : ''
   };
   const configStr = JSON.stringify(payload);
   // Use iframe form submit
@@ -3529,12 +3595,16 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   function pdfR(label,v,isT){
     var bg=isT?'#FFF5F5':'#FAFBFF';
     var disp=(v===undefined||v===null||v==='')?'—':String(v);
-    return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:10pt;vertical-align:top;">'+label+'</td>'
-         +'<td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:10pt;white-space:pre-wrap;">'+disp+'</td></tr>';
+    // 【安全】HTML escape 防 XSS（學生/老師輸入的回饋、評語等不可信內容）
+    var safeLabel = (typeof esc==='function') ? esc(label) : String(label||'');
+    var safeDisp = (disp==='—') ? '—' : (typeof esc==='function' ? esc(disp) : String(disp));
+    return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:10pt;vertical-align:top;">'+safeLabel+'</td>'
+         +'<td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:10pt;white-space:pre-wrap;">'+safeDisp+'</td></tr>';
   }
   // 基本資料 section header
   function pdfSec(title){
-    return '<tr><td colspan="2" style="background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>';
+    var safeTitle = (typeof esc==='function') ? esc(title) : String(title||'');
+    return '<tr><td colspan="2" style="background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+safeTitle+'</td></tr>';
   }
   // 日期範圍清理：只填開始日期則只顯示開始日期；只填結束日期則只顯示結束日期
   function cleanDate(v){
@@ -8134,6 +8204,11 @@ async function examPostUnlock(){
 
 
 function renderAdmin(){
+  // 【安全】嚴格檢查當前角色為 admin,防止從 Console 直接呼叫繞過
+  if(APP.currentRole!=='admin'){
+    console.warn('renderAdmin called without admin role – blocked');
+    return;
+  }
   document.getElementById('sidebar').querySelectorAll('.sidebar-item').forEach(el=>el.classList.remove('active'));
   const mc=document.getElementById('main-content');
   let html=`<div class="admin-section">
@@ -8341,7 +8416,16 @@ const CONFIG_SHEET='_系統設定';
 async function saveConfigToSheets(){
   const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
   const configStr = JSON.stringify(config);
-  localStorage.setItem('app_config', configStr);
+
+  // 【安全】只有管理員才把完整 config 存進 localStorage（含所有學生明文密碼）
+  // 學生 / 老師登入時，localStorage 不存任何別人的帳號資料
+  // 這樣下一位使用同一台電腦的學生無法從 F12 看到別人的密碼
+  if(APP.currentRole==='admin'){
+    localStorage.setItem('app_config', configStr);
+  } else {
+    // 學生/老師：localStorage 中清掉舊的 app_config（如果之前管理員登入留下殘餘）
+    try{ localStorage.removeItem('app_config'); }catch(e){}
+  }
 
   try {
     // 每次建立全新的 iframe，避免重複使用問題
@@ -8369,6 +8453,15 @@ async function saveConfigToSheets(){
     inputAction.name = 'action';
     inputAction.value = 'saveConfig';
     form.appendChild(inputAction);
+
+    // 【安全】帶上 WRITE_SECRET 通過 GAS 端身份驗證
+    if(typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET){
+      const inputSecret = document.createElement('input');
+      inputSecret.type = 'hidden';
+      inputSecret.name = 'secret';
+      inputSecret.value = GAS_WRITE_SECRET;
+      form.appendChild(inputSecret);
+    }
 
     document.body.appendChild(form);
     form.submit();
@@ -8507,7 +8600,9 @@ async function clearCloudFormData(formKey){
         formId: formKey,
         data: '{}',           // 空資料覆蓋
         history: '[]',        // 空歷史紀錄覆蓋
-        studentId: 'admin_clear'
+        studentId: 'admin_clear',
+        // 【安全】帶上 WRITE_SECRET 通過 GAS 端身份驗證
+        secret: (typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET) ? GAS_WRITE_SECRET : ''
       };
       Object.entries(payload).forEach(function(entry){
         var k=entry[0], v=entry[1];
@@ -8691,6 +8786,11 @@ async function addStudent(){
   toast('✓ 已新增學生（預設密碼：123）');
 }
 function refreshStudentTable(){
+  // 【安全】只有管理員才能看到此表格(內含明文密碼)
+  if(APP.currentRole!=='admin'){
+    console.warn('refreshStudentTable blocked: not admin');
+    return;
+  }
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
@@ -8800,6 +8900,11 @@ async function addTeacher(){
   toast('✓ 已新增老師');
 }
 function refreshTeacherTable(){
+  // 【安全】只有管理員才能看到此表格(內含明文密碼)
+  if(APP.currentRole!=='admin'){
+    console.warn('refreshTeacherTable blocked: not admin');
+    return;
+  }
   const tbl=document.getElementById('teacher-table');if(!tbl)return;
   var orderedCards = getTeacherOrder();
   var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>';
