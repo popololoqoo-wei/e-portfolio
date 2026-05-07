@@ -138,6 +138,31 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   .admin-row{flex-wrap:wrap;}
   .rating-table th,.rating-table td{padding:4px 3px;font-size:10px;}
   .r-btn{width:24px;height:24px;font-size:9px;}
+
+  /* ─── 手機版 topbar:左區自動縮、右區可換行 ─── */
+  .topbar{padding:6px 10px;height:auto;min-height:52px;gap:8px;}
+  .topbar-left{flex:1;min-width:0;gap:6px;}
+  .topbar-title{font-size:13px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar-sub{font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topbar-right{flex-shrink:0;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .user-badge{font-size:10px;padding:3px 8px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .role-chip{font-size:9px;padding:2px 7px;}
+  .logout-btn{padding:4px 10px;font-size:10px;}
+
+  /* ─── 手機版 可摺疊群組工具列:換行+小尺寸 ─── */
+  .collapsible-toolbar{flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:10px;}
+  .collapsible-toolbar > div:first-child{font-size:11px;line-height:1.5;}
+  .collapsible-toolbar-actions{width:100%;}
+  .collapsible-toolbar-btn{flex:1;padding:7px 8px;font-size:11px;}
+
+  /* 群組標題在手機上多行排:標題列佔上、進度列佔下 */
+  .collapsible-header{flex-wrap:wrap;padding:10px 12px;gap:8px;}
+  .collapsible-title{font-size:13px;line-height:1.4;flex:1 1 calc(100% - 40px);}
+  .collapsible-summary{flex:1 1 100%;justify-content:flex-end;font-size:10px;}
+  .collapsible-progress{padding:2px 8px;font-size:10px;}
+  .collapsible-progress-bar{width:40px;height:4px;}
+  .collapsible-status-tags .stag{font-size:9px;padding:2px 6px;}
+  .collapsible-body{padding:10px 12px 12px;}
 }
 .mobile-nav{display:none;background:var(--paper);border-bottom:1px solid var(--border);padding:10px 12px;gap:6px;overflow-x:auto;align-items:center;position:sticky;top:56px;z-index:40;box-shadow:0 1px 3px rgba(15,23,42,.04);}
 .mobile-nav-btn{padding:7px 14px;border:1px solid var(--border);border-radius:999px;font-size:11px;white-space:nowrap;cursor:pointer;color:var(--ink2);background:#fff;flex-shrink:0;transition:all .15s;font-weight:500;}
@@ -4022,14 +4047,13 @@ function _collGrpRenderHead(group, stats, isOpen){
     + '</span>'
   + '</div>';
 }
-/* 渲染上方工具列(展開全部/收起全部/重設) */
+/* 渲染上方工具列(全部展開 / 全部收起) */
 function _collGrpRenderToolbar(viewKey, sm){
   return '<div class="collapsible-toolbar">'
-    + '<div style="font-size:12px;color:var(--ink3);">點擊群組標題即可展開／收起；預設全部收起,展開後系統會記住您的選擇</div>'
+    + '<div style="font-size:12px;color:var(--ink3);">點擊群組標題即可展開／收起；系統會記住您的選擇</div>'
     + '<div class="collapsible-toolbar-actions">'
       + '<button class="collapsible-toolbar-btn" onclick="collGrpExpandAll(\''+viewKey+'\')">▼ 全部展開</button>'
       + '<button class="collapsible-toolbar-btn" onclick="collGrpCollapseAll(\''+viewKey+'\')">▲ 全部收起</button>'
-      + '<button class="collapsible-toolbar-btn" onclick="collGrpResetSmart(\''+viewKey+'\')" title="清除手動展開記錄,回到「全部收起」預設">↺ 重設</button>'
     + '</div>'
   + '</div>';
 }
