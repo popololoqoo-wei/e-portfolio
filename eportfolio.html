@@ -1395,6 +1395,8 @@ const FORMS=[
   {id:'F-CT02',num:'課後(2)',name:'課後測驗-CXR判讀（歐偉凡醫師）',sub:'每題10分．10題．60分及格',roles:'student'},
   {id:'F-CT03',num:'課後(3)',name:'課後測驗-氧氣治療含HFNC與NIV（張維倫呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
   {id:'F-CT04',num:'課後(4)',name:'課後測驗-呼吸器常見故障排除（楊惠喬呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
+  {id:'F-CT05',num:'課後(5)',name:'課後測驗-ARDS介紹與呼吸治療處置（蕭傳威呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
+  {id:'F-CT06',num:'課後(6)',name:'課後測驗-呼吸器脫離（黃姿穎呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
 ];
 
 /* ─── 重症呼吸照護實習筆試考題（前測/後測共用） ─── */
@@ -2141,7 +2143,245 @@ const COURSE_TEST_BANK = {
       }
     ]
   }
-  // ⚠ 之後再提供其他 8 堂課的題庫，依此格式新增即可（key 為 F-CT05、F-CT06 …）。
+  ,
+  /* ─── F-CT05：蕭傳威 呼吸治療師 - 急性呼吸窘迫症候群（ARDS）介紹與呼吸治療處置 ─── */
+  'F-CT05': {
+    title: '【課後筆試】講師：蕭傳威 呼吸治療師　題目：急性呼吸窘迫症候群（ARDS）介紹與呼吸治療處置',
+    teacher: '蕭傳威 呼吸治療師',
+    topic: '急性呼吸窘迫症候群（ARDS）介紹與呼吸治療處置',
+    questions: [
+      {
+        q: '58 歲高血壓病人，因肺炎合併嚴重 ARDS 而使用葉克膜（ECMO）時，下列敘述何者「最不恰當」？',
+        options: {
+          A: '在肺復張（recruitment maneuver）或俯臥通氣等措施後，仍無法維持穩定狀態（為使用 ECMO 的時機）',
+          B: '應採取肺保護通氣策略，逐步降低潮氣容積到 4 mL/kg，目標維持 plateau pressure ＜ 35 cmH₂O',
+          C: '當病人胸部 X 光與肺順應性逐步改善，但氧合反而下降時，應考慮是否併發肺動脈血栓',
+          D: '氧合下降時，應確認葉克膜（ECMO）功能並及時更換'
+        },
+        answer: 'B',
+        explanation: '（B）描述「最不恰當」，正解。\nECMO 病人之肺保護策略目標 plateau pressure 應維持在「＜ 30 cmH₂O」（部分指引甚至建議 ≦ 25 cmH₂O 以使肺臟充分休息），而非「＜ 35 cmH₂O」。35 cmH₂O 已超過安全閾值，可能造成 barotrauma、VILI（呼吸器引起肺損傷），與 ECMO 之「ultra-protective ventilation」精神相悖。\n潮氣容積降至 4 mL/kg PBW 是正確方向（ECMO 期間 VT 可降至 3～4 mL/kg），但 plateau pressure 上限不應放寬到 35。\n（A）正確：依 EOLIA、CESAR 等試驗，ECMO 適應症之一即為「優化常規治療（含俯臥、recruitment、NMB）後仍無法維持氧合或通氣」。\n（C）正確：CXR 與 compliance 改善但氧合反而下降，提示新發 V/Q mismatch，須懷疑肺動脈血栓栓塞（PE）。\n（D）正確：ECMO 期間若氧合突然下降，應系統性檢查 ECMO 流量、氧合器、迴路、抗凝、再循環等，必要時更換氧合器。\n→ 故選 (B)。'
+      },
+      {
+        q: '下列何種病人發生急性呼吸窘迫症候群（ARDS）時，「最適合」用體外維生系統（extracorporeal support）來搶救？',
+        options: {
+          A: '嚴重慢性阻塞性肺病（severe chronic obstructive pulmonary disease）',
+          B: '第四期肺癌',
+          C: '多重器官衰竭（multisystemic organ failure）',
+          D: '溺水'
+        },
+        answer: 'D',
+        explanation: 'ECMO 適應症的核心原則為「可逆性病因（reversible cause）」 + 「短期支持期間預期肺功能可恢復」 + 「無嚴重多重器官衰竭」。\n（D）✅ 正確：溺水後 ARDS 屬於「急性、可逆」之肺損傷，年輕族群多無慢性器官衰竭，ECMO 期間多能恢復，存活預後良好，是 ECMO 最佳適應症之一。\n（A）嚴重 COPD：屬「慢性、不可逆」之肺結構破壞，ECMO 期間無法治癒，不建議列為 ECMO 標準適應症（除非作為肺移植 bridge）。\n（B）第四期肺癌：末期惡性疾病、預後差，屬 ECMO「相對禁忌症」。\n（C）多重器官衰竭：ECMO 主要支持心肺，無法逆轉其他器官衰竭，且死亡率極高，屬「相對禁忌症」（除非僅單一器官衰竭可逆）。\n→ 故選 (D)。\nECMO 禁忌症還包括：嚴重不可逆中樞神經損傷、嚴重出血傾向且無法控制、無法使用抗凝劑、年齡過大合併共病等。'
+      },
+      {
+        q: '有關神經肌肉阻斷劑（neuromuscular blocker, NMB）在 ARDS 的應用，下列敘述何者「錯誤」？',
+        options: {
+          A: '可以改善氧合（oxygenation）',
+          B: '可以改善肺部的順從性（compliance）',
+          C: '可以提高患者與呼吸器之間的協調性（synchrony）',
+          D: '輕度或中度的 ARDS 患者，儘早使用 NMB 可以縮短加護病房住院天數'
+        },
+        answer: 'D',
+        explanation: '（D）描述「錯誤」，正解。\nNMB 在 ARDS 的使用建議：依 ACURASYS（2010）、ROSE（2019）等大型 RCT 結果，NMB 之適應症限於「重度 ARDS（severe ARDS, P/F < 150）合併嚴重呼吸窘迫、人機不同步」之短期（48 小時內）使用。\n• 輕度／中度 ARDS（P/F ≧ 150）「不」建議常規早期使用 NMB — 並未證實能縮短 ICU 住院天數，反而可能增加 ICU acquired weakness（ICU-AW）等併發症。\n→ 故 (D) 錯誤，為正解。\n（A）正確：NMB 可消除呼吸肌活動 → 降低氧耗、改善氧合（特別是俯臥合併使用時）。\n（B）正確：NMB 可消除呼吸肌僵硬與 dyssynchrony → 改善胸壁順應性。\n（C）正確：完全消除自主呼吸 → 100% 同步，避免雙觸發、屏氣等不同步事件。\n→ 故選 (D)。'
+      },
+      {
+        q: '有關 2023 年急性呼吸窘迫症候群「新全球定義」的敘述，下列何者正確？',
+        options: {
+          A: '在 PEEP ≧ 5 cmH₂O 之情況下，P/F ratio（PaO₂/FiO₂ 比值）≦ 300',
+          B: '未使用 PEEP 前之 P/F ratio ≦ 300',
+          C: 'P/F ratio ≦ 200 稱為急性肺損傷（acute lung injury, ALI）',
+          D: 'PEEP ≧ 5 cmH₂O，SpO₂/FiO₂ ≦ 200，定義為重度 ARDS'
+        },
+        answer: 'D',
+        explanation: '2023 年 ARDS 新全球定義（New Global Definition of ARDS）相對於 2012 年柏林定義（Berlin definition）的主要更新：\n（D）✅ 正確：新定義納入「SpO₂/FiO₂（S/F ratio）」作為替代指標，便於資源不足或無法做 ABG 的場域使用。S/F ≦ 315 對應 P/F ≦ 300、S/F ≦ 235 對應 P/F ≦ 200、S/F ≦ 148 對應 P/F ≦ 100。新定義中：mild ARDS：S/F 235～315；moderate ARDS：S/F 149～234；severe ARDS：S/F ≦ 148（題目所述 ≦ 200 接近 severe 範圍，依新定義劃分為重度）。\n（A）「PEEP ≧ 5 cmH₂O 且 P/F ≦ 300」是 2012 柏林定義的描述（且需「插管使用呼吸器」），新全球定義已擴大納入 HFNC ≧ 30 L/min、NIV / CPAP ≧ 5 cmH₂O 之病人，故 (A) 不算「新」定義最完整描述。\n（B）柏林定義即要求 PEEP ≧ 5；新定義也保留此要求或 HFNC/NIV 等非插管支持，故 (B) 錯。\n（C）「acute lung injury（ALI）」一詞在 2012 柏林定義中已「廢除」，2023 新定義更不再使用此詞，故 (C) 錯。\n→ 故選 (D)。'
+      },
+      {
+        q: '下列哪個臨床常見措施已被證實對急性呼吸窘迫症候群「無幫助」？',
+        options: {
+          A: '維持較低的潮氣容積，設定每公斤預測體重 6 cc 進行設定',
+          B: '對於剛進展成 ARDS 且 P/F ratio 為 115 的病人執行俯臥通氣治療',
+          C: '對於無法配合呼吸器，且在 FiO₂ 100% 下，PaO₂ 只有 83 的病人，短暫給予肌肉鬆弛劑',
+          D: '為了讓肺泡擴張，針對均質性的肺浸潤的 ARDS 患者，更改成高頻震盪呼吸器'
+        },
+        answer: 'D',
+        explanation: '（D）描述「無幫助（甚至有害）」，正解。\n高頻震盪通氣（HFOV）在 ARDS 之臨床試驗結果：\n• OSCILLATE 試驗（2013）：HFOV 組死亡率「顯著高於」傳統低 VT 通氣組（47% vs 35%），試驗提早終止。\n• OSCAR 試驗（2013）：HFOV 與傳統通氣無差異。\n→ 結論：HFOV 在成人 ARDS「無益」、甚至「有害」，不再建議常規使用。\n（A）正確：低 VT（4～8 mL/kg PBW，典型 6 mL/kg）為 ARDSnet 證實能降低死亡率之核心策略。\n（B）正確：依 PROSEVA 試驗（2013），重度 ARDS（P/F < 150）早期俯臥 ≧ 16 小時可顯著降低死亡率。\n（C）正確：依 ACURASYS 試驗，重度 ARDS（P/F < 150）合併人機不同步時，短期 NMB 可改善預後。\n→ 故選 (D)。'
+      },
+      {
+        q: '下列那一種治療目前「尚未被證實」有益於急性呼吸窘迫症候群（ARDS）病人的存活率？',
+        options: {
+          A: '肺部保護性通氣（lung protective ventilation）',
+          B: '使用較高的吐氣末正壓（higher PEEP）',
+          C: '俯臥通氣（prone ventilation）',
+          D: '支氣管擴張劑（bronchodilator）'
+        },
+        answer: 'D',
+        explanation: '（D）✅ 支氣管擴張劑「尚未被證實」可改善 ARDS 存活率。\nALTA 試驗（β2-agonist albuterol）與 BALTI-2 試驗（IV salbutamol）皆顯示：常規使用支氣管擴張劑「不」能降低 ARDS 死亡率，BALTI-2 甚至因增加死亡率而提早停止試驗。\n→ ARDS 病人除非合併支氣管痙攣（如氣喘、COPD），不建議常規給予支氣管擴張劑。\n（A）肺保護通氣（VT 6 mL/kg PBW、Pplat ＜ 30）：ARMA／ARDSnet（2000）證實可降低死亡率約 9%，為 ARDS 治療「基石」。\n（B）較高 PEEP：ALVEOLI、LOVS、EXPRESS 等試驗顯示，對中／重度 ARDS（P/F ＜ 200）之 higher PEEP 策略有助降低死亡率。\n（C）俯臥通氣：PROSEVA 試驗（2013）證實重度 ARDS 早期 prone ≧ 16 hr/day 可顯著降低 28 天與 90 天死亡率。\n→ 故選 (D)。'
+      },
+      {
+        q: '有關急性呼吸窘迫症候群的「輔助治療」，下列敘述何者正確？',
+        options: {
+          A: '吸入性支氣管擴張劑可以加速清除肺泡內的發炎物質，縮短呼吸器的使用時間',
+          B: '類固醇可以減輕發炎反應，對需要使用葉克膜的重度 ARDS 患者，可以減少死亡率',
+          C: '吸入性血管擴張劑（例如一氧化氮）可以用在極重度 ARDS 患者，在銜接體外維生系統之前得以維持適當的氧合（oxygenation）',
+          D: '俯臥治療不適用於肥胖的患者'
+        },
+        answer: 'C',
+        explanation: '（C）✅ 正確：吸入性 NO（iNO）與吸入性 prostacyclin 屬「肺血管擴張劑」，能選擇性擴張通氣良好區域之肺血管，改善 V/Q matching → 短期改善氧合。雖然多項試驗顯示 iNO 不能改善 ARDS 存活率，但臨床上常作為「rescue therapy」用於極重度 ARDS、頑固性低血氧，作為「銜接 ECMO」之過渡治療。\n（A）錯：吸入性支氣管擴張劑無法清除發炎物質，亦未證實縮短 ARDS 病人呼吸器使用時間（見前題 ALTA、BALTI-2 試驗）。\n（B）錯：類固醇在 ARDS 之角色仍有爭議。雖有部分試驗（DEXA-ARDS、CoDEX）顯示中等劑量 dexamethasone 對 COVID-19 ARDS 有益，但對「使用 ECMO 的重度 ARDS」群體，並無明確證據顯示類固醇能降低死亡率。\n（D）錯：肥胖患者俯臥的氧合改善程度甚至「優於」非肥胖者（重力對肥胖患者腹部與胸壁影響較大）。雖技術操作較困難，但為適應症而非禁忌症。\n→ 故選 (C)。'
+      },
+      {
+        q: '有關急性呼吸窘迫症候群病人的「臨床照護」，下列敘述何者正確？',
+        options: {
+          A: '在急性呼吸窘迫症候群的急性期給予足量的灌食熱量，可降低死亡率',
+          B: '保守的輸液策略可以有較佳的氧合，以及縮短呼吸器的使用時間',
+          C: '使用 benzodiazepine 類鎮靜劑的急性呼吸窘迫症候群病人，之後較不會有記憶及認知功能的問題',
+          D: '使用 benzodiazepine 類鎮靜劑與譫妄的發生無關'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：依 FACTT 試驗（2006），ARDS 病人採「保守輸液策略（conservative fluid management）」相較「自由輸液策略」，可改善氧合（P/F ratio）、增加 ventilator-free days、縮短 ICU 住院天數，且不增加休克或腎衰竭發生率。\n（A）錯：EDEN 試驗（2012）顯示「初期低熱量灌食（trophic feeding, 約 25% 熱量需求）」與「全量灌食」對死亡率無差異，且全量灌食胃腸併發症較多。急性期 ARDS「不」建議積極追求全量熱量。\n（C）錯：Benzodiazepine（如 midazolam、lorazepam）是已知會增加 ICU 後譫妄、長期認知功能障礙、PTSD 之鎮靜劑，目前 PADIS 指引建議「避免」使用 BZD，改用 propofol 或 dexmedetomidine。\n（D）錯：BZD 是 ICU 譫妄的「獨立危險因子」，使用越多、越長、譫妄機率越高。\n→ 故選 (B)。'
+      },
+      {
+        q: '關於急性呼吸窘迫症候群，下列敘述何者「錯誤」？',
+        options: {
+          A: '最常見原因為感染症',
+          B: '病理表現主要為發炎反應',
+          C: 'PMN（polymorphonuclear neutrophil）細胞會釋放 protease、phospholipase、oxygen radicals 等物質，造成內皮及上皮細胞受損',
+          D: '重度急性呼吸窘迫症候群的病人，若只有單純的呼吸衰竭，應使用 VA-ECMO'
+        },
+        answer: 'D',
+        explanation: '（D）描述「錯誤」，正解。\nECMO 模式選擇原則：\n• VV-ECMO（venovenous）：用於「單純呼吸衰竭」，從靜脈引流、經氧合器後再回灌至靜脈，「保留」病人自身心血管功能。為 ARDS 標準 ECMO 模式。\n• VA-ECMO（venoarterial）：用於「合併心臟衰竭」（如心因性休克、心肌梗塞、心臟手術後），同時提供心肺支持，但會增加 LV afterload、血栓風險、肢體缺血等併發症。\n→ 對「單純呼吸衰竭」的重度 ARDS，標準應使用「VV-ECMO」而非 VA-ECMO。\n（A）正確：ARDS 最常見原因為「感染症」（特別是肺炎、敗血症），約佔 60～70%。\n（B）正確：ARDS 病理本質為「肺泡－微血管屏障破壞造成的瀰漫性發炎反應」，伴隨高蛋白滲出液、透明膜形成。\n（C）正確：嗜中性球（PMN）為 ARDS 早期主要發炎細胞，釋放蛋白酶、磷脂酶、氧自由基等造成肺泡上皮與血管內皮損傷。\n→ 故選 (D)。'
+      },
+      {
+        q: '下列何者「不屬於」急性呼吸窘迫症候群的機械通氣治療策略？',
+        options: {
+          A: '動脈血氧（PaO₂）愈高愈好',
+          B: '可允許性高碳酸血症（permissive hypercapnia）',
+          C: '低潮氣容積（low tidal volume）',
+          D: '低驅動壓力（low driving pressure）'
+        },
+        answer: 'A',
+        explanation: '（A）描述「不屬於 ARDS 通氣策略」，正解。\nARDS 通氣不追求高 PaO₂，而採「permissive hypoxemia（容許性低血氧）」策略：\n• 目標 PaO₂ 55～80 mmHg（SpO₂ 88～95%）即可，不需追求 PaO₂ ≧ 100。\n• 過度追求高 PaO₂ 會迫使提高 FiO₂、PEEP、VT，反而造成 oxygen toxicity、VILI、barotrauma 等。\n• LOCO₂ 試驗（2020）顯示，conservative oxygen（PaO₂ 55～70）與 liberal oxygen（PaO₂ 90～105）兩組死亡率相似，但保守組腸缺血較少。\n（B）正確策略：permissive hypercapnia — 為了限制 VT 與 Pplat，可容許 PaCO₂ 上升至 50～80 mmHg（pH ≧ 7.20～7.25）。\n（C）正確策略：低 VT（4～8 mL/kg PBW），ARDSnet 證實。\n（D）正確策略：低驅動壓力（ΔP ＜ 15 cmH₂O），Amato（2015）證實與死亡率高度相關。\n→ 故選 (A)。'
+      }
+    ]
+  }
+  ,
+  /* ─── F-CT06：黃姿穎 呼吸治療師 - 呼吸器脫離 ─── */
+  'F-CT06': {
+    title: '【課後筆試】講師：黃姿穎 呼吸治療師　題目：呼吸器脫離',
+    teacher: '黃姿穎 呼吸治療師',
+    topic: '呼吸器脫離',
+    questions: [
+      {
+        q: '下列關於「淺快呼吸指數（rapid shallow breathing index, RSBI）」用於呼吸器脫離參數的敘述，何者「錯誤」？',
+        options: {
+          A: '是以每分鐘呼吸次數除以潮氣容積（單位為公升）計算而得',
+          B: '呼吸器使用越久，尤其是超過 3 週，所測得準確度越高',
+          C: '年齡越大，準確度會降低',
+          D: '需在 1 分鐘以無支持性自發呼吸狀況下測量；在使用壓力支持模式下測得，準確度將會降低'
+        },
+        answer: 'B',
+        explanation: '（B）描述「錯誤」，正解。\nRSBI 的準確度在「機械通氣使用較『短』」時最高（如 ≦ 1～2 週）；當呼吸器使用「越久」（特別是 ≧ 3 週、屬於 prolonged mechanical ventilation, PMV），呼吸肌肉萎縮、吸氣肌力下降、神經肌肉適應改變，使 RSBI 預測脫離的準確度「下降」（敏感度與特異度均較差）。\n→ 故 (B) 「使用越久，準確度越高」描述錯誤，為正解。\n（A）正確：RSBI = f / VT（單位 breaths/min/L），標準計算方式。\n（C）正確：高齡患者呼吸肌力與肺彈性下降，RSBI 預測能力下降。\n（D）正確：RSBI 必須在「完全無支持」（T-piece 或 minimal CPAP）下測量 1 分鐘；若在 PSV 下測量，吸氣支持會使 VT 上升、RSBI 假性偏低，造成「偽陰性」（看似可脫離但實際失敗）。\n→ 故選 (B)。\n臨床補充：RSBI ＜ 105 為脫離成功預測指標（Yang & Tobin, 1991）。'
+      },
+      {
+        q: '脫離呼吸器過程，那些狀況是「明顯呼吸窘迫」現象，應即時停止？\n①意識改變　②呼吸次數增減超過 20%　③心跳增減超過 20%　④血壓增減超過 20%',
+        options: {
+          A: '①+②+③+④',
+          B: '①+②+③',
+          C: '①+③',
+          D: '①+②'
+        },
+        answer: 'C',
+        explanation: '依 SBT 失敗判斷標準（國考傳統題型答案）：\n①✅ 意識改變（agitation、煩躁、嗜睡、昏迷）— 為立即停止 SBT 的明確指標。\n②❌ 呼吸次數增減 20% — 標準 SBT 失敗閾值為「RR ＞ 35 次／分」或「增加 ＞ 50%」，並非單純「增減 20%」。\n③✅ 心跳增減超過 20%（HR ＞ 140 或變化 ＞ 20%）— 為 SBT 失敗指標。\n④❌ 血壓增減 20% — 標準閾值為「SBP ＞ 180 或 ＜ 90 mmHg」或「需要升壓劑」，非單純 20% 變化。\n→ ①③ 為標準明確 SBT 失敗判定條件，故選 (C)。\n\n📌 SBT 失敗的標準綜合判斷指標包括：意識變差、躁動、出汗、發紺、使用呼吸輔助肌、呼吸窘迫、SpO₂ ＜ 90%、PaCO₂ 上升 ＞ 8 mmHg、pH ＜ 7.32、RR ＞ 35、HR ＞ 140 或大幅波動、新發心律不整、SBP ＞ 180 或 ＜ 90。'
+      },
+      {
+        q: '有關呼吸器脫離失敗原因，下列敘述何者「錯誤」？',
+        options: {
+          A: '年紀越大越容易失敗',
+          B: '男性患者比女性容易失敗',
+          C: '內科患者比外科患者容易失敗',
+          D: '使用機械通氣時間越久越容易失敗'
+        },
+        answer: 'B',
+        explanation: '（B）描述「錯誤」，正解。\n依多項脫離失敗預測研究（含台灣國考標準題庫）：\n• 「女性」患者較「男性」更容易脫離失敗，可能原因包含：\n　─ 女性呼吸道徑相對較小、ETT 相對狹窄 → 阻力較高。\n　─ 呼吸肌肉量較小、呼吸力儲備較低。\n　─ 部分研究指出女性自我感受呼吸困難程度較高。\n→ 故 (B) 「男性比女性容易失敗」反向描述，為錯誤敘述。\n（A）正確：高齡患者呼吸肌力下降、共病多、營養差，脫離失敗率較高。\n（C）正確：內科患者多為慢性病、共病複雜、感染、敗血症等，較難脫離；外科患者（尤其術後恢復順利者）相對單純，脫離成功率高。\n（D）正確：機械通氣時間越長 → 呼吸肌萎縮（VIDD, ventilator-induced diaphragm dysfunction）→ 脫離越困難。一般 ＞ 14 天定義為「prolonged weaning」、＞ 21 天為「prolonged mechanical ventilation」。\n→ 故選 (B)。'
+      },
+      {
+        q: '60 kg 病人，下列那一個參數表示病人「可脫離」呼吸器？',
+        options: {
+          A: '每分鐘通氣量：16 L/min',
+          B: '潮氣容積：200 mL',
+          C: '淺快呼吸指數（rapid shallow breathing index, RSBI）：90',
+          D: '最大吸氣壓力（Pimax）：−10 cmH₂O'
+        },
+        answer: 'C',
+        explanation: '逐項套用脫離指標標準值（60 kg 病人）：\n（A）每分鐘通氣量（VE）≦ 10～15 L/min 為脫離指標（過高代表通氣需求大）。本題 16 L/min ＞ 15，「不符」脫離條件。\n（B）潮氣容積（VT）≧ 5 mL/kg = 60 × 5 = 300 mL 為脫離指標。本題 200 mL ＜ 300，「不符」。\n（C）✅ RSBI（f/VT，單位 breaths/min/L）＜ 105 為脫離成功預測指標（Yang & Tobin, 1991）。本題 90 ＜ 105，「符合」可脫離條件，正解。\n（D）最大吸氣壓力（Pimax / MIP / NIF）「絕對值」應 ≧ 20～30 cmH₂O（即 ＜ −20 至 −30 cmH₂O，越負代表越強）為脫離指標。本題 −10 cmH₂O 絕對值僅 10，吸氣肌力過弱，「不符」。\n→ 故選 (C)。\n\n📌 常用脫離指標總整理：VE ≦ 10～15 L/min、VT ≧ 5 mL/kg、f ≦ 25/min、RSBI ＜ 105、Pimax ＜ −20～−30 cmH₂O、VC ≧ 10～15 mL/kg、P/F ≧ 200、PEEP ≦ 5～8 cmH₂O、FiO₂ ≦ 0.4～0.5。'
+      },
+      {
+        q: '下列那些因素代表病人可以準備脫離呼吸器？\n①使用機械通氣的原因已經改善或消失　②通氣功能已能符合通氣需求　③氧合功能良好　④心血管功能狀態良好',
+        options: {
+          A: '①+②',
+          B: '①+②+④',
+          C: '③+④',
+          D: '①+②+③+④'
+        },
+        answer: 'D',
+        explanation: '✅ ①②③④ 全部正確 — 評估呼吸器脫離準備度（readiness to wean）的標準四大條件：\n①✅ 「原始病因已改善或消失」（resolution of underlying cause）：例如肺炎已控制、COPD 急性發作已穩定、心衰竭已治療、術後麻醉已退、敗血症已控制等。為「最重要前提」。\n②✅ 「通氣功能足以滿足需求」：呼吸肌力足夠、無嚴重酸中毒、minute ventilation 需求合理（VE ＜ 15 L/min）。\n③✅ 「氧合功能良好」：P/F ratio ≧ 200、PEEP ≦ 5～8 cmH₂O、FiO₂ ≦ 0.4～0.5、SpO₂ ≧ 90%。\n④✅ 「心血管狀態穩定」：HR、BP 穩定、無新發心律不整、無需大量血管收縮劑（如 norepinephrine ≦ 0.1 μg/kg/min）。\n→ 四項皆對，故選 (D)。\n\n📌 還需評估的其他要素：意識水平（GCS、能配合咳嗽）、呼吸道分泌物可控、無發燒（temp ＜ 38.5℃）、電解質 / Hb / 營養狀態合理、無持續活動性出血等。'
+      },
+      {
+        q: '有關 P0.1 脫離指標的敘述，下列何者「錯誤」？',
+        options: {
+          A: 'P0.1 是將呼吸道封閉阻塞（airway occlusion）後 100 毫秒（ms）所測到的吸氣壓力',
+          B: 'P0.1 與用力無關（effort-independent）',
+          C: 'P0.1 與中樞通氣驅力（central respiratory drive）相關',
+          D: 'P0.1 數值 ＞ −5 cmH₂O（如 −3 cmH₂O）時，代表呼吸功增加'
+        },
+        answer: 'D',
+        explanation: '（D）描述「錯誤」，正解。\nP0.1 的判讀方向：P0.1 為「吸氣開始 100 ms 內的氣道封閉壓」，數值越「負」（絕對值越大）代表呼吸驅力越強、呼吸功越大。\n• 正常值：−2 至 −4 cmH₂O。\n• P0.1 絕對值 ＞ 4～6 cmH₂O（即如 −5、−6、−10）→ 代表呼吸驅力過高、呼吸功增加，可能脫離失敗。\n• P0.1 數值「＞ −5」（如 −3 cmH₂O，絕對值較小）→ 代表「呼吸驅力低」，並非「呼吸功增加」。\n→ 故 (D) 描述「P0.1 ＞ −5（如 −3）代表呼吸功增加」方向「相反」，為錯誤。正確應為「P0.1 ＜ −5（即絕對值 ＞ 5，如 −6、−10）代表呼吸功增加」。\n（A）正確：P0.1 = 吸氣開始 100 ms 內的口腔／氣道壓變化，不受病人察覺。\n（B）正確：因 100 ms 內病人尚未感知阻塞、無法用力配合，故 P0.1 為「effort-independent」（不受病人主動用力影響），純反映中樞驅力。\n（C）正確：P0.1 直接反映腦幹呼吸中樞的驅力強度，常用於評估病人是否需要鎮靜或調整支持壓力。\n→ 故選 (D)。'
+      },
+      {
+        q: '下列何者「非」常用之呼吸器脫離方式？',
+        options: {
+          A: '自發呼吸嘗試（spontaneous breathing trials, SBT）',
+          B: '同步間歇性強制型通氣（synchronized intermittent mandatory ventilation, SIMV）',
+          C: '壓力控制通氣（pressure control ventilation, PCV）',
+          D: '壓力支持通氣（pressure support ventilation, PSV）'
+        },
+        answer: 'C',
+        explanation: '（C）描述「非」常用脫離方式，正解。\nPCV（壓力控制通氣）為「全控制型通氣模式」，由呼吸器主導每一次呼吸（時間切換 time-cycled），「不允許病人自主呼吸」（或自主呼吸不被輔助）。此模式用於急性期重症病人，「不適合」用於脫離階段，因脫離過程需要逐步讓病人自主呼吸。\n（A）✅ SBT 是脫離的「核心標準方法」：T-piece 或 low-level CPAP/PSV 30～120 分鐘，評估病人能否獨立維持自主呼吸。\n（B）✅ SIMV 為傳統脫離方式之一（雖目前被認為脫離效率較差、可能延長脫離時間，但仍為臨床使用方式）。\n（D）✅ PSV 為現代最常使用之脫離方式之一，可逐步降低 PS 水平（如從 15 → 8 → 5 cmH₂O）讓病人逐漸負擔更多呼吸功。\n→ 故選 (C)。\n\n📌 各大指引（ATS/ACCP、ESICM/SCCM 等）建議「SBT + PSV 逐步減壓」是目前最佳脫離策略，SIMV 漸減已不被推薦為首選。'
+      },
+      {
+        q: '病人進行自發性呼吸測試以脫離呼吸器時，若出現下列何種情況「應讓病人接回呼吸器休息」？',
+        options: {
+          A: '收縮血壓低於 90 mmHg',
+          B: '呼吸次數 26 次／分，比先前快 5 次／分',
+          C: '心跳 105 次／分，比先前快 17 次／分',
+          D: '脈衝血氧飽和濃度（SpO₂）90%，比先前降低 5%'
+        },
+        answer: 'A',
+        explanation: '逐項對照 SBT 失敗判定標準：\n（A）✅ SBP ＜ 90 mmHg → 為「明確 SBT 失敗指標」（也包含 SBP ＞ 180 mmHg 或需要新發升壓劑）。應立即停止 SBT、接回呼吸器。\n（B）❌ RR 26 次／分仍 ＜ 35（國際標準閾值 ＞ 35 才算失敗）；增加 5 次／分（變化率 ~24%）也未達失敗閾值。\n（C）❌ HR 105 仍 ＜ 140（國際標準閾值 ＞ 140 才算失敗）；增加 17 次／分（變化率 ~19%）未達失敗閾值。\n（D）❌ SpO₂ 90% 為「臨界值」（一般失敗閾值為 ＜ 90%）；降低 5% 雖偏高，但 90% 仍可接受。\n→ 故 (A) 是唯一已明確達 SBT 失敗閾值的情況，應接回呼吸器，正解。\n\n📌 SBT 失敗綜合標準：意識變差、躁動、出汗、發紺、呼吸窘迫、使用輔助肌、SpO₂ ＜ 90%、RR ＞ 35、HR ＞ 140 或新發心律不整、SBP ＜ 90 或 ＞ 180、PaCO₂ 升高 ＞ 8 mmHg、pH ＜ 7.32。'
+      },
+      {
+        q: '呼吸器脫離指標中的 rapid shallow breathing index（f/VT）數值多少為預測呼吸器脫離成功的指標？',
+        options: {
+          A: '＞ 20',
+          B: '＞ 105',
+          C: '＜ 105',
+          D: '＞ 10'
+        },
+        answer: 'C',
+        explanation: 'RSBI（rapid shallow breathing index）= 呼吸次數（f）／潮氣容積（VT，單位 L），單位為 breaths/min/L。\n• Yang & Tobin（1991, NEJM）原始研究：RSBI ＜ 105 預測脫離成功的敏感度 97%、特異度 64%、陽性預測值 78%、陰性預測值 95%。\n• RSBI ≧ 105 → 「淺快呼吸」型態，預示呼吸肌耐力不足，脫離失敗風險高。\n• RSBI ＜ 105 → 預示可成功脫離。\n→ 故選 (C)。\n\n臨床注意：\n• 必須在「完全無支持」（T-piece 或最低 CPAP）下測量，使用 PSV 會使 VT 假性增加、RSBI 偏低 → 偽陰性。\n• 高齡、女性、PMV（＞ 3 週）患者，RSBI 預測力下降。\n• RSBI 為「預測」工具，並非脫離決策的唯一依據；應綜合 SBT、心肺狀態、原發病因恢復情形等多面向評估。'
+      },
+      {
+        q: '下列何者為脫離呼吸器時，使用「自發呼吸嘗試（spontaneous breathing trial, SBT）」最合適的期間？',
+        options: {
+          A: '0.5～2 小時',
+          B: '3～6 小時',
+          C: '18～24 小時',
+          D: '10～12 小時'
+        },
+        answer: 'A',
+        explanation: 'SBT 標準時間：依 ATS/ACCP/SCCM 等多國指引，SBT 建議時間為「30 分鐘至 120 分鐘（0.5～2 小時）」。\n• 30 分鐘 SBT 與 120 分鐘 SBT 在「拔管成功率」上無顯著差異（多項 RCT 證實）。\n• 一般臨床建議：簡單個案 30 分鐘即可；長期通氣、高風險、PMV、神經肌肉疾病等個案可延長至 120 分鐘。\n• ＞ 2 小時的 SBT「不會增加成功率」，反而可能因呼吸肌過度疲勞造成失敗。\n→ 故選 (A)。\n\n（B）（C）（D）均超出建議時間，無臨床實證支持。\n\n📌 SBT 方式：T-piece 或 low-level CPAP（≦ 5 cmH₂O）或 PSV ≦ 8 cmH₂O。期間密切監測意識、RR、HR、BP、SpO₂、呼吸型態、有無使用呼吸輔助肌等。通過 SBT 後再評估 cuff-leak test、痰液量、咳嗽力、意識，方可拔管。'
+      }
+    ]
+  }
+  // ⚠ 之後再提供其他 6 堂課的題庫，依此格式新增即可（key 為 F-CT07、F-CT08 …）。
 };
 
 /* 取得課後測驗題庫資訊（含題目陣列） */
@@ -2530,6 +2770,12 @@ const REQUIRED_STUDENT_FIELDS = {
   // 核心課程-課後測驗 F-CT04：呼吸器常見故障排除（10 題；同上）
   'F-CT04': ['s_name','school','intern_cat','s_date','submitted']
     .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
+  // 核心課程-課後測驗 F-CT05：ARDS 介紹與呼吸治療處置（10 題；同上）
+  'F-CT05': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
+  // 核心課程-課後測驗 F-CT06：呼吸器脫離（10 題；同上）
+  'F-CT06': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -2742,7 +2988,7 @@ function renderSidebar(){
     const groups=[
       {label:'學習風格',ids:['F16']},
       {label:'筆試評估',ids:['F-PRE','F-POST']},
-      {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
+      {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
       {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
       {label:'個案報告',ids:['F13','F14']},
       {label:'DOPS',ids:['D01','D02','D03','D04']},
@@ -2772,7 +3018,7 @@ function renderSidebar(){
   const groups=[
     {label:'學習風格',ids:['F16']},
     {label:'筆試評估',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
     {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
@@ -2831,7 +3077,7 @@ function selectStudent(sid){
   const groups=[
     {label:'學習風格自我評估',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
     {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
@@ -2897,7 +3143,7 @@ function renderFormList(){
   const groups=[
     {label:'學習風格自我評估',count:'1份',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',count:'2份',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',count:'4份',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
+    {label:'核心課程-課後測驗',count:'6份',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
     {label:'學習評估表單',count:'14份',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
@@ -6507,11 +6753,13 @@ function buildFormBody(f,d,canT,formKey,canS){
     F16:buildF16,
     'F-PRE':buildExamPre,
     'F-POST':buildExamPost,
-    // 核心課程-課後測驗（每堂課一份；目前有 F-CT01、F-CT02、F-CT03、F-CT04）
+    // 核心課程-課後測驗（每堂課一份；目前有 F-CT01～F-CT06）
     'F-CT01':buildCourseTest,
     'F-CT02':buildCourseTest,
     'F-CT03':buildCourseTest,
     'F-CT04':buildCourseTest,
+    'F-CT05':buildCourseTest,
+    'F-CT06':buildCourseTest,
   };
   return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
