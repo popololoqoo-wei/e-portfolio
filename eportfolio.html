@@ -1393,6 +1393,8 @@ const FORMS=[
   /* ─── 核心課程-課後測驗（每題10分．10題．60分及格．無PIN．題序固定） ─── */
   {id:'F-CT01',num:'課後(1)',name:'課後測驗-ABG判讀（徐國軒醫師）',sub:'每題10分．10題．60分及格',roles:'student'},
   {id:'F-CT02',num:'課後(2)',name:'課後測驗-CXR判讀（歐偉凡醫師）',sub:'每題10分．10題．60分及格',roles:'student'},
+  {id:'F-CT03',num:'課後(3)',name:'課後測驗-氧氣治療含HFNC與NIV（張維倫呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
+  {id:'F-CT04',num:'課後(4)',name:'課後測驗-呼吸器常見故障排除（楊惠喬呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
 ];
 
 /* ─── 重症呼吸照護實習筆試考題（前測/後測共用） ─── */
@@ -1901,7 +1903,245 @@ const COURSE_TEST_BANK = {
       }
     ]
   }
-  // ⚠ 之後再提供其他 11 堂課的題庫，依此格式新增即可（key 為 F-CT02、F-CT03 …）。
+  ,
+  /* ─── F-CT03：張維倫 呼吸治療師 - 氧氣治療（含 HFNC）與非侵襲性呼吸器（NIV） ─── */
+  'F-CT03': {
+    title: '【課後筆試】講師：張維倫 呼吸治療師　題目：氧氣治療（含 HFNC）與非侵襲性呼吸器（NIV）',
+    teacher: '張維倫 呼吸治療師',
+    topic: '氧氣治療（含 HFNC）與非侵襲性呼吸器（NIV）',
+    questions: [
+      {
+        q: '下列敘述何者為「呼吸衰竭」之臨床定義？',
+        options: {
+          A: '成人：PaO₂ ≦ 60 mmHg and PaCO₂ ≧ 45 mmHg',
+          B: '常見呼吸衰竭分類有四種',
+          C: '氧合呼吸衰竭（Type-1 respiratory failure；Oxygenation failure），通常考慮先使用氧氣治療',
+          D: '以上皆是'
+        },
+        answer: 'D',
+        explanation: '呼吸衰竭（respiratory failure）的臨床定義包含上述三項全部正確：\n（A）成人定義標準：PaO₂ ≦ 60 mmHg（低血氧呼吸衰竭）、PaCO₂ ≧ 45 mmHg（高碳酸呼吸衰竭）。\n（B）常見分類有四種：\n　• Type 1：氧合不足（hypoxemic respiratory failure）— PaO₂ < 60 mmHg。\n　• Type 2：通氣不足（hypercapnic respiratory failure）— PaCO₂ > 45 mmHg。\n　• Type 3：圍術期（perioperative）— 多由肺塌陷造成。\n　• Type 4：休克狀態（shock-related）— 心因性、低血容、敗血症或神經性休克。\n（C）Type 1 氧合呼吸衰竭主要病因是 V/Q mismatch、shunt、擴散障礙等，第一線通常先給予氧氣治療（從低流量到高流量逐步調整）。\n→ 三項皆對，故選 (D)「以上皆是」。'
+      },
+      {
+        q: '下列敘述何者錯誤？',
+        options: {
+          A: 'Low-Flow system O₂ therapy：Nasal-Cannula、Simple-Mask、Non-rebreathing Mask（NRM）、Partial-rebreathing Mask（PRM）',
+          B: 'High-Flow system O₂ therapy：Venturi-Mask、All-purpose、HFNC',
+          C: 'HFNC 臨床效益：可給予濕熱化、可降低死腔（Dead-space）、可增加功能肺餘容量（Functional Residual Capacity, FRC）、可降低插管率',
+          D: 'HFNC 其鼻導管（Nasal-prong）尺寸的選擇，需佔滿整個鼻腔，才能有效達到低吐氣末正壓（PEEP）（3～5 cmH₂O）效果'
+        },
+        answer: 'D',
+        explanation: '（D）描述錯誤，正解。\nHFNC 鼻導管（nasal prong）的尺寸選擇原則：應佔據鼻孔內徑的「約 50%」（≦ 50%），「不可」完全堵塞鼻腔。\n• 若鼻導管完全塞滿鼻孔，會造成口腔吐氣阻力過大、CO₂ 蓄積、患者不適、面部水腫等併發症。\n• 適度的鼻孔開口才能讓 high-flow 氣流產生「正壓沖洗死腔效應（dead-space washout）」，並維持輕度 PEEP（約 3～5 cmH₂O；張口時降至 1～2 cmH₂O）。\n（A）正確：低流量系統包含上述四項。\n（B）正確：高流量系統能提供穩定 FiO₂，包含 Venturi mask、AP mask（all-purpose）、HFNC。\n（C）正確：HFNC 主要臨床效益四項皆對。\n→ 故選 (D)。'
+      },
+      {
+        q: '下列何者「非」為使用「非侵襲性正壓通氣（NIPPV）」之禁忌症？',
+        options: {
+          A: '呼吸、心跳已停止',
+          B: '無力清除分泌物或肺部異物吸入高危險群',
+          C: '面部或頭部手術或創傷',
+          D: '體重 < 130 公斤'
+        },
+        answer: 'D',
+        explanation: 'NIPPV（非侵襲性正壓通氣）的「絕對禁忌症」與「相對禁忌症」：\n（A）絕對禁忌：呼吸／心跳已停止 → 應立即插管使用侵襲性正壓通氣。\n（B）相對／絕對禁忌：無法保護呼吸道（昏迷、咳嗽反射差、嗆咳易吸入）。\n（C）相對／絕對禁忌：面部或頭部手術／創傷／嚴重燒傷 → 面罩無法密合且傷口不耐壓迫。\n（D）「體重 < 130 公斤」並非 NIPPV 禁忌症 — 反而體重過重（病態肥胖、OHS 患者）常為 NIPPV 適應症。\n→ 故選 (D)，是「非」禁忌症。\n其他常見絕對禁忌：低血容量休克、嚴重消化道出血、嚴重意識不清（GCS < 10）、嚴重低血壓無法以升壓劑控制。'
+      },
+      {
+        q: '在正常情況下，有關 SpO₂ 與 PaO₂ 對應性的敘述，下列何者錯誤？',
+        options: {
+          A: 'SpO₂ 70%，PaO₂ 約為 40 mmHg',
+          B: 'SpO₂ 80%，PaO₂ 約為 50 mmHg',
+          C: 'SpO₂ 90%，PaO₂ 約為 60 mmHg',
+          D: 'SpO₂ 100%，PaO₂ 約為 70 mmHg'
+        },
+        answer: 'D',
+        explanation: '依「氧解離曲線（oxygen-hemoglobin dissociation curve）」之臨床速記值：\n• SpO₂ 50% → PaO₂ ≈ 27 mmHg（P50）\n• SpO₂ 70% → PaO₂ ≈ 40 mmHg　✅\n• SpO₂ 80% → PaO₂ ≈ 50 mmHg　✅\n• SpO₂ 90% → PaO₂ ≈ 60 mmHg　✅\n• SpO₂ 95% → PaO₂ ≈ 80 mmHg\n• SpO₂ 100% → PaO₂ ≈ 100 mmHg 以上（≧ 100 mmHg；曲線在此處平坦，PaO₂ 可達數百 mmHg 而 SpO₂ 仍維持 100%）。\n→ (D) 描述「SpO₂ 100%，PaO₂ 約 70 mmHg」明顯偏低，錯誤，故為正解。\n臨床注意：曲線在 PaO₂ < 60 mmHg（SpO₂ 90%）以下會「陡降」，意味著 SpO₂ 略微下降即代表 PaO₂ 大幅惡化，需積極處理。'
+      },
+      {
+        q: '病人使用 40% Venturi-Mask，當氧氣流速設定為 8 升/分，則面罩所提供之總氣體流速為多少升/分？',
+        options: {
+          A: '16',
+          B: '32',
+          C: '48',
+          D: '72'
+        },
+        answer: 'B',
+        explanation: 'Venturi mask 的「Air-to-Oxygen Entrainment Ratio（空氣／氧氣比）」與「總流速」計算：\n• FiO₂ = 24%：1 : 25　→ 總流速倍率 26\n• FiO₂ = 28%：1 : 10　→ 總流速倍率 11\n• FiO₂ = 31%：1 : 7　→ 總流速倍率 8\n• FiO₂ = 35%：1 : 5　→ 總流速倍率 6\n• FiO₂ = 40%：1 : 3　→ 總流速倍率 4\n• FiO₂ = 50%：1 : 1.7 → 總流速倍率 2.7\n本題 FiO₂ 40%（air：O₂ = 3：1），氧氣流速 8 L/min：\n• 抽入空氣量 = 8 × 3 = 24 L/min\n• 總流速 = 氧氣 + 空氣 = 8 + 24 = 32 L/min\n或直接用倍率：8 × 4 = 32 L/min。\n→ 正解 (B) 32 L/min。'
+      },
+      {
+        q: '有關低流速（low-flow）和高流速（high-flow）氧療的敘述，下列何者錯誤？',
+        options: {
+          A: '關於高流速和低流速 devices 的區別是指傳送 FiO₂ 的高低',
+          B: '低流速指提供氧氣流速比病人的需求低，因此必須加入不同比例的室內空氣，補足所需氣體容積',
+          C: '高流速可完全滿足病人吸氣，引入固定量的周圍空氣，或藉高流速和儲氣袋來供應病人所需的需求',
+          D: '高流速 devices 能提供固定 FiO₂，不因病人呼吸型態而改變'
+        },
+        answer: 'A',
+        explanation: '（A）描述錯誤，正解。\nLow-flow 與 high-flow 的「區別不在 FiO₂ 高低」，而在於「能否完全滿足病人吸氣需求（peak inspiratory flow）」。\n• Low-flow（低流速）系統：提供的氧氣流量「低於」病人吸氣峰流量（一般 30 L/min），因此病人吸氣時會「補吸室內空氣」混入，造成 FiO₂ 不穩定，會隨病人呼吸型態（深淺、快慢）變動。例：Nasal cannula、Simple mask、NRM、PRM。\n• High-flow（高流速）系統：提供的總氣體流量「高於」病人吸氣峰流量（≧ 40～60 L/min），因此 FiO₂ 穩定不受病人呼吸型態影響。例：Venturi mask、AP mask、HFNC。\n→ 兩者區別「不是」FiO₂ 高低（low-flow 也可達高 FiO₂，例如 NRM 可達 ~90% FiO₂；high-flow 也可給低 FiO₂，例如 Venturi 24%）。\n（B）（C）（D）皆正確描述。'
+      },
+      {
+        q: '一慢性阻塞性肺病患者使用 Venturi mask FiO₂ = 30%，flow rate = 4 L/min，病人因覺得吸不到氣，自行把 flow rate 調至 6 L/min，此舉動會造成下列何種結果？',
+        options: {
+          A: '總流速增加，氧濃度明顯減少',
+          B: '總流速增加，氧濃度無明顯變化',
+          C: '總流速不變，氧濃度增加',
+          D: '總流速及氧濃度皆不變'
+        },
+        answer: 'B',
+        explanation: 'Venturi mask 原理：FiO₂ 由「噴流孔（jet）」的固定比例決定（air-entrainment ratio），與氧氣流速調整「無關」。\nFiO₂ 30% 對應 air：O₂ ≈ 8：1（總流速倍率約 9）：\n• 氧氣 4 L/min → 總流速 = 4 × 9 = 36 L/min；FiO₂ 仍 30%\n• 氧氣 6 L/min → 總流速 = 6 × 9 = 54 L/min；FiO₂ 「仍 30%」\n→ 調高氧氣流速 → 總流速「增加」、FiO₂「不變」。\n→ 故選 (B)。\n臨床意義：當病人覺得吸不到氣或感到悶熱，正確處置應「調整噴流孔顏色（改變 FiO₂）」，而不是只調氧氣流量；單純調高 O₂ flow 只能增加沖洗效果，不會提高 FiO₂。\n（A）錯：氧濃度不會明顯減少（事實上不變）。（C）（D）錯：總流速會隨 O₂ 流量增加而上升。'
+      },
+      {
+        q: '居家使用呼吸器病人，於下列何種狀況，「不適合」使用非侵襲性呼吸器？',
+        options: {
+          A: 'PaCO₂ ≧ 50 mmHg，pH 已代償之長期慢性病人',
+          B: 'PaCO₂ 45～50 mmHg 有白天嗜睡之長期慢性病人',
+          C: '夜間發生通氣不足（hypoventilation）或低血氧的長期慢性病人',
+          D: '吞嚥功能不佳容易 aspiration 的病人'
+        },
+        answer: 'D',
+        explanation: '（D）描述「吞嚥功能不佳容易 aspiration（吸入）」屬 NIV「禁忌」— 因 NIV 無法保護呼吸道，無法處理分泌物與胃內容物吸入風險，反而會增加吸入性肺炎機率。此類病人應評估侵襲性呼吸器或先處理吞嚥／氣管切開等保護呼吸道之介入。\n→ 正解 (D)。\n（A）（B）（C）皆為居家 NIV 之適應症：\n• 慢性 hypercapnia（PaCO₂ ≧ 50，已代償）— 例：COPD、neuromuscular disease、OHS。\n• 白天嗜睡＋輕度 hypercapnia — 提示夜間通氣不足。\n• 夜間 hypoventilation 或 desaturation — 居家 NIV 第一線適應症。\n臨床準則：居家 NIV 適用於穩定期、可保護呼吸道、有家屬照護、能合作使用面罩之病人。'
+      },
+      {
+        q: '急性心因性肺水腫（cardiogenic pulmonary edema）若伴隨有嚴重低血氧，除了使用利尿劑、強心劑等治療外，下列處置何者正確？\n①使用面罩型連續氣道正壓（mask CPAP）8～12 cmH₂O 和氧氣是第一線治療\n②使用 NIV 的預後較氧氣治療佳\n③1～2 個小時後若無明顯改善仍可繼續觀察到 24 小時\n④低血氧合併有高碳酸血症則需使用 BiPAP',
+        options: {
+          A: '①③',
+          B: '②④',
+          C: '①②③',
+          D: '①②④'
+        },
+        answer: 'D',
+        explanation: '急性心因性肺水腫合併低血氧的處置原則：\n①✅ 正確：mask CPAP 8～12 cmH₂O 是「第一線治療」（即使是 IPAP/EPAP 設定，也建議從 CPAP 8～12 開始）。CPAP 可降低前負荷與後負荷、改善肺水腫與氧合。\n②✅ 正確：多項研究顯示 NIV（CPAP 或 BiPAP）相較於單純氧氣治療，可顯著降低插管率、改善預後。\n③❌ 錯誤：若 1～2 小時後仍無明顯改善（呼吸窘迫持續、PaCO₂ 上升、意識變差、SpO₂ 無法維持），應「立即考慮插管」，「不可」繼續觀察 24 小時，否則會延誤插管時機。\n④✅ 正確：若同時合併 hypercapnia（CO₂ retention），CPAP 不足以協助通氣，需改用 BiPAP（提供 IPAP/EPAP 雙位準正壓）以同時改善氧合與通氣。\n→ ①②④ 正確 → 正解 (D)。'
+      },
+      {
+        q: '70 歲 COPD 病人因呼吸困難被送到急診，到達時，有明顯哮鳴，呼吸次數 30 次／分，使用呼吸輔助肌，神智清楚但疲憊，使用 FiO₂ 0.3 時，PaO₂ 40 mmHg，PaCO₂ 80 mmHg，pH 7.24。醫師決定使用非侵襲性正壓呼吸器，下列敘述何者正確？\n①可使用 S/T 模式，呼吸 8 次／分\n②EPAP ＞ 5 cmH₂O\n③IPAP 由 8～10 cmH₂O 開始\n④若有 auto-PEEP，則 EPAP 設在 auto-PEEP 的 60%',
+        options: {
+          A: '①③④',
+          B: '②③④',
+          C: '①②③',
+          D: '①②④'
+        },
+        answer: 'C',
+        explanation: '本題病人為急性 COPD 惡化合併呼吸性酸中毒（pH 7.24、PaCO₂ 80），為 NIV 之絕佳適應症。\n①✅ 正確：S/T 模式（spontaneous + timed backup rate），可確保病人呼吸驅力不足時仍有保底次數，初始 backup rate 約 8～12 次／分。\n②✅ 正確：EPAP（即 PEEP）建議 ＞ 5 cmH₂O，COPD 病人常從 5～8 cmH₂O 開始，以對抗 auto-PEEP、減少觸發功。\n③✅ 正確：IPAP 起始 8～10 cmH₂O，依病人耐受度與通氣狀況逐步上調至 12～18 cmH₂O，目標是達到適當潮氣量、降低 PaCO₂、改善 pH。\n④❌ 錯誤：若有 auto-PEEP，EPAP 應設定在 auto-PEEP 的「約 75～85%」（不是 60%），以平衡 auto-PEEP 但不會過度增加肺泡內壓造成過度膨脹。\n→ ①②③ 正確 → 正解 (C)。'
+      }
+    ]
+  }
+  ,
+  /* ─── F-CT04：楊惠喬 呼吸治療師 - 呼吸器常見故障排除 ─── */
+  'F-CT04': {
+    title: '【課後筆試】講師：楊惠喬 呼吸治療師　題目：呼吸器常見故障排除',
+    teacher: '楊惠喬 呼吸治療師',
+    topic: '呼吸器常見故障排除',
+    questions: [
+      {
+        q: '一位插管使用呼吸器的病人，突然出現高壓警報且 SpO₂ 下降，經檢查發現呼吸器運作正常，test lung 測試無異常，下列何者最可能是未被妥善處理的問題？',
+        options: {
+          A: '呼吸器未定期進行功能模擬測試',
+          B: '管路接頭鬆脫未完全連接',
+          C: '病人與呼吸器不同步',
+          D: '管路內積痰未及時排除'
+        },
+        answer: 'D',
+        explanation: '本題情境關鍵：「呼吸器運作正常、test lung 無異常」→ 表示呼吸器本身與管路結構沒有故障，問題在「病人端」或「氣管內管／管路內阻塞」。\n（D）✅ 正確：管路內或氣管內管「積痰／分泌物」未及時抽吸，造成阻力增加 → 觸發高壓警報 + 通氣不足 → SpO₂ 下降。應立即抽痰確認。\n（A）錯：題目已說 test lung 測試無異常 → 呼吸器功能正常。\n（B）錯：管路鬆脫會觸發「低壓警報」而非「高壓警報」，且 test lung 也會異常。\n（C）錯：病人與呼吸器不同步可能造成警報，但通常不會 test lung 正常仍出現持續高壓警報。\n→ 故選 (D)。\n臨床處置流程：聽呼吸音 → 抽痰 → 確認 ETT 位置 → 排除氣胸 → 鬆口接 ambu bag。'
+      },
+      {
+        q: '一位接上呼吸器的病人，SpO₂ 下降至 88%，RR 為 36 bpm，並出現呼吸急促與肋間凹陷，下列何者為最合適的初步判斷與處置方向？',
+        options: {
+          A: '認為病人僅為自主呼吸回復，無需處理',
+          B: '優先考慮血氧偵測器故障，關閉 SpO₂ 監測',
+          C: '判斷為呼吸器表徵異常，應檢查病人呼吸功與同步狀況',
+          D: '立即換機處理，判斷為呼吸器主機功能失效'
+        },
+        answer: 'C',
+        explanation: '病人呼吸急促（RR 36）、SpO₂ 下降、出現「肋間凹陷（accessory muscle use）」→ 為「呼吸窘迫（respiratory distress）」明確徵象，而非單純自主呼吸回復。\n（C）✅ 正確：應系統性評估「病人－呼吸器互動」：\n• 檢查病人呼吸功（work of breathing）：是否有 trigger 困難、漏氣、不同步。\n• 確認呼吸器設定（mode、PS、PEEP、Ti、trigger sensitivity）。\n• 評估管路（漏氣、扭折、積水、痰液）。\n• 抽痰、聽診、看胸腔影像、ABG。\n（A）錯：呼吸窘迫絕不可置之不理。\n（B）錯：關閉監測無助於解決病情，應先核對波形與臨床表現是否符合（避免誤判）。\n（D）錯：「立即換機」是最後手段，應先排除可逆原因；且需先以 ambu bag 維持通氣再換機。\n→ 故選 (C)。\n臨床口訣：DOPES（Displacement / Obstruction / Pneumothorax / Equipment failure / Stacked breaths）。'
+      },
+      {
+        q: '病人使用呼吸器時發生高壓警報，經檢查發現病人焦慮不安、全身緊繃，可能導致呼吸器警報響起的原因最可能是下列何者？',
+        options: {
+          A: '氣囊洩氣',
+          B: '分泌物阻塞',
+          C: '病人焦慮造成呼吸不協調',
+          D: '呼吸器電池故障'
+        },
+        answer: 'C',
+        explanation: '本題關鍵字：「病人焦慮不安、全身緊繃」→ 即「病人－呼吸器不同步（patient-ventilator dyssynchrony）」。\n（C）✅ 正確：焦慮、疼痛、咳嗽、嗆咳會造成病人「對抗」呼吸器送氣（fighting the vent），氣道內壓瞬間升高 → 觸發高壓警報。\n處置：\n• 安撫病人、解釋治療。\n• 評估鎮靜／止痛是否足夠（RASS 目標 0 至 -2）。\n• 檢查呼吸器設定（trigger 敏感度、上升時間、PS、I time）是否需調整。\n• 必要時與醫師討論加深鎮靜或短暫使用神經肌肉阻斷劑。\n（A）氣囊洩氣 → 通常觸發「低壓警報」、有漏氣聲。\n（B）分泌物阻塞 → 也會造成高壓警報，但題目情境特別強調「病人焦慮緊繃」是主要描述，故 C 較貼題。\n（D）電池故障 → 會觸發電源警報而非高壓警報。\n→ 故選 (C)。'
+      },
+      {
+        q: '呼吸器出現 severe occlusion（嚴重阻塞）警報，下列何者最可能是其原因？',
+        options: {
+          A: '呼吸器設定潮氣量過高',
+          B: '病人過度換氣導致低二氧化碳血症',
+          C: '呼吸器管路嚴重扭折或吐氣閥／過濾器阻塞',
+          D: '病人出現輕度肺水腫'
+        },
+        answer: 'C',
+        explanation: 'Severe occlusion（嚴重阻塞）警報的成因：呼吸器偵測到吸氣或吐氣端「氣流路徑被機械性阻斷」，使壓力急速上升或氣流無法正常通過。\n（C）✅ 正確：管路嚴重扭折、吐氣閥／吸氣閥／過濾器（HEPA、HME）阻塞，是 severe occlusion 警報的「最典型、最直接」原因。臨床其他常見可逆原因還包括：氣管內管被病人咬住、ETT 內痰塊堵塞、ETT 折扭。\n（A）錯：「呼吸器設定潮氣量過高」屬於設定問題，可能造成 high pressure / volutrauma 相關警報，但本身不會直接觸發「occlusion」警報。\n（B）錯：低 CO₂ 血症（hyperventilation）會觸發 apnea、low ETCO₂ 或 low MV 警報，而非 occlusion。\n（D）錯：輕度肺水腫主要造成肺順應性下降、PIP / Pplat 上升，初期不會直接觸發 occlusion 警報。\n→ 故選 (C)。\n\n臨床標準處置流程（DOPES 口訣）：\n①Disconnect — 立即將病人從呼吸器卸下，改用 ambu bag（含 100% O₂）維持通氣。\n②Obstruction — 檢查 ETT 是否被咬住、扭折、痰塊堵塞 → 抽痰、必要時更換 ETT。\n③Pneumothorax — 聽診兩側呼吸音、評估張力性氣胸。\n④Equipment — 檢查呼吸器管路、過濾器、吐氣閥、加熱器是否阻塞或積水。\n⑤Stacked breaths — 評估 auto-PEEP、支氣管痙攣。\n處置後再重新接回呼吸器並確認警報解除。'
+      },
+      {
+        q: '呼吸器出現 High Minute Volume（高分鐘通氣量）警報，下列何者最可能是其原因？',
+        options: {
+          A: '呼吸器管路有漏氣',
+          B: '病人發燒導致通氣需求增加',
+          C: '呼吸器潮氣量設定過低',
+          D: '驅動不足：無驅動、鎮靜、無力'
+        },
+        answer: 'B',
+        explanation: '高分鐘通氣量警報 = 「病人實際 minute ventilation（VE = VT × RR）超出設定上限」。\n（B）✅ 正確：發燒會使代謝率上升、CO₂ 產量增加 → 呼吸驅力增強 → RR 與 VT 增加 → VE 上升 → 觸發高 MV 警報。其他增加代謝需求的情境亦同：敗血症、燒傷、甲狀腺風暴、躁動、疼痛、過度鎮靜不足等。\n（A）管路漏氣 → 監測到的是「低」VE 而非高 VE（漏掉的氣量呼吸器計算為「未回收」）。\n（C）VT 設定「過低」 → 會降低送氣量，反而傾向觸發「低 MV 警報」。\n（D）驅動不足、過度鎮靜 → 病人自主呼吸減弱，VE 下降 → 觸發「低 MV」或「apnea」警報。\n→ 故選 (B)。\n臨床處置：找出造成代謝增加的原因（退燒、止痛、抗生素、調整鎮靜）。'
+      },
+      {
+        q: '關於壓力控制型通氣模式（PCV）的敘述，下列何者錯誤？',
+        options: {
+          A: '須設定尖峰吸氣壓力、吸氣時間、呼吸次數',
+          B: '又稱 pressure-targeted ventilation',
+          C: '吸氣流量波形可選擇方形波和下降波',
+          D: '潮氣容積和吸氣流量會隨病人用力和呼吸系統阻力不同而改變'
+        },
+        answer: 'C',
+        explanation: '（C）描述錯誤，正解。\n壓力控制型通氣（PCV）的「吸氣流量波形」固定為「下降波（decelerating flow）」— 因 PCV 是設定目標壓力，呼吸器在吸氣初期送出最大流量以快速達到目標壓力，之後流量自動下降以維持壓力恆定。\n→ PCV 「不能」選擇方形波；只有「容積控制（VCV）」可選方形波或下降波。\n（A）正確：PCV 需設定 PIP、Ti、RR、PEEP、FiO₂。\n（B）正確：PCV = pressure-targeted（壓力目標）、time-cycled（時間切換）。\n（D）正確：PCV 是壓力固定，VT 與 flow 會隨 lung compliance、airway resistance、病人用力而變動 → 故須密切監測 VT，避免低通氣或過度通氣。'
+      },
+      {
+        q: '病人使用 Bird 8400sti 容積保障壓力支持型（VAPS）通氣模式，呼吸器設定潮氣容積：0.6 L、呼吸次數：12 次／分、最高吸氣流量：25 L/min、吸入氧濃度：0.4、吐氣末正壓：5 cmH₂O、壓力支持：25 cmH₂O。監測病人吐氣潮氣容積：0.64 L，最高吸氣壓力：28 cmH₂O。呼吸器警報設定吸氣壓力過高警報：50 cmH₂O、吸氣壓力過低警報：25 cmH₂O。當病人發生痰液堆積導致呼吸道阻力增加，下列何種狀況「最早」發生？',
+        options: {
+          A: '每分鐘通氣量過高警報',
+          B: '吸氣壓力過高警報',
+          C: '吸／吐比增加',
+          D: '每分鐘通氣量過低警報'
+        },
+        answer: 'C',
+        explanation: 'VAPS（Volume Assured Pressure Support）模式特性：在 PS 階段保證最低 VT 達標。當阻力上升時的反應流程：\n① 阻力 ↑ → 同樣 PS（25 cmH₂O）所能輸送的流量下降 → 達到目標 VT（0.6 L）所需「吸氣時間延長」→ 吸／吐比（I:E ratio）「最早」改變（吸氣時間變長，I:E 增加）。\n② 若吸氣時間延長到無法在預定週期內完成輸送 → 呼吸器補上「容積保障流量（最高 25 L/min）」維持 VT，PIP 隨之上升 → 接著才觸發「壓力過高警報」（PIP 達 50 cmH₂O）。\n③ 若仍無法達標 → 出現低 VT、低 MV → 才觸發「低 MV 警報」。\n→ 在這三種事件序列中，「I:E 比變化」最早出現，故正解 (C)。\n（A）（B）（D）均屬較晚才會被觸發的事件。\n臨床啟示：VAPS 模式下，I:E 比的變化是早期偵測阻力上升的敏感指標，應密切監測。'
+      },
+      {
+        q: '病人使用壓力控制型通氣模式，吸氣時間設定 1.0 秒，其下午 1 至 5 時的生理參數變化趨勢顯示換氣與肺力學惡化，可能發生的原因為何？\n①氣道阻力增加　②肺順應性下降　③自發性吐氣末正壓（auto-PEEP）增加　④氣道阻力減少　⑤肺順應性上升',
+        options: {
+          A: '①+③+⑤',
+          B: '②+③+④',
+          C: '②+④+⑤',
+          D: '①+②+③'
+        },
+        answer: 'D',
+        explanation: 'PCV 模式下，「VT 下降、PIP 維持但有效換氣不佳」的可能病生理變化：\n①✅ 氣道阻力（Raw）「增加」：分泌物堆積、支氣管痙攣、ETT 扭折等 → 同樣壓力推送的氣量下降 → VT ↓、PaCO₂ ↑。\n②✅ 肺順應性（Compliance）「下降」：肺水腫、肺塌陷、ARDS 進展、氣胸等 → 同樣壓力推送的氣量下降 → VT ↓。\n③✅ Auto-PEEP「增加」：吐氣不完全 → 肺泡內殘留壓力上升 → 跨肺壓 ΔP（PIP − total PEEP）下降 → VT ↓。\n④❌ 氣道阻力「減少」：反而會使 VT 上升，與惡化方向相反。\n⑤❌ 肺順應性「上升」：反而會使 VT 上升，與惡化方向相反。\n→ ①②③ 全為「VT 下降」的常見原因，故正解 (D)「1+2+3」。\n臨床處置：監測 PIP、Pplat、Auto-PEEP、Cst、Raw，找出原因（抽痰、支氣管擴張劑、處理肺水腫、調整 RR/I:E）。'
+      },
+      {
+        q: '一般病人因急性呼吸衰竭使用侵襲性呼吸器，起始呼吸器參數建議，下列何者錯誤？',
+        options: {
+          A: '潮氣容積應限制在 4～8 mL/kg 預估體重',
+          B: '氣道高原壓 ＜ 28 cmH₂O',
+          C: '驅動壓力（driving pressure）＜ 15 cmH₂O',
+          D: '潮氣容積設定大於 10 mL/kg 預估體重'
+        },
+        answer: 'D',
+        explanation: '依「肺保護性通氣策略（Lung-Protective Ventilation Strategy）」(ARDSnet 等指南)：\n• 潮氣容積（VT）：4～8 mL/kg「預估體重（PBW）」（典型 6 mL/kg PBW）— 避免肺泡過度膨脹與容積傷害（volutrauma）。\n• 高原壓（plateau pressure, Pplat）：「< 30 cmH₂O」（嚴格目標 < 28）— 避免壓力傷害（barotrauma）。\n• 驅動壓力（driving pressure, ΔP = Pplat − PEEP）：「< 15 cmH₂O」— Amato 等研究顯示與死亡率高度相關。\n• 適當 PEEP：依 oxygenation 與 lung mechanics 調整。\n（D）「VT > 10 mL/kg PBW」屬「過大潮氣量」→ 已被證實會增加 ARDS、VILI（呼吸器引起肺損傷）及死亡率，「絕不」是建議起始設定。\n→ 故選 (D) 為錯誤敘述。\n（A）（B）（C）皆為標準肺保護策略之數值。'
+      },
+      {
+        q: '病人使用容積控制型呼吸器（volume control ventilation），呼吸治療師紀錄到 PIP：28 cmH₂O，Pplat：17 cmH₂O，兩小時後呼吸治療師因高壓力警示被通知，發現此時 PIP 為 40 cmH₂O，Pplat：18 cmH₂O，下列敘述何者正確？\n①病人 Cst 增加　②病人氣道阻力（Raw）增加　③病人可能咬管　④病人可能肺水腫',
+        options: {
+          A: '①+③',
+          B: '②+④',
+          C: '②+③',
+          D: '①+④'
+        },
+        answer: 'C',
+        explanation: '本題核心：判斷壓力變化型態。\n變化前：PIP 28、Pplat 17 → 跨氣道壓（PIP − Pplat = Raw 表現）= 11；跨肺壓（Pplat − PEEP）反映 Cst。\n變化後：PIP 40、Pplat 18 → 跨氣道壓 = 22（顯著「上升」）；Pplat 幾乎不變（僅 17→18）。\n→ 解讀：PIP 大幅上升、但 Pplat 幾乎沒變 → 表示「氣道阻力（Raw）大幅增加」，而「肺順應性（Cst）未變」。\n②✅ Raw 增加：常見原因為「分泌物阻塞、支氣管痙攣、ETT 扭折、咬管」。\n③✅ 病人「咬管」是 Raw 增加的常見可逆原因，需立即處理（咬合塊、加深鎮靜、評估鬆解 ETT）。\n①❌ Cst 增加 → 應該是 Pplat 下降，與本題不符。\n④❌ 肺水腫主要影響「Cst 下降」 → Pplat 會明顯上升，與本題 Pplat 不變不符。\n→ ②③ 正確，故選 (C)。\n口訣：「PIP↑ + Pplat 不變 = Raw 問題」；「PIP↑ + Pplat 同步↑ = Cst 問題（肺水腫、ARDS 進展、氣胸等）」。'
+      }
+    ]
+  }
+  // ⚠ 之後再提供其他 8 堂課的題庫，依此格式新增即可（key 為 F-CT05、F-CT06 …）。
 };
 
 /* 取得課後測驗題庫資訊（含題目陣列） */
@@ -2284,6 +2524,12 @@ const REQUIRED_STUDENT_FIELDS = {
   // 核心課程-課後測驗 F-CT02：CXR 判讀（10 題；同上）
   'F-CT02': ['s_name','school','intern_cat','s_date','submitted']
     .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
+  // 核心課程-課後測驗 F-CT03：氧氣治療含 HFNC 與 NIV（10 題；同上）
+  'F-CT03': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
+  // 核心課程-課後測驗 F-CT04：呼吸器常見故障排除（10 題；同上）
+  'F-CT04': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -2496,7 +2742,7 @@ function renderSidebar(){
     const groups=[
       {label:'學習風格',ids:['F16']},
       {label:'筆試評估',ids:['F-PRE','F-POST']},
-      {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02']},
+      {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
       {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
       {label:'個案報告',ids:['F13','F14']},
       {label:'DOPS',ids:['D01','D02','D03','D04']},
@@ -2526,7 +2772,7 @@ function renderSidebar(){
   const groups=[
     {label:'學習風格',ids:['F16']},
     {label:'筆試評估',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
     {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
@@ -2585,7 +2831,7 @@ function selectStudent(sid){
   const groups=[
     {label:'學習風格自我評估',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
     {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
@@ -2651,7 +2897,7 @@ function renderFormList(){
   const groups=[
     {label:'學習風格自我評估',count:'1份',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',count:'2份',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',count:'2份',ids:['F-CT01','F-CT02']},
+    {label:'核心課程-課後測驗',count:'4份',ids:['F-CT01','F-CT02','F-CT03','F-CT04']},
     {label:'學習評估表單',count:'14份',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
@@ -6261,9 +6507,11 @@ function buildFormBody(f,d,canT,formKey,canS){
     F16:buildF16,
     'F-PRE':buildExamPre,
     'F-POST':buildExamPost,
-    // 核心課程-課後測驗（每堂課一份；目前有 F-CT01、F-CT02）
+    // 核心課程-課後測驗（每堂課一份；目前有 F-CT01、F-CT02、F-CT03、F-CT04）
     'F-CT01':buildCourseTest,
     'F-CT02':buildCourseTest,
+    'F-CT03':buildCourseTest,
+    'F-CT04':buildCourseTest,
   };
   return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
