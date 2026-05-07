@@ -1980,7 +1980,10 @@ function getStatus(id){
   }
 
   // ── 層級1：未填 ── 完全沒有實質資料
-  const SKIP_KEYS=['intern_cat'];
+  // 「自動帶入」欄位不算實質資料：
+  // - intern_cat 是預設值
+  // - s_name / s_sign / school 在學生登入時自動帶入，本身不代表使用者「有填寫」
+  const SKIP_KEYS=['intern_cat','s_name','s_sign','school'];
   const hasAnyData=Object.keys(d).some(function(k){
     return SKIP_KEYS.indexOf(k)<0 && hasRealVal(d[k]);
   });
@@ -3683,8 +3686,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       'COPD':'慢性阻塞性肺病'
     };
     html+='<div class="section-head">二、呼吸問題確立 — Indications of mechanical ventilation（可複選）</div>';
-    html+='<table style="font-size:10pt;">';
-    // 5 欄一列，2 列共 10 項
+    html+='<table style="font-size:9pt;width:100%;table-layout:fixed;">';
+    // 5 欄一列，2 列共 10 項；用 table-layout:fixed 確保所有欄等寬不被擠出
     for(var pri=0; pri<2; pri++){
       html+='<tr>';
       for(var pci=0; pci<5; pci++){
@@ -3696,10 +3699,11 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
           var pColor=pChecked?'#0C4A6E':'#9CA3AF';
           var pSym=pChecked?'☑':'☐';
           var pBorder=pChecked?'1.5px solid #0EA5E9':'1px solid #DDD';
-          html+='<td style="border:'+pBorder+';padding:6px 8px;font-size:9.5pt;white-space:nowrap;background:'+pBg+';color:'+pColor+';font-weight:'+(pChecked?'700':'400')+';width:20%;">';
-          html+='<span style="font-size:13pt;margin-right:4px;">'+pSym+'</span>'+pInd+'<div style="font-size:8pt;color:'+(pChecked?'#0369A1':'#9CA3AF')+';margin-left:22px;">('+indZhPdf[pInd]+')</div></td>';
+          // 移除 white-space:nowrap 改用 word-wrap 讓長字串可以換行；改用 width:20% 平均分配
+          html+='<td style="border:'+pBorder+';padding:5px 6px;font-size:8.5pt;background:'+pBg+';color:'+pColor+';font-weight:'+(pChecked?'700':'400')+';width:20%;vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;">';
+          html+='<div style="display:flex;align-items:flex-start;gap:3px;"><span style="font-size:12pt;flex:0 0 auto;line-height:1;">'+pSym+'</span><span style="line-height:1.3;word-break:break-word;">'+pInd+'<div style="font-size:7.5pt;color:'+(pChecked?'#0369A1':'#9CA3AF')+';margin-top:2px;">('+indZhPdf[pInd]+')</div></span></div></td>';
         } else {
-          html+='<td style="border:1px solid #DDD;padding:4px;background:#FAFAFA;"></td>';
+          html+='<td style="border:1px solid #DDD;padding:4px;background:#FAFAFA;width:20%;"></td>';
         }
       }
       html+='</tr>';
@@ -3872,8 +3876,47 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // F08 全人照護紀錄表
+  // F12 學習心得與建議紀錄表
+  // 排序：學生心得回饋 → 學生簽名/日期 → 臨床總指導教師回饋 → 總指導教師簽名/日期
+  //       → 實習計畫主持人簽名 → 計畫主持人簽名日期
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if(id==='F12'){
+    // ── 基本資料 ──
+    html+='<div class="section-head">基本資料</div>';
+    html+='<table>';
+    html+=pdfR('學生姓名',studentName||val('s_name'),false);
+    html+=pdfR('實習學校',val('school')||'—',false);
+    html+=pdfR('實習日期',cleanDate(val('s_date')),false);
+    html+=pdfR('實習類別',val('intern_cat')||'—',false);
+    html+='</table>';
+
+    // ── 1. 學生心得回饋 ──
+    html+='<div class="section-head">學生心得回饋</div>';
+    html+='<table>';
+    html+=pdfR('工作單位環境與學習成效',val('env_review')||'—',false);
+    html+=pdfR('臨床老師教學與互動',val('teacher_review')||'—',false);
+    html+=pdfR('自我學習評估與感言',val('self_review')||'—',false);
+    html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
+    html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
+    html+='</table>';
+
+    // ── 2. 臨床總指導教師回饋 ──
+    html+='<div class="section-head">臨床總指導教師回饋</div>';
+    html+='<table>';
+    html+=pdfR('回饋內容',val('t_fb')||'—',true);
+    html+=pdfR('總指導教師簽名',val('t_sign')||'—',true);
+    html+=pdfR('總指導教師簽名日期',formatSignTs(val('t_sign_date')),true);
+    html+='</table>';
+
+    // ── 3. 實習計畫主持人 ──
+    html+='<div class="section-head">實習計畫主持人</div>';
+    html+='<table>';
+    html+=pdfR('實習計畫主持人簽名',val('host_sign')||'—',true);
+    html+=pdfR('計畫主持人簽名日期',formatSignTs(val('host_date')),true);
+    html+='</table>';
+
+    return html;
+  }
   if(id==='F08'){
     var f08profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
 
@@ -5605,23 +5648,24 @@ function saveDraftField(fid, key, val){
 
 function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
   // 學生姓名：學生登入時自動填入（唯讀），老師/管理員可手動輸入
+  // ⚠ 注意：自動帶入的姓名/學校只放在記憶體中（APP.formData），「不寫入草稿」，
+  // 否則「只是點開表單看一眼」就會被誤判為「草稿中」狀態。
+  // 真正的草稿寫入會在使用者「實際填寫其他欄位」或「按下儲存按鈕」時才發生。
   var sn=d['s_name']||'';
   if(APP.currentRole==='student'&&APP.currentUser){
     sn=APP.currentUser.name;
     if(!APP.formData[fid])APP.formData[fid]={};
-    // 自動回填 s_name 到 formData（避免送出時被誤判為「未填」）
+    // 記憶體中帶入（讓 send/PDF 能讀到正確值）— 但「不」寫到草稿/雲端
     if(!d['s_name']){
       APP.formData[fid]['s_name']=sn;
-      try{ saveDraftField(fid,'s_name',sn); }catch(e){}
     }
-    // 自動填入 s_sign（學生簽名與姓名相同）
+    // 自動填入 s_sign（學生簽名與姓名相同；同樣不寫草稿）
     if(!d['s_sign']){
       APP.formData[fid]['s_sign']=sn;
     }
-    // 學生若有預設學校，也一起回填，讓送出檢查順利通過
+    // 學生若有預設學校，也僅帶入記憶體（不寫草稿）
     if(!d['school'] && APP.currentUser.school){
       APP.formData[fid]['school']=APP.currentUser.school;
-      try{ saveDraftField(fid,'school',APP.currentUser.school); }catch(e){}
     }
   }
   var snOpts=getStudentList();
@@ -6403,18 +6447,27 @@ function buildF12(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   let h=basicInfoCard(fid,d,'');
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學習心得與建議</div></div><div class="card-body">
+
+  // ── 1. 學生心得回饋 + 學生簽名/日期 ──
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">學生心得回饋</div></div><div class="card-body">
     <div class="field"><label>工作單位環境與學習成效</label>${ta(f.id,'env_review',4,false)}</div>
     <div class="field"><label>臨床老師教學與互動</label>${ta(f.id,'teacher_review',4,false)}</div>
     <div class="field"><label>自我學習評估與感言</label>${ta(f.id,'self_review',4,false)}</div>
     ${studentSignRow(f.id,'s_sign')}
   </div></div>`;
-  h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
-    <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
-    ${teacherSignRow(f.id,'t_sign',canT)}
+
+  // ── 2. 臨床總指導教師回饋 + 總指導教師簽名/日期 ──
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">臨床總指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
+    <div class="field"><label>回饋內容</label>${ta(f.id,'t_fb',4,!canT)}</div>
+    ${teacherSignRow(f.id,'t_sign',canT,'總指導教師簽名')}
+  </div></div>`;
+
+  // ── 3. 計畫主持人（獨立卡片）+ 簽名/日期 ──
+  var hostDateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['host_date']=this.value;saveDraftField('"+fid+"','host_date',this.value)";
+  h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習計畫主持人<span class="t-badge">老師</span></div></div><div class="card-body">
     <div class="g2">
-      <div class="field"><label>計畫主持人簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'host_sign',getTeacherList(),!canT,'請選擇計畫主持人',true)}</div>
-      <div class="field"><label>主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['host_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
+      <div class="field"><label>實習計畫主持人簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'host_sign',getTeacherList(),!canT,'請選擇計畫主持人',true)}</div>
+      <div class="field"><label>計畫主持人簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['host_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="host_date" onchange="${hostDateOC}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
   return h;
