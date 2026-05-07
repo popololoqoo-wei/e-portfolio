@@ -7873,19 +7873,41 @@ async function _examCallApi(action, payload){
   if(!GAS_URL || GAS_URL==='YOUR_GAS_URL_HERE'){
     throw new Error('GAS_URL 未設定，無法連線後端');
   }
-  // 用 form-urlencoded POST，避免 CORS preflight
-  var body = new URLSearchParams();
-  body.append('action', action);
-  body.append('payload', JSON.stringify(payload||{}));
-  body.append('t', Date.now());
-  var resp = await fetch(GAS_URL, {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body: body.toString()
-  });
-  if(!resp.ok) throw new Error('伺服器回應錯誤：HTTP '+resp.status);
-  var data = await resp.json();
-  return data;
+  // 為避免 CORS preflight，使用 text/plain 把 JSON body 直接送到 GAS。
+  // GAS 端透過 e.postData.contents 解析。
+  var bodyObj = {
+    action: action,
+    payload: payload || {},
+    t: Date.now()
+  };
+  var resp;
+  try{
+    resp = await fetch(GAS_URL, {
+      method: 'POST',
+      // 用 text/plain（CORS-safelisted，瀏覽器不會發 OPTIONS preflight）
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(bodyObj),
+      // GAS 會回應 302 redirect 到 googleusercontent.com 取得真正 JSON，必須跟著轉址
+      redirect: 'follow',
+      mode: 'cors'
+    });
+  }catch(netErr){
+    // fetch 拋例外通常代表 CORS 被擋或網路斷線
+    throw new Error('無法連線後端（'+(netErr.message||netErr)+'）。請確認 GAS 已正確部署為「任何人」可存取，並重新部署新版本。');
+  }
+  if(!resp.ok){
+    throw new Error('伺服器回應錯誤：HTTP '+resp.status+' '+(resp.statusText||''));
+  }
+  var text = await resp.text();
+  if(!text){
+    throw new Error('伺服器回應為空，可能 doPost 沒回傳內容。');
+  }
+  try{
+    return JSON.parse(text);
+  }catch(e){
+    // 後端回傳非 JSON（例如 HTML 錯誤頁）
+    throw new Error('伺服器回應格式錯誤（非 JSON）。請確認 GAS 已部署 examRouter，並選擇「新增版本」重新部署。');
+  }
 }
 
 async function examPostUnlock(){
