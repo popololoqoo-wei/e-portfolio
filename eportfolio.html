@@ -1397,6 +1397,7 @@ const FORMS=[
   {id:'F-CT04',num:'課後(4)',name:'課後測驗-呼吸器常見故障排除（楊惠喬呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
   {id:'F-CT05',num:'課後(5)',name:'課後測驗-ARDS介紹與呼吸治療處置（蕭傳威呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
   {id:'F-CT06',num:'課後(6)',name:'課後測驗-呼吸器脫離（黃姿穎呼吸治療師）',sub:'每題10分．10題．60分及格',roles:'student'},
+  {id:'F-CT07',num:'課後(7)',name:'課後測驗-呼吸器病人營養／代謝評估（王振宇 重症部主任）',sub:'每題10分．10題．60分及格',roles:'student'},
 ];
 
 /* ─── 重症呼吸照護實習筆試考題（前測/後測共用） ─── */
@@ -2381,7 +2382,127 @@ const COURSE_TEST_BANK = {
       }
     ]
   }
-  // ⚠ 之後再提供其他 6 堂課的題庫，依此格式新增即可（key 為 F-CT07、F-CT08 …）。
+  ,
+  /* ─── F-CT07：王振宇 重症部主任 - 呼吸器病人營養／代謝評估 ─── */
+  'F-CT07': {
+    title: '【課後筆試】講師：王振宇 重症部主任　題目：呼吸器病人營養／代謝評估',
+    teacher: '王振宇 重症部主任',
+    topic: '呼吸器病人營養／代謝評估',
+    examSource: '課程教材延伸題（非考選部歷屆題；題目依國際營養與重症照護指引整理：ASPEN/SCCM、ESPEN、Surviving Sepsis Campaign 等）',
+    questions: [
+      {
+        q: '有關敗血症輸液治療的敘述，下列何者「錯誤」？',
+        options: {
+          A: '敗血症輸液治療以膠體液（colloid）為主',
+          B: '生理食鹽水（normal saline）較林格氏輸液（Ringer\'s solution）含有較高的氯離子',
+          C: '敗血症引起組織灌流不足或敗血性休克，應在 3 小時內至少給予 30 mL/kg 的輸液',
+          D: '目前不建議常規使用肺動脈導管（Swan-Ganz catheter）來判斷輸液是否足夠'
+        },
+        answer: 'A',
+        explanation: '（A）描述「錯誤」，正解。\n依 Surviving Sepsis Campaign（SSC, 2021）最新國際敗血症照護指引：\n• 敗血症初始輸液復甦「應以晶體液（crystalloid）為主」，特別是平衡型晶體液（balanced crystalloid，如 Ringer\'s lactate、Plasma-Lyte）優於 normal saline。\n• 「不建議常規使用 colloid（膠體液）」，特別是 hydroxyethyl starch（HES）已被證實會增加急性腎損傷與死亡率，已被多國禁用於敗血症。Albumin（白蛋白）僅在已給予大量晶體液仍無法穩定血壓的情境下「次選」考慮。\n→ 故 (A) 「以膠體液為主」與指引精神「相反」，為錯誤敘述。\n（B）正確：Normal saline 含 Cl⁻ 154 mEq/L，相較 Ringer\'s lactate（Cl⁻ 109 mEq/L）顯著較高。大量輸注 NS 易造成 hyperchloremic metabolic acidosis 與急性腎損傷，因此目前指引偏好 balanced crystalloid。\n（C）正確：SSC 指引建議敗血性休克或低灌流狀態，應在「3 小時內輸注至少 30 mL/kg 晶體液」，之後依血流動力學反應動態調整。\n（D）正確：肺動脈導管（PAC）因侵入性高、併發症多，且多項 RCT 顯示對改善預後無益，目前已「不建議常規使用」於敗血症患者。\n→ 故選 (A)。'
+      },
+      {
+        q: '呼吸器依賴型重症病人，評估營養需求最重要的指標是？',
+        options: {
+          A: '血壓',
+          B: '能量（熱量）與蛋白質需求',
+          C: '血清膽固醇',
+          D: '心率'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：重症呼吸器依賴病人的營養評估「核心」是計算「能量需求（kcal/day）」與「蛋白質需求（g/day）」，並依此規劃灌食配方與量。\n• 能量需求：依 ASPEN/SCCM、ESPEN 指引，建議 25～30 kcal/kg/day（理想體重）；急性期初期可採低熱量灌食（trophic feeding）；後期或恢復期再達全量。\n• 蛋白質需求：1.2～2.0 g/kg/day（理想體重）。重症族群因高分解狀態，蛋白質需求顯著高於一般人。\n• 黃金標準：間接熱量測定（indirect calorimetry, IC）— 直接測量代謝率，避免依賴公式估算誤差。若無 IC 可用，可用 Penn State 或 Harris-Benedict 等公式估算。\n（A）血壓：屬血流動力學指標，與營養需求評估不直接相關。\n（C）血清膽固醇：屬心血管或脂質代謝指標，非急性營養評估首選。\n（D）心率：同 (A)，屬血流動力學指標。\n→ 故選 (B)。\n📌 補充營養評估工具：NUTRIC score、NRS-2002、體重變化、肌肉量（CT、超音波量化股四頭肌厚度）、握力、生化指標（前白蛋白、白蛋白、CRP）等，皆可輔助評估營養風險。'
+      },
+      {
+        q: '長期使用呼吸器且營養不足的病人，最可能發生的肌肉相關併發症是？',
+        options: {
+          A: '骨質疏鬆',
+          B: '呼吸肌萎縮',
+          C: '肌肉痙攣',
+          D: '四肢水腫'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：長期通氣 + 營養不足會直接導致「呼吸肌萎縮（respiratory muscle atrophy）」，特別是橫膈肌（diaphragm）。\n• VIDD（ventilator-induced diaphragm dysfunction）：機械通氣下，橫膈肌纖維萎縮可在「24～48 小時內」開始發生；通氣 5～6 天即可觀察到顯著萎縮（CT/超音波）。\n• 機轉包含：橫膈肌不活動（disuse atrophy）、氧化壓力、蛋白分解（autophagy、UPS、calpain pathway 活化）、營養不足（蛋白質與熱量攝取不足加劇分解）。\n• 結果：呼吸肌力下降 → 脫離呼吸器困難 → 延長通氣時間 → 增加感染、ICU-AW、死亡率。\n臨床對策：①早期活動（早期離床、被動 / 主動 ROM）②適當蛋白質供應（1.2～2.0 g/kg/day）③避免過度鎮靜 ④橫膈肌保護策略（如允許適度自主呼吸、避免完全控制模式時間過長）⑤神經電刺激或橫膈肌訓練。\n（A）骨質疏鬆雖長期可能發生，但非「肌肉相關」併發症。\n（C）肌肉痙攣多與電解質異常相關，非主要長期併發症。\n（D）水腫多與輸液過量、低白蛋白血症相關，非肌肉問題。\n→ 故選 (B)。'
+      },
+      {
+        q: '呼吸器病人初期營養補給的「首選」方式為？',
+        options: {
+          A: '口服固體食物',
+          B: '經腸道管餵（鼻胃管或胃造口管）',
+          C: '靜脈全營養（TPN）長期使用',
+          D: '高脂低碳水口服飲食'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：呼吸器病人（特別是插管或氣切）初期營養補給「首選」為「腸道營養（enteral nutrition, EN）」 — 透過鼻胃管（NG tube）、鼻空腸管（NJ tube）或胃造口管（PEG tube）灌食。\n依 ASPEN/SCCM、ESPEN 指引：「If the gut works, use it.」（腸道有功能就用腸道）。\n• 應在血流動力學穩定後「24～48 小時內」啟動腸道營養（早期 EN）。\n• 早期 EN 可降低感染率、維持腸道屏障、減少細菌轉位（bacterial translocation）、保留腸道相關淋巴組織（GALT）功能。\n（A）口服固體食物：插管病人無法吞嚥，禁忌；意識不清或吞嚥反射差者亦有吸入風險。\n（C）TPN（total parenteral nutrition）：僅在「腸道功能不全」（嚴重腸阻塞、短腸症、嚴重出血、缺血、無法耐受 EN ≧ 7 天等）時才考慮，且為「次選」。長期使用 TPN 會增加感染（catheter-related BSI）、肝功能異常、腸絨毛萎縮等風險。\n（D）高脂低碳水：屬於特殊配方（如 RT 病人為降低 CO₂ 產生），非「方式」選擇問題。\n→ 故選 (B)。'
+      },
+      {
+        q: '呼吸器脫離前，營養管理的「主要目標」是？',
+        options: {
+          A: '限制熱量攝取',
+          B: '提供足夠蛋白質以維持呼吸肌功能',
+          C: '僅補充液體，不補充蛋白質',
+          D: '高脂低碳水飲食'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：脫離呼吸器前的營養管理「核心目標」是「提供足夠蛋白質以維持並重建呼吸肌功能（特別是橫膈肌）」，避免脫離失敗。\n• 蛋白質需求：1.2～2.0 g/kg/day（理想體重），脫離期可朝 1.5～2.0 g/kg/day 上限調整。\n• 熱量需求：應達病人預估能量需求（25～30 kcal/kg/day），不可不足（會持續分解肌肉）也不可過量（會增加 CO₂ 產量、加重呼吸負擔）。\n• 脫離期應特別關注：避免「再餵食症候群（refeeding syndrome）」 — 長期飢餓後突然大量補充營養會造成低 P、低 K、低 Mg、心律不整、心衰竭。\n（A）「限制熱量」反而會加速肌肉分解，呼吸肌進一步萎縮，脫離失敗風險上升。\n（C）只補液體不補蛋白：完全錯誤，不僅無營養效益還會稀釋電解質。\n（D）高脂低碳水：用於 CO₂ retainer（如 COPD、呼吸器脫離困難者）以降低 RQ（呼吸商）— 屬於「特殊配方策略」之一，但「不是主要目標」，而是手段。\n→ 故選 (B)。'
+      },
+      {
+        q: '若重症呼吸器病人「腸胃功能不全」，最優先的營養方式是？',
+        options: {
+          A: '經腸道餵養',
+          B: '靜脈全營養',
+          C: '高纖維口服飲食',
+          D: '只補充葡萄糖水'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：當腸道功能不全（severe ileus、bowel obstruction、ischemic bowel、severe GI bleeding、high-output fistula、short bowel 等）使腸道營養（EN）「無法執行」或「無法達到目標熱量 ≧ 60% 持續 7 天」時，應改用「靜脈全營養（TPN, total parenteral nutrition）」。\nTPN 啟動時機（依 ASPEN/SCCM 指引）：\n• 高營養風險（NUTRIC ≧ 5 或 NRS-2002 ≧ 5）：若 EN 無法執行，「儘早」啟動 TPN（48～72 小時內）。\n• 低營養風險：若 EN 無法達標，可等待 7～10 天後再啟動 TPN。\nTPN 注意事項：\n• 中央靜脈導管（CVC）給予，避免末梢血管刺激。\n• 需嚴格血糖控制（140～180 mg/dL），避免高血糖併發症。\n• 監測肝功能、三酸甘油脂、電解質、再餵食症候群。\n• 當 EN 可耐受時應立即過渡，避免長期完全依賴 TPN。\n（A）腸道餵養：題目已說「腸胃功能不全」，故不適用。\n（C）口服高纖維：意識不清或插管者無法口服；高纖維反而可能加重腸道問題。\n（D）只補葡萄糖水：無法提供蛋白質與微量營養素，會加速肌肉分解，禁忌。\n→ 故選 (B)。'
+      },
+      {
+        q: '呼吸器病人脫離期間，應持續監測下列哪項以「協助營養管理」？',
+        options: {
+          A: '血糖、電解質、液體平衡',
+          B: '血壓與心跳',
+          C: '血氧濃度',
+          D: '體溫'
+        },
+        answer: 'A',
+        explanation: '（A）✅ 正確：脫離期間與營養管理直接相關的監測項目：\n• 「血糖」：高血糖（hyperglycemia）與低血糖皆會影響預後；目標 140～180 mg/dL（避免嚴格控制 ＜ 110 造成低血糖死亡率上升 — NICE-SUGAR 試驗）。\n• 「電解質」：K、P、Mg、Na、Ca — 特別是「再餵食症候群」會出現低 P、低 K、低 Mg；脫離前應確保電解質正常以維持呼吸肌功能（P 對橫膈肌收縮力極為重要）。\n• 「液體平衡」：每日 I/O、體重變化 — 過量輸液會造成肺水腫、加重呼吸負擔、影響脫離；過少則會脫水、灌注不足。脫離期建議「保守輸液策略」。\n（B）血壓與心跳：屬血流動力學監測，與營養「間接」相關。\n（C）血氧濃度：屬呼吸狀態監測，非營養相關直接指標。\n（D）體溫：屬感染與代謝監測，非營養首要指標。\n→ 故選 (A)。\n📌 其他應監測：胃殘餘量（GRV，雖目前指引不再強制每 4 小時測量）、腹脹、嘔吐、排便、灌食耐受度、營養生化指標（前白蛋白、白蛋白、CRP）等。'
+      },
+      {
+        q: '重症呼吸器病人每日蛋白質建議攝取量為？',
+        options: {
+          A: '0.5～1.0 g/kg/day',
+          B: '1.2～2.0 g/kg/day',
+          C: '2.5～3.0 g/kg/day',
+          D: '3.0～4.0 g/kg/day'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：依 ASPEN/SCCM（2016）、ESPEN（2019）等重症營養國際指引：\n• 重症成人病人蛋白質需求：「1.2～2.0 g/kg/day（理想體重 IBW 或調整體重）」。\n• 燒傷、多發外傷、CRRT、長期通氣脫離困難等高分解情境：「上限可達 2.0～2.5 g/kg/day」。\n• 病態肥胖（BMI ≧ 30）：以 IBW 計算為佳，避免依實際體重高估或低估。\n（A）0.5～1.0 g/kg/day：屬「健康成人」每日建議攝取量（DRI ≈ 0.8 g/kg/day），對重症病人「明顯不足」，會加速肌肉分解。\n（C）2.5～3.0 g/kg/day：超出標準建議，僅在極度高分解情境（如嚴重燒傷、CRRT）短期使用，常規不建議。\n（D）3.0～4.0 g/kg/day：除嬰幼兒以外，成人不需如此高量，反而會加重肝腎負擔。\n→ 故選 (B)。\n📌 注意：蛋白質需求應「個人化」，依年齡、性別、肌肉量、腎功能、CRRT 與否、傷口、敗血症期等動態調整。CRRT 病人每天額外流失蛋白質約 10～15 g，需額外補充。'
+      },
+      {
+        q: '呼吸器脫離期間，營養調整應採取哪種方式？',
+        options: {
+          A: '一次提供全部熱量與蛋白質',
+          B: '逐步增加熱量與蛋白質',
+          C: '限制蛋白質以減少腎臟負擔',
+          D: '高糖低蛋白攝取'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：營養應「逐步」增加（gradual advancement）以避免併發症。\n臨床原則：\n• 初期（24～48 小時）：低熱量啟動（trophic feeding，10～20 mL/hr 或約 500 kcal/day），維持腸道完整性。\n• 之後 5～7 天：逐步上調至目標熱量（25～30 kcal/kg/day）與蛋白質（1.2～2.0 g/kg/day）。\n• 評估耐受性：腹脹、嘔吐、腹瀉、灌食殘餘、血糖、電解質。\n• 達標後維持，依代謝狀態與恢復進度持續調整。\n（A）「一次給全量」會引發以下風險：\n• 「再餵食症候群（refeeding syndrome）」：突然大量碳水化合物 → 胰島素急遽分泌 → 細胞內 P、K、Mg 大量轉移 → 低 P 血症 → 心律不整、橫紋肌溶解、呼吸肌無力、死亡。\n• 高血糖、滲透性利尿、腸道不耐受、嘔吐、吸入肺炎等。\n（C）限制蛋白質「減少腎臟負擔」是錯誤的營養觀念 — 重症病人需要充足蛋白質以維持肌肉。除非已是末期腎衰竭未透析，否則不應限制蛋白質。\n（D）高糖低蛋白：高糖會增加 CO₂ 產量（呼吸負擔加重）、加劇高血糖；低蛋白加速肌肉分解。對脫離期病人「絕對不建議」。\n→ 故選 (B)。'
+      },
+      {
+        q: '若脫離呼吸器病人有「吞嚥困難」或「誤吸風險」，營養應如何調整？',
+        options: {
+          A: '增加固體食物',
+          B: '改為半流質或經管餵養',
+          C: '提高熱量密度固體食物',
+          D: '減少蛋白質'
+        },
+        answer: 'B',
+        explanation: '（B）✅ 正確：脫離後若有「吞嚥困難（dysphagia）」或「誤吸風險（aspiration risk）」，應依吞嚥功能評估結果調整：\n臨床照護流程：\n• 拔管後務必評估吞嚥功能（如 24～48 小時觀察）— 拔管後吞嚥障礙（PED, post-extubation dysphagia）發生率可高達 40～50%（特別是長期通氣 ＞ 7 天者）。\n• 評估工具：床邊吞嚥評估（如 Yale Swallow Protocol、3-oz water test）、必要時 VFSS（影像學）或 FEES（內視鏡）。\n• 結果處置：\n　─ 輕度吞嚥困難：給予「黏稠流質」（thickened liquid）或「半流質」食物，採安全姿勢進食（如下巴內收 chin tuck）。\n　─ 中重度吞嚥困難或無法安全進食：「保留鼻胃管或胃造口管餵養」，繼續腸道營養。\n　─ 同時請語言治療師（speech therapist）介入吞嚥訓練。\n（A）增加固體食物：吞嚥困難者吃固體食物會「加重誤吸風險」，可能造成吸入性肺炎。\n（C）提高熱量密度的固體食物：仍是固體，同樣有誤吸風險。\n（D）減少蛋白質：與吞嚥安全無關，且會加速肌肉分解，不利恢復。\n→ 故選 (B)。'
+      }
+    ]
+  }
+  // ⚠ 之後再提供其他 5 堂課的題庫，依此格式新增即可（key 為 F-CT08、F-CT09 …）。
 };
 
 /* 取得課後測驗題庫資訊（含題目陣列） */
@@ -2776,6 +2897,9 @@ const REQUIRED_STUDENT_FIELDS = {
   // 核心課程-課後測驗 F-CT06：呼吸器脫離（10 題；同上）
   'F-CT06': ['s_name','school','intern_cat','s_date','submitted']
     .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
+  // 核心課程-課後測驗 F-CT07：呼吸器病人營養／代謝評估（10 題；同上）
+  'F-CT07': ['s_name','school','intern_cat','s_date','submitted']
+    .concat(Array.from({length:10},function(_,i){return 'q'+(i+1);})),
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
@@ -2988,7 +3112,7 @@ function renderSidebar(){
     const groups=[
       {label:'學習風格',ids:['F16']},
       {label:'筆試評估',ids:['F-PRE','F-POST']},
-      {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
+      {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07']},
       {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
       {label:'個案報告',ids:['F13','F14']},
       {label:'DOPS',ids:['D01','D02','D03','D04']},
@@ -3018,7 +3142,7 @@ function renderSidebar(){
   const groups=[
     {label:'學習風格',ids:['F16']},
     {label:'筆試評估',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07']},
     {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告',ids:['F13','F14']},
     {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
@@ -3077,7 +3201,7 @@ function selectStudent(sid){
   const groups=[
     {label:'學習風格自我評估',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07']},
     {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
     {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
@@ -3143,7 +3267,7 @@ function renderFormList(){
   const groups=[
     {label:'學習風格自我評估',count:'1份',ids:['F16']},
     {label:'筆試評估（重症呼吸照護實習）',count:'2份',ids:['F-PRE','F-POST']},
-    {label:'核心課程-課後測驗',count:'6份',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06']},
+    {label:'核心課程-課後測驗',count:'7份',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07']},
     {label:'學習評估表單',count:'14份',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
     {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
@@ -6175,7 +6299,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       if(ctHasAnyExp){
         html += '<div class="section-head" style="page-break-before:always;">逐題正解分析</div>';
         html += '<div style="font-size:9pt;color:#666;background:#EFF6FF;border-left:3px solid #1E40AF;padding:6px 10px;margin:6px 0;">';
-        html += '出題範疇參考：台灣考選部歷屆國考題（專門職業及技術人員高等考試「呼吸治療師」歷屆試題）。';
+        // 出題範疇：若題庫指定 examSource 就用之；否則預設考選部歷屆題
+        html += '出題範疇參考：' + (ctBank.examSource || '台灣考選部歷屆國考題（專門職業及技術人員高等考試「呼吸治療師」歷屆試題）') + '。';
         html += '</div>';
         for(var ctEx=0; ctEx<ctTotalQ; ctEx++){
           var ctEQ = ctQuestions[ctEx];
@@ -6753,13 +6878,14 @@ function buildFormBody(f,d,canT,formKey,canS){
     F16:buildF16,
     'F-PRE':buildExamPre,
     'F-POST':buildExamPost,
-    // 核心課程-課後測驗（每堂課一份；目前有 F-CT01～F-CT06）
+    // 核心課程-課後測驗（每堂課一份；目前有 F-CT01～F-CT07）
     'F-CT01':buildCourseTest,
     'F-CT02':buildCourseTest,
     'F-CT03':buildCourseTest,
     'F-CT04':buildCourseTest,
     'F-CT05':buildCourseTest,
     'F-CT06':buildCourseTest,
+    'F-CT07':buildCourseTest,
   };
   return (builders[f.id]||buildGeneric)(f,d,canT,formKey,canS);
 }
@@ -9513,7 +9639,8 @@ function buildCourseTest(f, d, canT, fkey, canS){
         h += '<details style="margin-top:8px;border:1px solid #BFDBFE;border-radius:6px;background:#EFF6FF;">';
         h += '<summary style="cursor:pointer;padding:8px 12px;font-size:12px;font-weight:700;color:#1E40AF;list-style:none;display:flex;align-items:center;justify-content:space-between;">';
         h += '<span>📖 正解分析（點擊展開／收合）</span>';
-        h += '<span style="font-size:10px;color:#64748B;font-weight:400;">出題範疇參考：台灣考選部歷屆國考題</span>';
+        // 出題範疇：若題庫指定 examSource 就用之；否則預設考選部歷屆題
+        h += '<span style="font-size:10px;color:#64748B;font-weight:400;">出題範疇參考：' + escapeExamHtml(bank.examSource || '台灣考選部歷屆國考題') + '</span>';
         h += '</summary>';
         h += '<div style="padding:12px 14px;border-top:1px solid #BFDBFE;background:#FFFFFF;font-size:12.5px;line-height:1.85;color:#1E293B;white-space:pre-wrap;">';
         h += escapeExamHtml(explainText);
