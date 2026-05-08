@@ -123,7 +123,11 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ─── 全域 sticky 表頭(F16 學習風格 70 題等長表單用) ─── */
 /* 黏附在 topbar 下方,避免滑到下面題目時忘記欄位意義 */
-.sticky-th{position:sticky !important;top:var(--topbar-h) !important;z-index:5 !important;background:#1A3A5C;color:#fff;border:1px solid #DDD;border-bottom:2px solid #B8860B;box-shadow:0 2px 4px rgba(0,0,0,.15);}
+.sticky-th{position:sticky !important;top:var(--topbar-h) !important;z-index:50 !important;background:#1A3A5C !important;background-clip:padding-box;color:#fff;padding:5px 6px !important;border:1px solid #DDD;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);}
+/* 表格容器需要有 isolation,避免 z-index 衝突 */
+.f16-table-wrap{isolation:isolate;}
+/* 第一行 tbody tr 留一些上邊距,讓使用者捲到第 1 題時有過渡空間 */
+.f16-table-wrap tbody tr:first-child td{padding-top:14px !important;}
 
 /* ─── BODY LAYOUT ─── */
 .app-body{display:flex;min-height:calc(100vh - 56px);}
@@ -169,6 +173,16 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   .collapsible-progress-bar{width:40px;height:4px;}
   .collapsible-status-tags .stag{font-size:9px;padding:2px 6px;}
   .collapsible-body{padding:10px 12px 12px;}
+  /* ─── 手機版 F16 表格進一步壓縮欄寬 + 縮小表頭高度 ─── */
+  .f16-table-wrap th.sticky-th{padding:4px 3px !important;font-size:11px;}
+  .f16-table-wrap td{padding:5px 4px !important;}
+  .f16-table-wrap th.sticky-th:nth-child(1){width:24px !important;}
+  .f16-table-wrap th.sticky-th:nth-child(3),
+  .f16-table-wrap th.sticky-th:nth-child(4),
+  .f16-table-wrap th.sticky-th:nth-child(5){width:46px !important;}
+  .f16-table-wrap th.sticky-th span{font-size:9px !important;}
+  /* 表頭數字也縮小 */
+  .f16-table-wrap th.sticky-th{line-height:1.15;}
 }
 .mobile-nav{display:none;background:var(--paper);border-bottom:1px solid var(--border);padding:10px 12px;gap:6px;overflow-x:auto;align-items:center;position:sticky;top:56px;z-index:40;box-shadow:0 1px 3px rgba(15,23,42,.04);}
 .mobile-nav-btn{padding:7px 14px;border:1px solid var(--border);border-radius:999px;font-size:11px;white-space:nowrap;cursor:pointer;color:var(--ink2);background:#fff;flex-shrink:0;transition:all .15s;font-weight:500;}
@@ -708,7 +722,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科</div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.4 · 2026.05</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -1450,8 +1464,8 @@ const FORMS=[
   {id:'E03',num:'貳拾參(3)',name:'EPA (10)：侵襲性呼吸器脫離照護',sub:'即時評量',roles:'both'},
   {id:'F15',num:'貳拾伍',name:'實習課程評值表',sub:'學習態度+技能+溝通',roles:'both'},
   {id:'F16',num:'貳拾陸',name:'Learning-Style 評估表',sub:'學習風格自我評估',roles:'student'},
-  {id:'F-PRE',num:'筆試(前)',name:'筆試前測-重症呼吸照護實習',sub:'每題4分．25題．60分及格',roles:'student'},
-  {id:'F-POST',num:'筆試(後)',name:'筆試後測-重症呼吸照護實習',sub:'每題4分．25題．60分及格',roles:'student'},
+  {id:'F-PRE',num:'筆試(前)',name:'前測',sub:'每題4分．25題．60分及格',roles:'student'},
+  {id:'F-POST',num:'筆試(後)',name:'後測',sub:'每題4分．25題．60分及格',roles:'student'},
   /* ─── 核心課程-課後測驗（每題10分．10題．60分及格．無PIN．題序固定） ─── */
   {id:'F-CT01',num:'課後(1)',name:'課後測驗-ABG判讀（徐國軒醫師）',sub:'每題10分．10題．60分及格',roles:'student'},
   {id:'F-CT02',num:'課後(2)',name:'課後測驗-CXR判讀（歐偉凡醫師）',sub:'每題10分．10題．60分及格',roles:'student'},
@@ -3809,14 +3823,14 @@ function renderSidebar(){
   }
   if(APP.currentRole==='teacher'){
     const groups=[
-      {label:'學習風格',ids:['F16']},
+      {label:'學習風格自我評估',ids:['F16']},
       {label:'筆試評估',ids:['F-PRE','F-POST']},
-      {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
-      {label:'個案報告',ids:['F13','F14']},
-      {label:'DOPS',ids:['D01','D02','D03','D04']},
-      {label:'EPA',ids:['E01','E02','E03']},
+      {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
+      {label:'個案報告評分',ids:['F13','F14']},
+      {label:'DOPS 操作技術評核',ids:['D01','D02','D03','D04']},
+      {label:'EPA 可信賴專業活動',ids:['E01','E02','E03']},
       {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
-      {label:'總評值',ids:['F15']},
+      {label:'實習課程總評值',ids:['F15']},
     ];
     let thtml='';
     if(APP.currentStudentId){
@@ -3839,14 +3853,14 @@ function renderSidebar(){
     return;
   }
   const groups=[
-    {label:'學習風格',ids:['F16']},
+    {label:'學習風格自我評估',ids:['F16']},
     {label:'筆試評估',ids:['F-PRE','F-POST']},
-    {label:'學習評估',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
-    {label:'個案報告',ids:['F13','F14']},
-    {label:'DOPS 技術評核',ids:['D01','D02','D03','D04']},
-    {label:'EPA 即時評量',ids:['E01','E02','E03']},
+    {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
+    {label:'個案報告評分',ids:['F13','F14']},
+    {label:'DOPS 操作技術評核',ids:['D01','D02','D03','D04']},
+    {label:'EPA 可信賴專業活動',ids:['E01','E02','E03']},
     {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
-    {label:'總評值',ids:['F15']},
+    {label:'實習課程總評值',ids:['F15']},
   ];
   let html='';
   // 未填寫表單快捷區
@@ -3902,8 +3916,8 @@ function selectStudent(sid){
     {label:'筆試評估',ids:['F-PRE','F-POST']},
     {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',ids:['F13','F14']},
-    {label:'DOPS 操作技術評估',ids:['D01','D02','D03','D04']},
-    {label:'EPA 即時評量',ids:['E01','E02','E03']},
+    {label:'DOPS 操作技術評核',ids:['D01','D02','D03','D04']},
+    {label:'EPA 可信賴專業活動',ids:['E01','E02','E03']},
     {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
     {label:'實習課程總評值',ids:['F15']},
   ];
@@ -3965,6 +3979,134 @@ function getStudentFormStatus(formId, sid){
 
 
 function renderMobileNav(){return;}
+
+
+/* ═══════════ 關於 / 版本資訊對話框 ═══════════ */
+window.showAboutDialog = function(){
+  // 移除舊的(若有)
+  var existing = document.getElementById('about-dialog-overlay');
+  if(existing) existing.remove();
+
+  var changelog = [
+    {ver:'v1.4', date:'2026.05', notes:[
+      '統一群組命名(DOPS/EPA/個案報告等 4 處標籤一致)',
+      'F-PRE/F-POST 表單名稱簡化為「前測」/「後測」',
+      'F15 實習課程總評值新增「個人反思」區(學生主動書寫)',
+      'F-CT 課後測驗解析署名(在領規說明顯示一次)',
+      '新增使用者回饋按鈕(可寫信回報問題)',
+      '版本資訊 / 更新日誌對話框',
+    ]},
+    {ver:'v1.3', date:'2026.05', notes:[
+      '12 份核心課程課後測驗(F-CT01~F-CT12)全部建置',
+      '可摺疊群組(預設全部收起,展開狀態系統記住)',
+      'F16 學習風格 70 題凍結表頭',
+      '手機版 topbar、表格欄寬優化',
+    ]},
+    {ver:'v1.2', date:'2026.04', notes:[
+      '14 份學習評估表單 + 4 份 DOPS + 3 份 EPA + 個案報告',
+      'PIN 鎖筆試後測機制',
+      'PDF 列印版面與網頁一致',
+      'Google Sheets 雙向同步',
+    ]},
+    {ver:'v1.0', date:'2026.03', notes:[
+      'e-Portfolio 系統初版發布',
+      '單檔 HTML + LocalStorage,離線即用',
+      '學生 / 老師 / 管理員三種身份',
+    ]},
+  ];
+
+  var html = '';
+  html += '<div id="about-dialog-overlay" style="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;" onclick="if(event.target===this)this.remove();">';
+  html += '<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);">';
+  // header
+  html += '<div style="padding:18px 22px 14px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;">';
+  html += '<div>';
+  html += '<div style="font-family:Georgia,serif;font-size:18px;font-weight:600;color:#1A2332;">關於 e-Portfolio</div>';
+  html += '<div style="font-size:12px;color:#64748B;margin-top:3px;">臺中榮總 · 胸腔部 呼吸治療科</div>';
+  html += '</div>';
+  html += '<button onclick="this.closest(\'#about-dialog-overlay\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94A5B5;line-height:1;padding:0 4px;" title="關閉">×</button>';
+  html += '</div>';
+  // body
+  html += '<div style="padding:18px 22px;">';
+  html += '<div style="background:#F0F9FF;border-left:3px solid #2563EB;padding:10px 12px;border-radius:6px;margin-bottom:16px;font-size:12.5px;color:#1E40AF;line-height:1.6;">';
+  html += '🎓 整合學生實習全流程的單檔 Web 系統:學習風格自評、筆試前後測、14 份學習評估、個案、DOPS、EPA、12 堂核心課程課後測驗、實習總評值、實習反思日誌。';
+  html += '</div>';
+  html += '<div style="font-size:13px;font-weight:600;color:#1A2332;margin-bottom:10px;">📅 更新日誌</div>';
+  changelog.forEach(function(cl){
+    html += '<div style="padding:10px 0;border-bottom:1px dashed #E2E8F0;">';
+    html += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">';
+    html += '<span style="font-family:Georgia,serif;font-size:14px;font-weight:600;color:#065A82;">'+cl.ver+'</span>';
+    html += '<span style="font-size:11px;color:#94A5B5;">'+cl.date+'</span>';
+    html += '</div>';
+    html += '<ul style="margin:4px 0 0 0;padding-left:18px;font-size:12px;color:#475569;line-height:1.7;">';
+    cl.notes.forEach(function(n){ html += '<li>'+n+'</li>'; });
+    html += '</ul>';
+    html += '</div>';
+  });
+  // footer:回饋連結
+  html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #E2E8F0;font-size:12px;color:#475569;text-align:center;">';
+  html += '使用上有任何問題或建議,';
+  html += '<a href="javascript:void(0)" onclick="document.getElementById(\'about-dialog-overlay\').remove();showFeedbackDialog();" style="color:#2563EB;font-weight:500;text-decoration:none;">點此回饋</a>';
+  html += '</div>';
+  html += '</div>'; // body
+  html += '</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+/* ═══════════ 使用者回饋對話框 ═══════════ */
+window.showFeedbackDialog = function(){
+  var existing = document.getElementById('feedback-dialog-overlay');
+  if(existing) existing.remove();
+
+  var html = '';
+  html += '<div id="feedback-dialog-overlay" style="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;" onclick="if(event.target===this)this.remove();">';
+  html += '<div style="background:#fff;border-radius:12px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);">';
+  html += '<div style="padding:18px 22px 14px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;">';
+  html += '<div style="font-family:Georgia,serif;font-size:18px;font-weight:600;color:#1A2332;">💬 使用回饋</div>';
+  html += '<button onclick="this.closest(\'#feedback-dialog-overlay\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94A5B5;line-height:1;padding:0 4px;" title="關閉">×</button>';
+  html += '</div>';
+  html += '<div style="padding:18px 22px;">';
+  html += '<div style="font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:12px;">使用過程中遇到問題或有建議想反映?歡迎告訴我們:</div>';
+  html += '<textarea id="feedback-text" placeholder="請描述問題或建議...例如:在某張表單填寫時遇到的狀況、想新增什麼功能、版面排版的問題等" style="width:100%;min-height:120px;padding:10px 12px;border:1px solid #CBD5E1;border-radius:6px;font-family:inherit;font-size:13px;line-height:1.6;color:#1A2332;resize:vertical;box-sizing:border-box;"></textarea>';
+  html += '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">';
+  html += '<button onclick="this.closest(\'#feedback-dialog-overlay\').remove()" style="padding:8px 14px;border:1px solid #CBD5E1;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:#475569;">取消</button>';
+  html += '<button onclick="submitFeedback()" style="padding:8px 18px;border:none;background:#2563EB;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;">送出回饋</button>';
+  html += '</div>';
+  html += '</div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function(){ var t=document.getElementById('feedback-text'); if(t) t.focus(); }, 50);
+};
+
+window.submitFeedback = function(){
+  var t = document.getElementById('feedback-text');
+  if(!t) return;
+  var text = t.value.trim();
+  if(!text){ toast('⚠ 請先寫下您的回饋內容'); return; }
+
+  // 寫入 localStorage(未來也可改為寫入 GAS / Sheet)
+  try{
+    var fb = JSON.parse(localStorage.getItem('user_feedbacks')||'[]');
+    fb.push({
+      ts: new Date().toISOString(),
+      role: APP.currentRole||'unknown',
+      user: (APP.currentUser&&APP.currentUser.name)||'',
+      text: text,
+      ua: (navigator.userAgent||'').slice(0,120),
+    });
+    localStorage.setItem('user_feedbacks', JSON.stringify(fb));
+  }catch(e){}
+
+  // 同時開啟 mailto(讓使用者選擇是否寄出)
+  var subject = '【e-Portfolio 回饋】'+(APP.currentRole==='student'?'學生':APP.currentRole==='teacher'?'老師':'')+(APP.currentUser&&APP.currentUser.name?' - '+APP.currentUser.name:'');
+  var body = text + '\n\n---\n版本: v1.4\n角色: '+(APP.currentRole||'')+'\n時間: '+new Date().toLocaleString('zh-TW');
+  var mailto = 'mailto:eportfolio_admin@vghtc.gov.tw?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+
+  document.getElementById('feedback-dialog-overlay').remove();
+  toast('✓ 已記錄您的回饋(將開啟郵件視窗,可選擇是否寄出)');
+  setTimeout(function(){ window.location.href = mailto; }, 800);
+};
 
 
 /* ═══════════ 可摺疊群組(總覽用)— 共用工具 ═══════════ */
@@ -4075,8 +4217,8 @@ function renderFormList(){
     {label:'筆試評估',count:'2份',ids:['F-PRE','F-POST']},
     {label:'學習評估表單',count:'14份',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
     {label:'個案報告評分',count:'2份',ids:['F13','F14']},
-    {label:'DOPS 操作技術直接觀察評估',count:'4份',ids:['D01','D02','D03','D04']},
-    {label:'EPA 可信賴專業活動即時評量',count:'3份',ids:['E01','E02','E03']},
+    {label:'DOPS 操作技術評核',count:'4份',ids:['D01','D02','D03','D04']},
+    {label:'EPA 可信賴專業活動',count:'3份',ids:['E01','E02','E03']},
     {label:'核心課程-課後測驗',count:'12份',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
     {label:'實習課程總評值',count:'1份',ids:['F15']},
   ];
@@ -4775,7 +4917,13 @@ function saveForm(id){
     clearTimeout(_autoSaveTimers[id]);
     delete _autoSaveTimers[id];
   }
-  // 【安全】登入身分驗證：必須有有效的 currentRole
+  // ★ F15 「實習課程總評值」屬於最終評核,儲存前彈窗確認
+  // (僅老師端適用 — F15 由老師填寫)
+  if(id==='F15' && APP.currentRole==='teacher'){
+    var f15Confirm = '您正在儲存「實習課程總評值」 — 這份是學生的最終評核表。\n\n請再次確認您填寫的分數與評語無誤。\n資料儲存後仍可返回修改,但建議盡量一次填妥再儲存。\n\n是否確認儲存?';
+    if(!confirm(f15Confirm)) return;
+  }
+  // 【安全】登入身分驗證:必須有有效的 currentRole
   if(!APP.currentRole){
     toast('⚠ 請先登入');
     return;
@@ -4932,9 +5080,9 @@ function saveForm(id){
   if(APP.currentRole==='student'){
     APP.teacherUnlocked=false;
     lockTeacherFields();
-    toast('表單已儲存 ✓（老師欄位已重新鎖定）');
+    toast('✓ 表單已儲存（老師欄位已鎖定;您可隨時返回此表單修改自己的欄位）');
   } else {
-    toast('表單已儲存 ✓');
+    toast('✓ 表單已儲存(資料已存於本機,送出 Google 同步以備份至雲端)');
   }
 
   // ★★★ 跨裝置同步：3 秒後從雲端重新拉取，確認資料已同步 ★★★
@@ -9288,6 +9436,38 @@ function buildF15(f,d,canT,fkey,canS){
     </div>
     <div class="g2"><div class="field"><label>遲到（次）</label>${fi(fid,'late_cnt','number',false)}</div></div>
     <div class="field"><label>學生自我評語和建議</label>${ta(fid,'s_comment',3,false)}</div>
+
+    <!-- ═══ 個人反思區(學生主動書寫,不評分,只屬於學生自己的學習軌跡)═══ -->
+    <div style="margin:18px 0 8px;padding:14px 16px;background:linear-gradient(135deg,#FEF3C7 0%,#FFFBEB 100%);border-left:4px solid #F59E0B;border-radius:6px;">
+      <div style="font-size:14px;font-weight:700;color:#92400E;margin-bottom:6px;">📝 個人反思(僅供您自己回顧;不影響成績)</div>
+      <div style="font-size:11.5px;color:#78350F;line-height:1.7;">e-Portfolio 不只是「填表評分」 — 更是您主動建構自己學習歷程的地方。<br>請於本實習階段結束時花 10~15 分鐘真誠書寫;這份反思「沒有正確答案」,寫得越詳細,日後回顧時越有價值。</div>
+    </div>
+
+    <div class="field" style="border-left:3px solid #0891B2;padding-left:10px;margin-bottom:12px;">
+      <label style="color:#0E7490;font-weight:600;">💡 一、本階段我學到了什麼?</label>
+      <div style="font-size:11px;color:#64748B;line-height:1.6;margin:4px 0 6px;font-style:italic;">具體列舉知識面、技術面、態度面的收穫。例:「學會 ABG 判讀流程」、「掌握 HFNC 初始設定」、「學會在病人焦慮時用更耐心的口吻溝通」。</div>
+      ${ta(fid,'reflect_learn',5,false)}
+    </div>
+
+    <div class="field" style="border-left:3px solid #DC2626;padding-left:10px;margin-bottom:12px;">
+      <label style="color:#B91C1C;font-weight:600;">🤔 二、我遇到的挑戰是什麼?</label>
+      <div style="font-size:11px;color:#64748B;line-height:1.6;margin:4px 0 6px;font-style:italic;">回想最讓您困擾、卡關、或事後才想通的場景。例:「第一次遇高壓警報時不知如何排查」、「家屬問預後時不知如何回應」。</div>
+      ${ta(fid,'reflect_challenge',5,false)}
+    </div>
+
+    <div class="field" style="border-left:3px solid #059669;padding-left:10px;margin-bottom:12px;">
+      <label style="color:#047857;font-weight:600;">📈 三、我可以怎樣做得更好?</label>
+      <div style="font-size:11px;color:#64748B;line-height:1.6;margin:4px 0 6px;font-style:italic;">回顧不足之處,寫給「下個月的自己」的建議。例:「練習 ISBAR 結構化交班」、「多花 5 分鐘做床邊評估再行動」。</div>
+      ${ta(fid,'reflect_improve',5,false)}
+    </div>
+
+    <div class="field" style="border-left:3px solid #7C3AED;padding-left:10px;margin-bottom:14px;">
+      <label style="color:#6D28D9;font-weight:600;">🎯 四、下階段我想達成什麼目標?</label>
+      <div style="font-size:11px;color:#64748B;line-height:1.6;margin:4px 0 6px;font-style:italic;">具體、可達成、有時限的目標(SMART 原則)。例:「下次實習結束前能獨立完成 5 次 SBT 評估」、「能在 5 分鐘內完成一份 ISBAR 簡報」。</div>
+      ${ta(fid,'reflect_goal',5,false)}
+    </div>
+    <!-- ═══ 個人反思區 結束 ═══ -->
+
     ${studentSignRow(fid,'s_sign')}
     <div class="field"><label>師生檢討與回饋<span class="t-badge">老師</span></label>${ta(fid,'t_fb',4,!canT)}</div>
     ${teacherSignRow(fid,'t_sign',canT,'實習總指導教師簽名')}
@@ -9561,7 +9741,7 @@ function buildF16(f,d,canT,fkey,canS){
   h+='</div></div></div>';
 
   // ── 70 道題目 ──
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">學習風格自我評估（共 70 題）</div></div><div class="card-body">';
+  h+='<div class="card f16-table-wrap"><div class="card-head"><div class="card-head-title">學習風格自我評估（共 70 題）</div></div><div class="card-body">';
   h+='<table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;">';
   h+='<thead><tr>';
   h+='<th class="sticky-th" style="padding:6px 8px;text-align:center;width:48px;">#</th>';
@@ -10339,6 +10519,10 @@ function buildCourseTest(f, d, canT, fkey, canS){
   var h = basicInfoCard(fid, d, '');
 
   // ── 課程資訊卡 ──
+  // 解析整理者 / 審閱者 / 版本(可由題庫個別覆寫;否則用預設)
+  var ctEditor = bank.examEditor || '周思羽 呼吸治療師';
+  var ctReviewer = bank.examReviewer || '王俊隆 呼吸治療科主任';
+  var ctVer = bank.examVer || 'v1.4 · 2026.05';
   h += '<div class="card" style="border:1px solid #6366F1;">' +
        '<div class="card-head" style="background:linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);">' +
        '<div class="card-head-title" style="color:#fff;">📚 ' + escapeExamHtml(bank.title) + '</div></div>' +
@@ -10349,7 +10533,13 @@ function buildCourseTest(f, d, canT, fkey, canS){
        '<div><b>題數：</b>' + totalQ + ' 題</div>' +
        '<div><b>計分：</b>每題 ' + perQ + ' 分（總分 100）</div>' +
        '<div><b>及格：</b>' + passLine + ' 分</div>' +
-       '</div></div></div>';
+       '</div>' +
+       // 解析署名(整理者 / 審閱者 / 版本)— 整份題庫只顯示一次
+       '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #C7D2FE;font-size:11px;color:#4338CA;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
+         '<span><b>📝 解析整理:</b> ' + escapeExamHtml(ctEditor) + '　·　<b>審閱:</b> ' + escapeExamHtml(ctReviewer) + '　·　<b>出題範疇:</b> ' + escapeExamHtml(bank.examSource || '台灣考選部歷屆國考題') + '</span>' +
+         '<span style="color:#6366F1;font-style:italic;">' + escapeExamHtml(ctVer) + '</span>' +
+       '</div>' +
+       '</div></div>';
 
   // ── 結果摘要卡（送出後顯示） ──
   if(submitted && res){
