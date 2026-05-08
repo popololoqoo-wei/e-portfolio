@@ -3623,6 +3623,26 @@ const REQUIRED_STUDENT_FIELDS = {
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
+/* 學生欄位 key 列表(老師端開表單時,預設鎖定這些欄位,避免誤改學生填寫的內容)
+ * 任何 data-key 等於這些值,或以這些前綴開頭,都視為「學生填寫的欄位」 */
+const STUDENT_FIELDS_KEY = [
+  's_name','s_sign','s_sign_date','s_date','s_date_start','s_date_end',
+  's_fb','s_note','s_feeling','s_comment','s_self','s_progress','s_detail',
+  'school','intern_cat','diagnosis','case_dx','complexity','bed','pt_name','pt_age','pt_dx',
+  // F17/F15 個人反思
+  'reflect_learn','reflect_challenge','reflect_improve','reflect_goal',
+  // 個案報告/書面個案 學生欄位
+  'cb_present','cb_history','cb_ph','cb_dx','cb_plan','cb_outcome','cb_reflect',
+];
+
+/* 判斷某 data-key 是否為「學生欄位」 */
+function isStudentFieldKey(key){
+  if(!key) return false;
+  return STUDENT_FIELDS_KEY.some(function(p){
+    return key===p || key.indexOf(p+'_')===0;  // 完全相符 或 以 p_ 開頭
+  });
+}
+
 function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
@@ -4299,23 +4319,25 @@ async function openForm(id){
   }
 
   // ★★★ 修正 PIN 重複鎖回 bug ★★★
-  // 只有「真的切到不同表單」才重置老師解鎖狀態；同表單重新渲染（雲端同步、刷新等）不應該強制鎖回。
-  // 並尊重 _skipPinReset 旗標：剛 PIN 解鎖完不立即被重置。
+  // 只有「真的切到不同表單」才重置老師解鎖狀態;同表單重新渲染(雲端同步、刷新等)不應該強制鎖回。
+  // 並尊重 _skipPinReset 旗標:剛 PIN 解鎖完不立即被重置。
   if(APP.currentRole==='student'){
     var _isSwitchingForm = (APP.currentFormId && APP.currentFormId !== id);
     if(_isSwitchingForm && !APP._skipPinReset){
       APP.teacherUnlocked=false;
     }
-    // 筆試後測 PIN：只要離開 F-POST（切到任何其他表單），一律重置解鎖狀態
-    // 即便考生作答到一半，跳到其他表單再回來，仍需重新輸入 PIN（防止離座後旁人偷看）
+    // 筆試後測 PIN:只要離開 F-POST(切到任何其他表單),一律重置解鎖狀態
     if(_isSwitchingForm && APP.currentFormId==='F-POST' && id!=='F-POST'){
       APP.examUnlocked=false;
     }
-    // 只有在真正切表單時才清旗標；同表單再次渲染保留旗標
+    // 只有在真正切表單時才清旗標;同表單再次渲染保留旗標
     if(_isSwitchingForm){
       APP._skipPinReset=false;
     }
   }
+  // 老師端切換表單時,自動清掉學生欄位的「已確認」標記
+  // (B 方案:每張新表單重新攔截,確保不延續上一張的確認狀態)
+  // 這個動作其實是自動發生的,因為每張表單的 DOM 都會重新渲染
 
   APP.currentFormId=id;
   renderSidebar();
@@ -4543,23 +4565,12 @@ async function openForm(id){
     });
   },50);
 
-  // 老師登入：鎖定學生欄位（防止竄改）
-  // 注意：F01A 是 student-only，老師登入不應鎖定學生評分按鈕
+  // 老師登入:鎖定學生欄位(預設;可由「🖋 修改學生欄位」按鈕主動解鎖)
+  // 注意:F01A 是 student-only,老師登入不應鎖定該表單的學生評分按鈕
   if(APP.currentRole==='teacher'){
     var isStudentOnlyForm=(f&&f.roles==='student');
     if(!isStudentOnlyForm){
-      mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
-        var key=el.dataset.key||'';
-        var isTField=['t_fb','t_sign','t_comment','t_good','t_improve','t_note',
-          'epa_level','result','score','director_fb'].some(function(p){return key.startsWith(p);}) ||
-          /^f(05|06|07|15)_/.test(key);
-        if(!isTField) el.disabled=true;
-      });
-      mc.querySelectorAll('button[data-teacher="0"]').forEach(function(btn){
-        btn.disabled=true;
-        btn.style.opacity='0.35';
-        btn.style.cursor='not-allowed';
-      });
+      lockStudentFields();
     }
   }
 
@@ -4807,6 +4818,92 @@ function lockTeacherFields(){
       hdr.parentNode.insertBefore(newLb,hdr.nextSibling);
     }
   }
+}
+
+/* ═══════════ 老師端:防誤改學生欄位(B 方案 — 點擊提醒)═══════════
+ * 設計理念:老師看到的學生欄位「外觀正常、可看清楚內容」,
+ * 但點擊要編輯時會跳 confirm:「您要修改學生填的欄位嗎?」
+ * 按確定 → 該欄位這次可編輯;按取消 → 該欄位仍維持唯讀
+ *
+ * 對稱於 lockTeacherFields:學生不能改老師區、老師也不該誤改學生區 */
+function lockStudentFields(){
+  // 【權限】只有老師生效(學生/管理員不需此保護)
+  if(APP.currentRole!=='teacher') return;
+  var mc=document.getElementById('main-content');
+  if(!mc)return;
+
+  // 對所有 data-key 是學生欄位的 input/textarea/select 加上 confirm 攔截
+  mc.querySelectorAll('input[data-key],textarea[data-key],select[data-key]').forEach(function(el){
+    var key=el.getAttribute('data-key')||'';
+    if(!isStudentFieldKey(key)) return;
+    // 跳過已經 readonly 的欄位(例如學生姓名自動帶入,本身就唯讀)
+    if(el.hasAttribute('readonly')) return;
+    // 跳過已經處理過的欄位(避免重複綁定)
+    if(el.getAttribute('data-student-guarded')==='1') return;
+    el.setAttribute('data-student-guarded','1');
+    // 加視覺提示:淡藍色左邊條,讓老師知道這是學生欄位
+    el.style.borderLeft = '3px solid #3B82F6';
+    el.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
+    // 攔截 focus/click — 第一次互動時跳 confirm,確認後才放行
+    el.addEventListener('mousedown', _studentFieldGuardHandler, true);
+    el.addEventListener('keydown', _studentFieldGuardKeyHandler, true);
+    el.addEventListener('focus', _studentFieldGuardFocusHandler, true);
+  });
+
+  // 對學生欄位的 button(評分按鈕等)也加守護
+  mc.querySelectorAll('button[data-student="1"]').forEach(function(btn){
+    if(btn.getAttribute('data-student-guarded')==='1') return;
+    btn.setAttribute('data-student-guarded','1');
+    btn.style.borderLeft = '3px solid #3B82F6';
+    btn.title = '⚠ 此為學生填寫的欄位,點擊將跳出確認對話框';
+    btn.addEventListener('click', _studentFieldGuardHandler, true);
+  });
+}
+
+/* mousedown 守護:阻止互動 → 跳 confirm → 確認後解除該元素守護 */
+function _studentFieldGuardHandler(ev){
+  var el = ev.currentTarget;
+  // 已確認過 → 放行
+  if(el.getAttribute('data-student-confirmed')==='1') return;
+  // 未確認 → 阻止 + 跳 confirm
+  ev.preventDefault();
+  ev.stopPropagation();
+  var msg = '⚠ 修改學生欄位?\n\n' +
+            '此欄位由學生填寫。如果您不是要協助補填,請按取消。\n\n' +
+            '確定要修改嗎?';
+  if(confirm(msg)){
+    // 確認 → 標記此元素已通過,移除攔截
+    el.setAttribute('data-student-confirmed','1');
+    el.removeEventListener('mousedown', _studentFieldGuardHandler, true);
+    el.removeEventListener('keydown', _studentFieldGuardKeyHandler, true);
+    el.removeEventListener('focus', _studentFieldGuardFocusHandler, true);
+    // 視覺提示:邊條變橘色(表示已解除守護,正在編輯)
+    el.style.borderLeft = '3px solid #F59E0B';
+    el.title = '⚠ 已解除守護;您正在修改學生欄位';
+    // 立即聚焦讓使用者開始編輯
+    setTimeout(function(){ try{ el.focus(); }catch(e){} }, 0);
+  }
+  // 取消 → 不做任何事,保留守護
+}
+
+/* keydown 守護:防止 tab 鍵盤聚焦後直接打字 */
+function _studentFieldGuardKeyHandler(ev){
+  var el = ev.currentTarget;
+  if(el.getAttribute('data-student-confirmed')==='1') return;
+  // 允許 tab/shift-tab 跳到下一個欄位(不算編輯)
+  if(ev.key === 'Tab') return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  // 第一次按鍵 → 跳 confirm(透過 mousedown handler 邏輯)
+  _studentFieldGuardHandler(ev);
+}
+
+/* focus 守護:程式化 focus 時也要攔截 */
+function _studentFieldGuardFocusHandler(ev){
+  var el = ev.currentTarget;
+  if(el.getAttribute('data-student-confirmed')==='1') return;
+  // focus 不攔截(允許看內容),但會在第一次 mousedown/keydown 觸發 confirm
+  // 這個 handler 只是預留,目前不做事
 }
 
 function unlockTeacherFieldsInDOM(){
