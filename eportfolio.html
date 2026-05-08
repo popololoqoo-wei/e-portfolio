@@ -126,8 +126,10 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .sticky-th{position:sticky !important;top:var(--topbar-h) !important;z-index:50 !important;background:#1A3A5C !important;background-clip:padding-box;color:#fff;padding:5px 6px !important;border:1px solid #DDD;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);}
 /* 表格容器需要有 isolation,避免 z-index 衝突 */
 .f16-table-wrap{isolation:isolate;}
-/* 第一行 tbody tr 留一些上邊距,讓使用者捲到第 1 題時有過渡空間 */
-.f16-table-wrap tbody tr:first-child td{padding-top:14px !important;}
+/* 第一行 tbody tr 留較大上邊距,讓使用者捲到第 1 題時有充足過渡空間 */
+.f16-table-wrap tbody tr:first-child td{padding-top:28px !important;}
+/* 所有題目列 scroll-margin-top:讓「點擊跳到 X 題」或鍵盤聚焦時自動避開表頭 */
+.f16-table-wrap tbody tr{scroll-margin-top:calc(var(--topbar-h) + 60px);}
 
 /* ─── BODY LAYOUT ─── */
 .app-body{display:flex;min-height:calc(100vh - 56px);}
@@ -174,15 +176,18 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   .collapsible-status-tags .stag{font-size:9px;padding:2px 6px;}
   .collapsible-body{padding:10px 12px 12px;}
   /* ─── 手機版 F16 表格進一步壓縮欄寬 + 縮小表頭高度 ─── */
-  .f16-table-wrap th.sticky-th{padding:4px 3px !important;font-size:11px;}
-  .f16-table-wrap td{padding:5px 4px !important;}
-  .f16-table-wrap th.sticky-th:nth-child(1){width:24px !important;}
+  /* 重點:壓縮表頭高度到極小,減少遮蔽下方題目的範圍 */
+  .f16-table-wrap th.sticky-th{padding:3px 2px !important;font-size:10px;line-height:1.1 !important;}
+  .f16-table-wrap td{padding:7px 4px !important;}
+  .f16-table-wrap th.sticky-th:nth-child(1){width:22px !important;}
   .f16-table-wrap th.sticky-th:nth-child(3),
   .f16-table-wrap th.sticky-th:nth-child(4),
-  .f16-table-wrap th.sticky-th:nth-child(5){width:46px !important;}
-  .f16-table-wrap th.sticky-th span{font-size:9px !important;}
-  /* 表頭數字也縮小 */
-  .f16-table-wrap th.sticky-th{line-height:1.15;}
+  .f16-table-wrap th.sticky-th:nth-child(5){width:42px !important;}
+  /* 把 br 換成空格,讓 0/1/2 與 不像/有點像/很像 同行,大幅減少表頭高度 */
+  .f16-table-wrap th.sticky-th br{display:none !important;}
+  .f16-table-wrap th.sticky-th span{font-size:9px !important;display:inline !important;margin-left:2px !important;font-weight:400 !important;}
+  /* 第一行 td 留更大上邊距,讓使用者捲到第 1 題時題目文字不會貼著表頭底部 */
+  .f16-table-wrap tbody tr:first-child td{padding-top:18px !important;}
 }
 .mobile-nav{display:none;background:var(--paper);border-bottom:1px solid var(--border);padding:10px 12px;gap:6px;overflow-x:auto;align-items:center;position:sticky;top:56px;z-index:40;box-shadow:0 1px 3px rgba(15,23,42,.04);}
 .mobile-nav-btn{padding:7px 14px;border:1px solid var(--border);border-radius:999px;font-size:11px;white-space:nowrap;cursor:pointer;color:var(--ink2);background:#fff;flex-shrink:0;transition:all .15s;font-weight:500;}
@@ -6698,10 +6703,19 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('事假（天）',val('leave_priv'),false);
     html+=pdfR('遲到（次）',val('late_cnt'),false);
     html+='</table>';
-    // ── 學生填寫（學生自我評語和建議 → 學生簽名 → 學生簽名日期）──
-    html+='<div class="section-head">學生填寫</div>';
+    // ── 學生填寫(個人反思 4 段 → 學生簽名 → 學生簽名日期)──
+    // 註:依使用者要求,PDF 端不顯示「學生自我評語和建議」(s_comment)欄位
+    //     改以 4 段個人反思呈現學生在實習階段的學習軌跡
+    html+='<div class="section-head">學生填寫 — 個人反思</div>';
     html+='<table>';
-    html+=pdfR('學生自我評語和建議',val('s_comment')||'—',false);
+    html+=pdfR('💡 一、本階段我學到了什麼?', val('reflect_learn')||'—', false);
+    html+=pdfR('🤔 二、我遇到的挑戰是什麼?', val('reflect_challenge')||'—', false);
+    html+=pdfR('📈 三、我可以怎樣做得更好?', val('reflect_improve')||'—', false);
+    html+=pdfR('🎯 四、下階段我想達成什麼目標?', val('reflect_goal')||'—', false);
+    html+='</table>';
+    // ── 學生簽名 ──
+    html+='<div class="section-head">學生簽名</div>';
+    html+='<table>';
     html+=pdfR('學生簽名',val('s_sign')||studentName||'—',false);
     html+=pdfR('學生簽名日期',formatSignTs(val('s_sign_date')),false);
     html+='</table>';
@@ -10520,8 +10534,8 @@ function buildCourseTest(f, d, canT, fkey, canS){
 
   // ── 課程資訊卡 ──
   // 解析整理者 / 審閱者 / 版本(可由題庫個別覆寫;否則用預設)
-  var ctEditor = bank.examEditor || '周思羽 呼吸治療師';
-  var ctReviewer = bank.examReviewer || '王俊隆 呼吸治療科主任';
+  var ctEditor = bank.examEditor || '許純怡 呼吸治療師';
+  var ctReviewer = bank.examReviewer || '張維倫 呼吸治療師';
   var ctVer = bank.examVer || 'v1.4 · 2026.05';
   h += '<div class="card" style="border:1px solid #6366F1;">' +
        '<div class="card-head" style="background:linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);">' +
