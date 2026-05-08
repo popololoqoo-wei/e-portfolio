@@ -1291,7 +1291,9 @@ async function doRegister(){
   }catch(e){}
 
   // 依管理需求：學生密碼以明文儲存
-  APP.students[sid]={name,school,pwd:pwd,registeredAt:new Date().toISOString(),selfRegistered:true};
+  // ★ 防呆:自助註冊預設給 90 天期限,避免「永久有效」漏洞(管理員可在後台調整)
+  var defaultExpiry = computeDefaultExpiry(90);
+  APP.students[sid]={name,school,pwd:pwd,expiry:defaultExpiry,registeredAt:new Date().toISOString(),selfRegistered:true};
   // ★★★ 同步到 GAS，讓管理員後台看得到 ★★★
   try{ saveConfigToSheets(); }catch(e){console.warn('同步學生帳號失敗',e);}
   APP.currentRole='student';APP.currentUser={sid,name,school};
@@ -10943,9 +10945,10 @@ function renderAdmin(){
           <input id="ns-sid" placeholder="學號" style="max-width:120px;">
           <input id="ns-name" placeholder="姓名">
           <input id="ns-school" placeholder="學校">
+          <input id="ns-expiry" type="date" title="帳號到期日(預設新增日 +90 天)" style="max-width:140px;">
           <button class="btn-add" onclick="addStudent()">＋ 新增</button>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號　｜　舊版「雜湊」密碼無法檢視，請按「重設」設一個新明文密碼</div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號　｜　舊版「雜湊」密碼無法檢視，請按「重設」設一個新明文密碼　｜　🛡 帳號到期日:不填則自動帶入 90 天後</div>
         <table class="accounts-table" id="student-table"></table>
       </div>
     </div>
@@ -11397,6 +11400,9 @@ async function addStudent(){
   const sid=clipInput((document.getElementById('ns-sid').value||'').trim(), MAX_SHORT_LENGTH);
   const name=clipInput((document.getElementById('ns-name').value||'').trim(), MAX_NAME_LENGTH);
   const school=clipInput((document.getElementById('ns-school').value||'').trim(), MAX_NAME_LENGTH);
+  // ★ 防呆:讀取期限欄位,沒填則套用 90 天預設
+  var expiryEl = document.getElementById('ns-expiry');
+  var expiry = (expiryEl && expiryEl.value) ? expiryEl.value : computeDefaultExpiry(90);
   if(!sid||!name)return;
   // 【安全】學號格式驗證
   if(!/^[A-Za-z0-9_-]+$/.test(sid)){
@@ -11408,11 +11414,13 @@ async function addStudent(){
     return;
   }
   // 預設密碼以明文儲存（依管理需求，方便管理員後台查看）
-  APP.students[sid]={name,school,pwd:'123'};
+  // ★ 防呆:必設 expiry,避免「永久有效」漏洞
+  APP.students[sid]={name,school,pwd:'123',expiry:expiry};
   refreshStudentTable();
   saveConfigToSheets();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
-  toast('✓ 已新增學生（預設密碼：123）');
+  if(expiryEl) expiryEl.value='';
+  toast('✓ 已新增學生（預設密碼:123 · 期限至 '+expiry+')');
 }
 function refreshStudentTable(){
   // 【安全】只有管理員才能看到此表格(內含明文密碼)
@@ -11420,6 +11428,13 @@ function refreshStudentTable(){
     console.warn('refreshStudentTable blocked: not admin');
     return;
   }
+  // ★ 防呆:預填「期限」欄位(若空白)為今天 + 90 天,讓管理員看到預設值不會忘記
+  try{
+    var nsExpiry = document.getElementById('ns-expiry');
+    if(nsExpiry && !nsExpiry.value){
+      nsExpiry.value = computeDefaultExpiry(90);
+    }
+  }catch(e){}
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
@@ -11427,7 +11442,8 @@ function refreshStudentTable(){
   orderedSids.forEach(function(sid){
     var acc = APP.students[sid]; if(!acc) return;
     var expired = acc.expiry && new Date(acc.expiry) < new Date();
-    var expiryColor = expired ? 'color:var(--red);font-weight:500;' : '';
+    var noExpiry = !acc.expiry;  // ★ 防呆:無期限的舊帳號(永久有效)
+    var expiryColor = expired ? 'color:var(--red);font-weight:500;' : (noExpiry ? 'color:#B45309;font-weight:500;' : '');
     var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
     // 密碼顯示：明文可切換顯示／隱藏；雜湊則顯示「已加密」並提示須重設
     var pwdId='pwd_'+sid.replace(/[^A-Za-z0-9]/g,'_');
@@ -11449,6 +11465,7 @@ function refreshStudentTable(){
       '<td style="'+expiryColor+'">'+
         '<input type="date" value="'+escAttr(acc.expiry||'')+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+escAttr(sid)+'\',this.value)">'+
         (expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':'')+
+        (noExpiry?'<div style="margin-top:3px;"><span style="color:#B45309;font-size:10px;">⚠ 永久有效(無期限)</span> <button type="button" style="font-size:9px;padding:1px 6px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:3px;cursor:pointer;color:#92400E;" onclick="applyDefaultExpiry(\''+escAttr(sid)+'\')" title="套用 90 天後到期">套用 90 天</button></div>':'')+
       '</td>'+
       '<td style="display:flex;gap:4px;flex-wrap:wrap;">'+
         '<button class="btn-update" style="padding:3px 8px;font-size:11px;" onclick="editStudent(\''+escAttr(sid)+'\')">修改</button>'+
@@ -11742,6 +11759,18 @@ function updateStudentExpiry(sid, date) {
   }
 }
 
+/* ── 一鍵套用「90 天後」到指定學生 ──
+   用於「⚠ 永久有效」舊帳號的快速防呆補修 */
+function applyDefaultExpiry(sid) {
+  if (!APP.students[sid]) return;
+  var defExp = computeDefaultExpiry(90);
+  if (!confirm('將「' + (APP.students[sid].name || sid) + '」的帳號期限設為:\n\n' + defExp + ' (90 天後)\n\n是否確認?')) return;
+  APP.students[sid].expiry = defExp;
+  saveConfigToSheets();
+  refreshStudentTable();
+  toast('✓ 已將 ' + sid + ' 的帳號期限設為 ' + defExp);
+}
+
 /* ── 學生帳號修改 ── */
 async function editStudent(sid) {
   const acc = APP.students[sid];
@@ -11833,6 +11862,19 @@ function checkStudentExpiry(sid) {
   const acc = APP.students[sid];
   if (!acc || !acc.expiry) return true; // 無期限設定，可登入
   return new Date(acc.expiry) >= new Date();
+}
+
+/* ── 計算預設到期日(從今天起算 N 天後)──
+   用於:管理員新增學生未填期限時、學生自助註冊時自動帶入 */
+function computeDefaultExpiry(days) {
+  days = days || 90;  // 預設 90 天
+  var d = new Date();
+  d.setDate(d.getDate() + days);
+  // 格式化為 YYYY-MM-DD(date input 用)
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
 }
 
 /* ── 尚未填寫表單區 ── */
