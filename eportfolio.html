@@ -6915,8 +6915,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
           dopsItemIdx++;
           var itKey=id+'_i'+dopsItemIdx;
           var sel=d[itKey];
+          var itTextDisplay = String(itText).replace(/\n/g, '<br>');
           html+='<tr>';
-          html+='<td style="padding:4px 6px;border:1px solid #DDD;background:#FAFBFF;font-size:9pt;">'+itText+'</td>';
+          html+='<td style="padding:4px 6px;border:1px solid #DDD;background:#FAFBFF;font-size:9pt;">'+itTextDisplay+'</td>';
           [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
             var isSel=(sel==v||sel===String(v));
             // 區段配色：1-3 藍、4-6 綠、7-9 黃、NA 灰
@@ -9449,7 +9450,7 @@ const DOPS_DATA={
         '8. 抽痰前給予100%氧氣，1分鐘',
       ]},
       {hd:'執行技術中',items:[
-        '9. 技術執行步驟 9.1 打開抽痰包封口(注意勿汙染手套)',
+        '9.1 打開抽痰包封口(注意勿汙染手套)',
         '9.2 單手戴無菌手套，取出無菌抽痰管，另一手拿取連接抽痰機的長管與之連接',
         '9.3 以無菌方式放入抽痰管，插入時勿按住抽痰管之抽吸控制口，且放入深度適宜(Endo長度到底，回抽1~2公分)；間歇、旋轉、抽吸。※勿超過15秒',
         '9.4 抽痰順序：氣管內管(或氣切)->鼻腔->口腔',
@@ -9474,7 +9475,7 @@ const DOPS_DATA={
         '1. 確認醫囑與適應症',
         '2. 確認病人(兩種方式)並解釋治療',
         '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 核對藥物的三讀五對 4.1 三讀：取藥、給藥、歸藥時 4.2 五對：醫囑、藥名、人名、給藥時間、給藥途徑',
+        '4. 核對藥物的三讀五對\n　4.1 三讀：取藥、給藥、歸藥時\n　4.2 五對：醫囑、藥名、人名、給藥時間、給藥途徑',
         '5. 備物：MDI藥物、Aero-chamber(吸入輔助器)',
         '6. 維持呼吸道通暢，必要時予以抽痰',
         '7. 將儲藥罐取出，儲藥罐用手握住，以提高儲藥罐的溫度，並上下搖晃噴霧器(至少5~10秒)；若初次使用或多日未用，要先對大氣中噴1~4次',
@@ -9585,7 +9586,9 @@ function buildDOPS(f,d,canT,fkey,canS){
     h+='<table class="dops-tbl"><thead><tr><th style="text-align:left;min-width:160px;">評核內容</th><th colspan="3" style="background:#C8D8F0;color:#1A3A5C;font-size:9px;">有待加強</th><th colspan="3" style="background:#D8ECD8;color:#2D5A27;font-size:9px;">符合標準</th><th colspan="3" style="background:#F0E8C8;color:#8B6914;font-size:9px;">優良</th><th style="background:#EEE;font-size:9px;">未評</th></tr><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>NA</th></tr></thead><tbody>';
     g.items.forEach(item=>{
       var key=f.id+'_i'+(++itemIdx);
-      h+='<tr><td class="item-cell">'+item+'</td>';
+      // 把字串中的 \n 換成 <br>，讓多行內容自動換行（不影響項目編號）
+      var itemDisplay = String(item).replace(/\n/g, '<br>');
+      h+='<tr><td class="item-cell">'+itemDisplay+'</td>';
       [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
         var sel=(d[key]==v||d[key]===String(v))?'sel':'';
         var dis=!canT?'disabled':'';
