@@ -1143,6 +1143,29 @@ async function passwordMatchesV2(input, stored, salt){
   return stored === input;
 }
 
+/* 【資安修補 v18.2】把後端傳來的 ISO 時間字串切成 yyyy-MM-dd
+   後端 GAS 寫 toISOString() 會產生 "2026-08-11T16:00:00.000Z"
+   <input type="date"> 只接受 yyyy-MM-dd，不切會 console 跳警告 */
+function _normalizeDateStr(s){
+  if(!s) return '';
+  s = String(s);
+  // 已是 yyyy-MM-dd
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // ISO 格式：取前 10 字元
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.substring(0, 10);
+  // 嘗試 Date 解析
+  try{
+    const d = new Date(s);
+    if(!isNaN(d.getTime())){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+day;
+    }
+  }catch(e){}
+  return '';
+}
+
 function toast(msg,ok=true){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=ok?'#2D5A27':'#8B2020';
@@ -11346,8 +11369,8 @@ function renderAdmin(){
           建議用於監考時控管：學生需向監考老師索取此 PIN 才能開始作答後測。
         </div>
         <div style="font-size:11px;color:#1E40AF;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;padding:8px 10px;margin-bottom:10px;line-height:1.7;">
-          💡 <b>更新流程：</b>按下「更新」後，系統會要求輸入「<b>管理員密碼</b>」做身份驗證，新 PIN 會即時同步到 GAS 伺服器（<code>EXAM_PIN</code>）。<br>
-          <span style="color:#7F1D1D;">⚠ 首次使用前，需在 GAS 編輯器執行 <code>setupAdminPassword</code> 設定管理員密碼。</span>
+          💡 <b>更新流程：</b>輸入新 PIN 後按「更新」，系統會驗證您的管理員身份（透過登入時取得的 session token），新 PIN 即時同步到伺服器。<br>
+          <span style="color:#065F46;">✓ 不需另外輸入管理員密碼，session 已驗證為合法管理員。</span>
         </div>
         <div class="admin-row">
           <span style="font-size:12px;width:120px;">設定新後測 PIN：</span>
@@ -11957,7 +11980,7 @@ function refreshStudentTable(){
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
       '<td>'+esc(sid)+'</td><td>'+esc(acc.name)+selfReg+'</td><td>'+esc(acc.school||'—')+'</td><td>'+pwdCell+'</td>'+
       '<td style="'+expiryColor+'">'+
-        '<input type="date" value="'+escAttr(acc.expiry||'')+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+escAttr(sid)+'\',this.value)">'+
+        '<input type="date" value="'+escAttr(_normalizeDateStr(acc.expiry))+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+escAttr(sid)+'\',this.value)">'+
         (expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':'')+
         (noExpiry?'<div style="margin-top:3px;"><span style="color:#B45309;font-size:10px;">⚠ 永久有效(無期限)</span> <button type="button" style="font-size:9px;padding:1px 6px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:3px;cursor:pointer;color:#92400E;" onclick="applyDefaultExpiry(\''+escAttr(sid)+'\')" title="套用 90 天後到期">套用 90 天</button></div>':'')+
       '</td>'+
