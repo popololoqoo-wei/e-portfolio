@@ -4951,7 +4951,25 @@ async function inlineUnlock(){
     msg.textContent='PIN 嘗試次數過多，請等待 '+locked+' 秒';
     return;
   }
-  const matched=await passwordMatchesV2(pin, APP.teacherPIN, 'teacher_pin');
+  // 【資安修補 v18.2】優先走後端 verifyTeacherPin
+  // 後端用 Script Properties 的 TEACHER_PIN_HASH 比對（含限速保護）
+  // 連線失敗時退回本地比對（向下相容）
+  let matched = false;
+  try {
+    const result = await callBackend('verifyTeacherPin', {pin: pin});
+    if(result && result.ok){
+      matched = true;
+    } else if(result && result.error && result.error.indexOf('連線')<0){
+      // 後端明確回傳錯誤（PIN 錯、未設定等）→ 不退回本地，直接顯示錯誤
+      matched = false;
+    } else {
+      // 連線失敗 → 退回本地比對
+      matched = await passwordMatchesV2(pin, APP.teacherPIN, 'teacher_pin');
+    }
+  } catch(e) {
+    console.warn('verifyTeacherPin failed, falling back to local:', e);
+    matched = await passwordMatchesV2(pin, APP.teacherPIN, 'teacher_pin');
+  }
   if(matched){
     clearFails(lockKey);
     APP.teacherUnlocked=true;
@@ -11159,9 +11177,15 @@ async function _examCallApi(action, payload){
   }
   // 為避免 CORS preflight，使用 text/plain 把 JSON body 直接送到 GAS。
   // GAS 端透過 e.postData.contents 解析。
+  // 【資安修補 v18.2】帶上 session token，後端會驗證權限
   var bodyObj = {
     action: action,
+    sessionToken: getSessionToken() || '',
     payload: payload || {},
+    // 也展平到頂層方便後端取用（兼容兩種解法）
+    pin: payload && payload.pin,
+    sid: payload && payload.sid,
+    fid: payload && payload.fid,
     t: Date.now()
   };
   var resp;
@@ -11613,65 +11637,28 @@ function applyConfig(cfg){
 
 async function updatePIN(){
   const v=clipInput((document.getElementById('pin-display').value||'').trim(), 16);
-  if(v){
-    // 【資安修補 v18】PIN 用 salted hash
-    APP.teacherPIN = await hashPassword('teacher_pin', v);
-    saveConfigToSheets();
-    toast('✓ PIN 已更新（已雜湊化儲存）');
-    // 立即把畫面上顯示的 PIN 改回遮罩
-    var pinEl=document.getElementById('pin-display');
-    if(pinEl){
-      pinEl.type='password';
-      pinEl.value='********';
-    }
-  }
+  if(!v){ toast('請輸入新 PIN', false); return; }
+  if(v.length<4){ toast('PIN 至少 4 碼', false); return; }
+  // 【資安修補 v18.2】呼叫後端 setTeacherPin（session 已驗證為 admin 即可）
+  const result = await callBackend('setTeacherPin', {newPin: v});
+  if(!result.ok){ toast('⚠ '+(result.error||'更新失敗'), false); return; }
+  // 後端寫入成功 → 本地也更新一份（向下相容用）
+  APP.teacherPIN = await hashPassword('teacher_pin', v);
+  toast('✓ 老師 PIN 已更新並同步至伺服器');
+  var pinEl=document.getElementById('pin-display');
+  if(pinEl){ pinEl.type='password'; pinEl.value='********'; }
 }
 async function updateExamPIN(){
   const newPin=clipInput((document.getElementById('exam-pin-display').value||'').trim(), 32);
   if(!newPin){ toast('請輸入新 PIN 碼', false); return; }
   if(newPin.length<4){ toast('PIN 碼至少 4 碼', false); return; }
-
-  // 【方案 A】同步更新到 GAS 後端
-  // 為避免任何人都能改 PIN，要求管理員輸入管理員密碼做身份驗證
-  var adminPwd = prompt('⚠ 此 PIN 將即時同步至伺服器（GAS 後端）。\n為避免未授權更動，請輸入「管理員密碼」確認身份：\n\n（這是您在 GAS 後端 setupAdminPassword 設定的密碼，與一般帳號密碼可不同）');
-  if(adminPwd===null) return;  // 使用者取消
-  adminPwd = (adminPwd||'').trim();
-  if(!adminPwd){ toast('未輸入管理員密碼，已取消',false); return; }
-
-  // 在前端先把管理員密碼雜湊化，再送到 GAS（GAS 有相同雜湊存放，不需明文比對）
-  toast('PIN 同步中…');
-  var adminPwdHash;
-  try{
-    adminPwdHash = await sha256(adminPwd);
-  }catch(e){
-    toast('密碼雜湊失敗：'+(e.message||e), false);
-    return;
-  }
-
-  // 呼叫 GAS examSetPin
-  try{
-    var apiResp = await _examCallApi('examSetPin', {
-      newPin: newPin,
-      adminPwdHash: adminPwdHash
-    });
-    if(!apiResp || !apiResp.ok){
-      toast('⚠ 同步失敗：'+((apiResp&&apiResp.error)||'伺服器無回應'), false);
-      return;
-    }
-    // 成功 → 同時更新前端 examPIN（保留向下相容，但實際以伺服器為準）
-    APP.examPIN = await hashPassword('exam_pin', newPin);
-    saveConfigToSheets();
-    toast('✓ 筆試後測 PIN 已更新並同步至伺服器');
-  }catch(err){
-    toast('⚠ 連線後端失敗：'+(err.message||err), false);
-    return;
-  }
-
+  // 【資安修補 v18.2】呼叫後端 setExamPin（不再需要管理員密碼二次驗證，session 已足夠）
+  const result = await callBackend('setExamPin', {newPin: newPin});
+  if(!result.ok){ toast('⚠ '+(result.error||'更新失敗'), false); return; }
+  APP.examPIN = await hashPassword('exam_pin', newPin);
+  toast('✓ 筆試後測 PIN 已更新並同步至伺服器');
   var ep=document.getElementById('exam-pin-display');
-  if(ep){
-    ep.type='password';
-    ep.value='';
-  }
+  if(ep){ ep.type='password'; ep.value=''; }
 }
 async function updateAdminPwd(){
   const p=clipInput(document.getElementById('new-admin-pwd').value, MAX_SHORT_LENGTH);
