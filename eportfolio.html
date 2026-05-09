@@ -3870,18 +3870,18 @@ const REQUIRED_STUDENT_FIELDS = {
     'f14_sc_0','f14_sc_1','f14_sc_2','f14_sc_3','f14_sc_4','f14_sc_5',
     'f14_sc_6','f14_sc_7','f14_sc_8','f14_sc_9','f14_sc_10','f14_sc_11',
     's_fb','t_fb','s_sign','s_sign_date','t_sign','t_sign_date'],
-  // DOPS：每張的評核項目數量不同（D01=21、D02=18、D03=18、D04=33）
+  // DOPS：每張的評核項目數量不同（D01=21、D02=19、D03=18、D04=34）
   D01: ['s_name','school','s_date','intern_cat','complexity']
     .concat(Array.from({length:21},function(_,i){return 'D01_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
   D02: ['s_name','school','s_date','intern_cat','complexity']
-    .concat(Array.from({length:18},function(_,i){return 'D02_i'+(i+1);}))
+    .concat(Array.from({length:19},function(_,i){return 'D02_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
   D03: ['s_name','school','s_date','intern_cat','complexity']
     .concat(Array.from({length:18},function(_,i){return 'D03_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
   D04: ['s_name','school','s_date','intern_cat','complexity']
-    .concat(Array.from({length:33},function(_,i){return 'D04_i'+(i+1);}))
+    .concat(Array.from({length:34},function(_,i){return 'D04_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
   // EPA（注意：__sc_any 是虛擬必填，由 getStatus 特例處理 e0X_sc 至少一項）
   E01: ['s_name','school','s_date','intern_cat','__sc_any','epa_level','t_fb','t_sign','t_sign_date'],
@@ -6912,9 +6912,6 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         html+='</tr>';
         // 各項
         g.items.forEach(function(itText){
-          dopsItemIdx++;
-          var itKey=id+'_i'+dopsItemIdx;
-          var sel=d[itKey];
           // 階層縮排（PDF 用較窄 14px）
           function _lvl(line){
             var m = String(line).trim().match(/^(\d+)(\.\d+)?(\.\d+)?/);
@@ -6923,6 +6920,16 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
             if(m[2]) return 1;
             return 0;
           }
+          // 純標題 item：跨欄顯示，不評分、不消耗 dopsItemIdx
+          if(itText && typeof itText === 'object' && itText.h){
+            var titleLv = _lvl(itText.h);
+            var titlePad = titleLv * 14;
+            html+='<tr><td colspan="11" style="padding:4px 6px;padding-left:'+(6+titlePad)+'px;border:1px solid #DDD;background:#E8F1FB;font-size:9pt;font-weight:600;color:#1A5276;">'+itText.h+'</td></tr>';
+            return;
+          }
+          dopsItemIdx++;
+          var itKey=id+'_i'+dopsItemIdx;
+          var sel=d[itKey];
           var pdfLines = String(itText).split('\n').map(function(ln){
             var pad = _lvl(ln) * 14;
             if(pad === 0) return ln;
@@ -9488,7 +9495,9 @@ const DOPS_DATA={
         '1. 確認醫囑與適應症',
         '2. 確認病人(兩種方式)並解釋治療',
         '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 核對藥物的三讀五對\n4.1 三讀：取藥、給藥、歸藥時\n4.2 五對：醫囑、藥名、人名、給藥時間、給藥途徑',
+        {h:'4. 核對藥物的三讀五對'},
+        '4.1 三讀：取藥、給藥、歸藥時',
+        '4.2 五對：醫囑、藥名、人名、給藥時間、給藥途徑',
         '5. 備物：MDI藥物、Aero-chamber(吸入輔助器)',
         '6. 維持呼吸道通暢，必要時予以抽痰',
         '7. 將儲藥罐取出，儲藥罐用手握住，以提高儲藥罐的溫度，並上下搖晃噴霧器(至少5~10秒)；若初次使用或多日未用，要先對大氣中噴1~4次',
@@ -9525,7 +9534,8 @@ const DOPS_DATA={
       ]},
       {hd:'呼吸器使用中',items:[
         '8. 監測：聽診呼吸音、病人呼吸型態是否和呼吸器同步、生命徵象及ABG',
-        '9. 呼吸器障礙排除\n9.1 先檢查病人',
+        {h:'9. 呼吸器障礙排除'},
+        '9.1 先檢查病人',
         '9.2 依照呼吸器警報發生原因(管路積水、分泌物增加、漏氣)，調整呼吸器設定、改善病人呼吸的狀況、恢復警報或更換異常呼吸器',
         '10. 病人使用之呼吸器面板，每日需使用漂白水布',
         '11. 技術執行後應洗手',
@@ -9534,7 +9544,8 @@ const DOPS_DATA={
       {hd:'呼吸器使用後',items:[
         '13. 管路及附屬配件依分類處理',
         '14. 呼吸器面板及呼吸器表面以漂白水布擦拭',
-        '15. 泡消\n15.1 Exp. cassette 75% 酒精浸泡30分鐘，烘乾即可。(servo系列)',
+        {h:'15. 泡消'},
+        '15.1 Exp. cassette 75% 酒精浸泡30分鐘，烘乾即可。(servo系列)',
         '15.2 細菌過濾器高溫殺菌消毒',
         '15.3 管路以巴斯德消毒',
       ]},
@@ -9552,30 +9563,36 @@ const DOPS_DATA={
       ]},
       {hd:'執行技術中',items:[
         '6. 確認病人(兩種方式)並解釋',
-        '7. 技術執行步驟\n7.1 協助病人採半坐臥式(45-90度)',
+        {h:'7. 技術執行步驟'},
+        '7.1 協助病人採半坐臥式(45-90度)',
         '7.2 測量RR及VE 以肺計量器(Halo-scale)測量RR、VE將肺計量器接上氣管內管，將on打開，計算1分鐘病人呼吸次數及VE，1分鐘後關到off處，觀察肺計量器的值即為每分鐘換氣量(VE)。',
         '7.3 計算Vt及RSBI 平均呼吸潮氣容積=每分鐘換氣量÷呼吸次數；RSBI ( RSBI=RR bpm/Vt)',
-        '7.4 測量最大吸氣力量 (Maximum Inspiratory Pressure; MIP)\n7.4.1 向病人解釋說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
+        {h:'7.4 測量最大吸氣力量 (Maximum Inspiratory Pressure; MIP)'},
+        '7.4.1 向病人解釋說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
         '7.4.2 將指標放在負壓端並歸零',
         '7.4.3 接上壓力計，請病人吐氣吐乾淨後，用最大的力量吸氣，病人吸氣的同時將通氣孔塞住，測量最大的吸氣壓力',
         '7.4.4 至少測量3次，每次測量間必須有適當的休息，取最好的一次',
         '7.4.5 無法配合的病人，則持續阻塞通氣孔15-20秒，來測得病人最大的吸氣力量',
-        '7.5 測最大吐氣力量 (Maximum Expiratory Pressure; MEP)\n7.5.1 向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
+        {h:'7.5 測最大吐氣力量 (Maximum Expiratory Pressure; MEP)'},
+        '7.5.1 向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
         '7.5.2 將指標放在正壓端並歸零',
         '7.5.3 接上壓力計，請病人吸飽氣後，用最大的力量吐氣，病人吸氣的同時將通氣孔塞住，測量最大的吐氣壓力',
         '7.5.4 至少測量3次，每次測量間必須有適當的休息，取最好的一次',
         '7.5.5 無法配合的病人，則持續阻塞通氣孔15-20秒，來測得病人最大的吸氣力量',
-        '7.6 測量氣囊漏氣量（CLT）\n7.6.1 向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
+        {h:'7.6 測量氣囊漏氣量（CLT）'},
+        '7.6.1 向病人解釋並說明測量的過程及配合事項，協助病人採半坐臥式(45-90度)',
         '7.6.2 調整呼吸器設定VCV（8ml/kg-PBW）',
         '7.6.3 紀錄平靜時吐氣潮氣容積 Vt baseline',
         '7.6.4 待病人呼吸平靜後，鬆開cuff',
         '7.6.5 觀察病人平靜呼吸6次後，紀錄吐氣潮氣容積Vt deflated',
         '7.6.6 將cuff打飽，並測量cuff pressure * 正常值：25-35 cmH₂O之間',
         '7.6.7 調回病人之前使用的呼吸器設定',
-        '測量其間須觀察生命徵象、當生命徵象不穩定時，立即停止測量。',
+        '8. 測量其間須觀察生命徵象、當生命徵象不穩定時，立即停止測量。',
       ]},
       {hd:'執行技術後',items:[
-        '9. 評估測量結果\n9.1 RSBI<105\n9.2 CLT>140mL',
+        {h:'9. 評估測量結果'},
+        '9.1 RSBI<105',
+        '9.2 CLT>140mL',
         '10. 向病人/照護者，及醫療團隊解釋測量結果',
         '11. 回復病人姿勢與整理床邊環境',
         '12. 用酒精棉片清潔用物與歸位',
@@ -9598,7 +9615,6 @@ function buildDOPS(f,d,canT,fkey,canS){
     h+='<div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:6px 10px;margin-bottom:8px;font-size:11px;font-weight:700;color:#8B6914;">⚠ 合格標準（任一項目不得低於）UGY：5分</div>';
     h+='<table class="dops-tbl"><thead><tr><th style="text-align:left;min-width:160px;">評核內容</th><th colspan="3" style="background:#C8D8F0;color:#1A3A5C;font-size:9px;">有待加強</th><th colspan="3" style="background:#D8ECD8;color:#2D5A27;font-size:9px;">符合標準</th><th colspan="3" style="background:#F0E8C8;color:#8B6914;font-size:9px;">優良</th><th style="background:#EEE;font-size:9px;">未評</th></tr><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>NA</th></tr></thead><tbody>';
     g.items.forEach(item=>{
-      var key=f.id+'_i'+(++itemIdx);
       // 階層縮排輔助：分析編號層級
       function _calcLevel(line){
         var m = String(line).trim().match(/^(\d+)(\.\d+)?(\.\d+)?/);
@@ -9607,7 +9623,16 @@ function buildDOPS(f,d,canT,fkey,canS){
         if(m[2]) return 1;       // 9.1   → 二級
         return 0;                // 9.    → 主項
       }
-      // 多行 item 處理：每一行各自決定縮排，組合 HTML
+      // 純標題 item（如 {h:'7. 技術執行步驟'}）：只顯示文字，不評分、不消耗 itemIdx
+      if(item && typeof item === 'object' && item.h){
+        var titleLv = _calcLevel(item.h);
+        var titlePad = titleLv * 18;
+        var titleStyle = 'padding-left:'+(titlePad)+'px;font-weight:600;color:#1A5276;background:#E8F1FB;';
+        h+='<tr><td class="item-cell" style="'+titleStyle+'" colspan="11">'+item.h+'</td></tr>';
+        return;
+      }
+      var key=f.id+'_i'+(++itemIdx);
+      // 一般 item：依編號層級縮排
       var lines = String(item).split('\n');
       var renderedLines = lines.map(function(ln){
         var lv = _calcLevel(ln);
