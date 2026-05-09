@@ -11468,10 +11468,11 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">學生帳號管理</div>
       <div class="admin-card-body">
-        <div style="background:#D1FAE5;border-left:4px solid #10B981;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#064E3B;line-height:1.7;">
-          <b>🔒 密碼加密儲存</b><br>
-          所有學生密碼以 SHA-256 加鹽雜湊儲存，管理員與資料庫管理員都<b>無法</b>檢視原始密碼。<br>
-          若學生忘記密碼，請點擊「重設」按鈕將密碼重設為預設值「123」，並請學生立即登入後修改。
+        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7C2D12;line-height:1.7;">
+          <b>🔓 密碼明文檢視模式</b><br>
+          學生密碼以「明文」儲存，可點擊密碼欄的 <b>👁</b> 圖示顯示原始密碼。<br>
+          <span style="color:#92400E;">⚠ 請務必嚴格控管 Google Sheets 與本機檔案的存取權限，避免密碼外洩。</span><br>
+          <span style="color:#92400E;">⚠ 請告知使用者：勿使用您在其他系統（如銀行、LINE、Email）的同密碼。</span>
         </div>
         <div class="admin-row">
           <input id="ns-sid" placeholder="學號" style="max-width:120px;">
@@ -11523,8 +11524,8 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">臨床老師帳號管理</div>
       <div class="admin-card-body">
-        <div style="background:#D1FAE5;border-left:4px solid #10B981;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#064E3B;line-height:1.7;">
-          <b>🔒 密碼加密儲存</b>　老師密碼同樣以 SHA-256 雜湊儲存，無法檢視原始密碼；若忘記請按「重設」恢復為預設「000」。
+        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7C2D12;line-height:1.7;">
+          <b>🔓 密碼明文檢視模式</b>　老師密碼同樣以明文儲存，可點 <b>👁</b> 圖示檢視。
         </div>
         <div class="admin-row">
           <input id="nt-card" placeholder="卡號" style="max-width:120px;">
@@ -12000,28 +12001,23 @@ function refreshStudentTable(){
     var noExpiry = !acc.expiry;  // ★ 防呆:無期限的舊帳號(永久有效)
     var expiryColor = expired ? 'color:var(--red);font-weight:500;' : (noExpiry ? 'color:#B45309;font-weight:500;' : '');
     var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
-    // 【資安修補 v18】密碼一律不顯示明文（即使管理員也不行）
-    // 違反基本資安原則：管理員不應該能看到密碼，要重設只能透過「重設」按鈕。
-    var pwdStored = (typeof acc.pwd === 'string' && acc.pwd) ? acc.pwd : '';
-    var pwdLabel, pwdColor, pwdBg, pwdBorder, pwdTitle;
-    if(pwdStored.indexOf('h2:')===0){
-      pwdLabel = '🔒 已加密 (salted)';
-      pwdColor = '#065F46'; pwdBg = '#D1FAE5'; pwdBorder = '#10B981';
-      pwdTitle = '密碼已用 SHA-256 加鹽雜湊儲存，符合資安標準。';
-    } else if(pwdStored.indexOf('h:')===0){
-      pwdLabel = '🔓 舊版雜湊';
-      pwdColor = '#92400E'; pwdBg = '#FEF3C7'; pwdBorder = '#F59E0B';
-      pwdTitle = '舊版雜湊 (無 salt)，建議按「重設」升級至新版加鹽雜湊。';
-    } else if(pwdStored){
-      pwdLabel = '⚠ 明文（待升級）';
-      pwdColor = '#991B1B'; pwdBg = '#FEE2E2'; pwdBorder = '#F87171';
-      pwdTitle = '此帳號為舊版資料尚未雜湊化。請按「重設」更新密碼。';
+    // 【明文模式】顯示密碼（含遮罩 + 眼睛圖示切換）
+    var pwdPlain = acc.pwdPlain || '';
+    var pwdCellId = 'pwd-cell-s-' + sid;
+    var pwdCell;
+    if (pwdPlain) {
+      // 預設遮罩，點眼睛切換顯示
+      pwdCell = '<span id="'+pwdCellId+'" data-plain="'+escAttr(pwdPlain)+'" data-show="0" style="font-family:monospace;font-size:12px;letter-spacing:1px;">••••••</span>'+
+                ' <button type="button" onclick="togglePwdShow(\''+pwdCellId+'\',this)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;" title="顯示/隱藏密碼">👁</button>';
     } else {
-      pwdLabel = '— 未設定';
-      pwdColor = '#6B7280'; pwdBg = '#F3F4F6'; pwdBorder = '#D1D5DB';
-      pwdTitle = '尚未設定密碼。';
+      // 沒明文（舊雜湊資料）→ 顯示舊版警告
+      var pwdStored = (typeof acc.pwd === 'string' && acc.pwd) ? acc.pwd : '';
+      if (pwdStored.indexOf('h2:')===0 || pwdStored.indexOf('h:')===0) {
+        pwdCell = '<span style="font-size:11px;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:999px;border:1px solid #F0C040;" title="舊版雜湊密碼，無法檢視原文。請按「重設」設一個新明文密碼。">🔓 雜湊（無法檢視）</span>';
+      } else {
+        pwdCell = '<span style="font-size:11px;color:#6B7280;">— 未設定</span>';
+      }
     }
-    var pwdCell = '<span style="font-family:monospace;font-size:11px;color:'+pwdColor+';background:'+pwdBg+';padding:2px 8px;border-radius:999px;border:1px solid '+pwdBorder+';" title="'+escAttr(pwdTitle)+'">'+pwdLabel+'</span>';
     rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+escAttr(sid)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;"><input type="checkbox" class="batch-row-checkbox" data-sid="'+escAttr(sid)+'" onchange="batchUpdateCount()" style="cursor:pointer;width:14px;height:14px;"></td>'+
@@ -12073,8 +12069,22 @@ async function delStudent(sid){
    讓管理員按眼睛圖示顯示明文。新版完全不寫明文，改為只顯示加密狀態徽章。
    保留函式定義避免外部呼叫出錯，但內部不再有任何明文可顯示。 */
 function togglePwdShow(elId,btn){
-  console.warn('[Security] togglePwdShow 已廢棄；密碼明文不再可被檢視。');
-  // 此函式刻意不再做任何事
+  // 【明文模式】切換密碼顯示
+  var el = document.getElementById(elId);
+  if(!el) return;
+  var plain = el.getAttribute('data-plain') || '';
+  var show = el.getAttribute('data-show') === '1';
+  if(show){
+    el.textContent = '••••••';
+    el.setAttribute('data-show', '0');
+    if(btn) btn.textContent = '👁';
+    if(btn) btn.title = '顯示密碼';
+  } else {
+    el.textContent = plain;
+    el.setAttribute('data-show', '1');
+    if(btn) btn.textContent = '🙈';
+    if(btn) btn.title = '隱藏密碼';
+  }
 }
 
 /* ─── 學生密碼快速重設（重設為預設值 123） ─── */
@@ -12137,27 +12147,21 @@ function refreshTeacherTable(){
   var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>';
   orderedCards.forEach(function(card){
     var acc = APP.teachers[card]; if(!acc) return;
-    // 【資安修補 v18】密碼一律不顯示明文
-    var pwdStored = (typeof acc.pwd === 'string' && acc.pwd) ? acc.pwd : '';
-    var pwdLabel, pwdColor, pwdBg, pwdBorder, pwdTitle;
-    if(pwdStored.indexOf('h2:')===0){
-      pwdLabel = '🔒 已加密 (salted)';
-      pwdColor = '#065F46'; pwdBg = '#D1FAE5'; pwdBorder = '#10B981';
-      pwdTitle = '密碼已用 SHA-256 加鹽雜湊儲存，符合資安標準。';
-    } else if(pwdStored.indexOf('h:')===0){
-      pwdLabel = '🔓 舊版雜湊';
-      pwdColor = '#92400E'; pwdBg = '#FEF3C7'; pwdBorder = '#F59E0B';
-      pwdTitle = '舊版雜湊 (無 salt)，建議按「重設」升級至新版加鹽雜湊。';
-    } else if(pwdStored){
-      pwdLabel = '⚠ 明文（待升級）';
-      pwdColor = '#991B1B'; pwdBg = '#FEE2E2'; pwdBorder = '#F87171';
-      pwdTitle = '此帳號為舊版資料尚未雜湊化。請按「重設」更新密碼。';
+    // 【明文模式】顯示密碼
+    var pwdPlainT = acc.pwdPlain || '';
+    var pwdCellIdT = 'pwd-cell-t-' + card;
+    var pwdCell;
+    if (pwdPlainT) {
+      pwdCell = '<span id="'+pwdCellIdT+'" data-plain="'+escAttr(pwdPlainT)+'" data-show="0" style="font-family:monospace;font-size:12px;letter-spacing:1px;">••••••</span>'+
+                ' <button type="button" onclick="togglePwdShow(\''+pwdCellIdT+'\',this)" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px;" title="顯示/隱藏密碼">👁</button>';
     } else {
-      pwdLabel = '— 未設定';
-      pwdColor = '#6B7280'; pwdBg = '#F3F4F6'; pwdBorder = '#D1D5DB';
-      pwdTitle = '尚未設定密碼。';
+      var pwdStoredT = (typeof acc.pwd === 'string' && acc.pwd) ? acc.pwd : '';
+      if (pwdStoredT.indexOf('h2:')===0 || pwdStoredT.indexOf('h:')===0) {
+        pwdCell = '<span style="font-size:11px;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:999px;border:1px solid #F0C040;" title="舊版雜湊密碼，無法檢視原文。請按「重設」設一個新明文密碼。">🔓 雜湊（無法檢視）</span>';
+      } else {
+        pwdCell = '<span style="font-size:11px;color:#6B7280;">— 未設定</span>';
+      }
     }
-    var pwdCell = '<span style="font-family:monospace;font-size:11px;color:'+pwdColor+';background:'+pwdBg+';padding:2px 8px;border-radius:999px;border:1px solid '+pwdBorder+';" title="'+escAttr(pwdTitle)+'">'+pwdLabel+'</span>';
     rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+escAttr(card)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
