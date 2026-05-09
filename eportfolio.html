@@ -748,7 +748,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.4 · 2026.05</span></div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5 · 2026.05</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -4341,6 +4341,11 @@ window.showAboutDialog = function(){
   if(existing) existing.remove();
 
   var changelog = [
+    {ver:'v1.5', date:'2026.05', notes:[
+      '【後台】清除測試資料新增「對帳重試」機制',
+      '清除雲端後會回頭驗證是否真的清乾淨,失敗自動重試最多 3 次',
+      '清完仍對不上的會列出失敗清單給管理員,不再「假成功」',
+    ]},
     {ver:'v1.4', date:'2026.05', notes:[
       '統一群組命名(DOPS/EPA/個案報告等 4 處標籤一致)',
       'F-PRE/F-POST 表單名稱簡化為「前測」/「後測」',
@@ -11815,8 +11820,59 @@ async function clearCloudFormData(formKey){
   });
 }
 
+/* ── 【對帳】回頭跟雲端確認指定 formKey 是否真的清乾淨 ──
+   回傳 true = 雲端確實已空；false = 雲端還有資料（或讀取失敗，保守當失敗）
+   讀取會穿透快取（cache:no-cache + 時間戳）以避免讀到舊副本。 */
+async function verifyCloudFormCleared(formKey){
+  if(!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return true; // 無雲端時視為已清
+  try{
+    var controller = new AbortController();
+    var tid = setTimeout(function(){controller.abort();}, 8000);
+    var url = GAS_URL + '?action=loadForm&formId=' + encodeURIComponent(formKey) + '&t=' + Date.now();
+    var resp = await fetch(url, {cache:'no-cache', signal:controller.signal});
+    clearTimeout(tid);
+    if(!resp.ok) return false; // 讀不到 → 保守認為沒清乾淨
+    var data = await resp.json();
+    // formData 為 '{}'、空字串、或不存在 → 視為已清
+    var fd = data.formData;
+    var hist = data.history;
+    var fdEmpty = (!fd || fd === '' || fd === '{}' || fd === 'null');
+    var histEmpty = (!hist || hist === '' || hist === '[]' || hist === 'null');
+    if(!fdEmpty){
+      try{
+        var parsed = JSON.parse(fd);
+        // 解析成物件後，所有 key 的 value 都是空 → 視為已清
+        var anyVal = Object.keys(parsed).some(function(k){
+          var v = parsed[k];
+          return v !== '' && v !== null && v !== undefined && v !== false;
+        });
+        fdEmpty = !anyVal;
+      }catch(e){ fdEmpty = false; }
+    }
+    return fdEmpty && histEmpty;
+  }catch(e){
+    console.warn('verifyCloudFormCleared error:', formKey, e && e.name);
+    return false;
+  }
+}
+
+/* ── 帶重試與對帳的雲端清除 ──
+   清除 → 等一下 → 對帳 → 沒清乾淨就再清，最多 maxRetries 次。
+   回傳 {ok:true} 或 {ok:false, reason:'...'}。 */
+async function clearCloudFormDataVerified(formKey, maxRetries){
+  if(typeof maxRetries!=='number') maxRetries = 3;
+  for(var attempt=1; attempt<=maxRetries; attempt++){
+    await clearCloudFormData(formKey);
+    // 給 GAS 一點時間落地（重試時等更久）
+    await new Promise(function(r){ setTimeout(r, 800 + attempt*400); });
+    var ok = await verifyCloudFormCleared(formKey);
+    if(ok) return {ok:true, attempts:attempt};
+  }
+  return {ok:false, reason:'verify_failed_after_'+maxRetries+'_retries'};
+}
+
 async function clearLocalTestData(){
-  if(!confirm('⚠ 確定要清除「所有表單填寫資料」與「歷史紀錄」嗎？\n\n此操作會：\n• ✅ 清除本機（瀏覽器）的所有表單資料\n• ✅ 清除雲端 Google Sheets 對應的所有表單資料\n\n不會清除：\n• ❌ 學生/老師帳號\n• ❌ 密碼、PIN、其他設定\n\n💡 建議先點「備份所有資料」保留一份。')) return;
+  if(!confirm('⚠ 確定要清除「所有表單填寫資料」與「歷史紀錄」嗎？\n\n此操作會：\n• ✅ 清除本機（瀏覽器）的所有表單資料\n• ✅ 清除雲端 Google Sheets 對應的所有表單資料\n• ✅ 清除後會回頭驗證雲端是否真的清乾淨（最多重試 3 次）\n\n不會清除：\n• ❌ 學生/老師帳號\n• ❌ 密碼、PIN、其他設定\n\n💡 建議先點「備份所有資料」保留一份。')) return;
   if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？\n\n雲端清除可能需要 30 秒以上，過程請勿關閉視窗。')) return;
 
   // 蒐集所有要清除的 formKey（從本機資料推算）
@@ -11838,15 +11894,17 @@ async function clearLocalTestData(){
   }
 
   var formKeyList = Array.from(allFormKeys);
-  toast('⏳ 正在清除雲端資料...請稍候 (' + formKeyList.length + ' 份)');
+  toast('⏳ 正在清除雲端資料...請稍候 (' + formKeyList.length + ' 份，含對帳)');
 
-  // 清雲端：依序清除（避免太多並行請求被 GAS 限流）
+  // 清雲端：依序清除並對帳（避免太多並行請求被 GAS 限流）
   var cleared = 0;
+  var failed = []; // 對帳失敗的 formKey
   for(var i=0; i<formKeyList.length; i++){
-    await clearCloudFormData(formKeyList[i]);
+    var result = await clearCloudFormDataVerified(formKeyList[i], 3);
     cleared++;
+    if(!result.ok) failed.push(formKeyList[i]);
     if(cleared % 5 === 0){
-      toast('⏳ 雲端清除進度：'+cleared+' / '+formKeyList.length);
+      toast('⏳ 雲端清除進度：'+cleared+' / '+formKeyList.length+(failed.length?'（失敗 '+failed.length+'）':''));
     }
   }
 
@@ -11858,7 +11916,14 @@ async function clearLocalTestData(){
     localStorage.removeItem('history_logs');
   }catch(e){}
 
-  toast('✓ 本機與雲端測試資料已全部清除（共 '+formKeyList.length+' 份）');
+  if(failed.length === 0){
+    toast('✓ 本機與雲端測試資料已全部清除並通過對帳（共 '+formKeyList.length+' 份）');
+  }else{
+    var preview = failed.slice(0, 5).join(', ') + (failed.length>5?' ...':'');
+    toast('⚠ 完成 '+(formKeyList.length-failed.length)+' / '+formKeyList.length+' 份，'+failed.length+' 份對帳失敗：'+preview, false);
+    console.warn('[clearLocalTestData] 對帳失敗清單:', failed);
+    alert('⚠ 有 '+failed.length+' 份雲端資料對帳失敗，可能未清乾淨：\n\n'+failed.join('\n')+'\n\n建議：\n1. 檢查網路與 GAS_WRITE_SECRET 是否正確\n2. 直接打開 Google Sheets 手動清除這些列\n3. 或再次按下清除按鈕重試');
+  }
   setTimeout(function(){
     if(typeof renderSidebar==='function') renderSidebar();
     if(typeof renderAdmin==='function') renderAdmin();
@@ -11875,7 +11940,7 @@ async function clearAllStudentForms(){
     return;
   }
   var name = APP.students[sid].name;
-  if(!confirm('⚠ 確定要清除學生「'+name+'」（'+sid+'）的所有表單資料嗎？\n\n此操作會清除：\n• ✅ 本機（瀏覽器）的填寫資料與歷史紀錄\n• ✅ 雲端 Google Sheets 對應資料\n\n不會清除：\n• ❌ 該學生的帳號\n\n💡 建議先「備份所有資料」。')) return;
+  if(!confirm('⚠ 確定要清除學生「'+name+'」（'+sid+'）的所有表單資料嗎？\n\n此操作會清除：\n• ✅ 本機（瀏覽器）的填寫資料與歷史紀錄\n• ✅ 雲端 Google Sheets 對應資料\n• ✅ 清除後會回頭驗證雲端是否真的清乾淨（最多重試 3 次）\n\n不會清除：\n• ❌ 該學生的帳號\n\n💡 建議先「備份所有資料」。')) return;
   if(!confirm('⚠ 二次確認：此動作無法復原，確定執行？')) return;
 
   // 蒐集該學生的所有 formKey（本機 + 預計雲端）
@@ -11894,12 +11959,14 @@ async function clearAllStudentForms(){
   }
 
   var formKeyList = Array.from(formKeys);
-  toast('⏳ 正在清除 '+esc(name)+' 的雲端資料...');
+  toast('⏳ 正在清除 '+esc(name)+' 的雲端資料...（含對帳）');
 
+  var failed = [];
   for(var i=0; i<formKeyList.length; i++){
-    await clearCloudFormData(formKeyList[i]);
+    var result = await clearCloudFormDataVerified(formKeyList[i], 3);
+    if(!result.ok) failed.push(formKeyList[i]);
     if((i+1) % 5 === 0){
-      toast('⏳ 進度：'+(i+1)+' / '+formKeyList.length);
+      toast('⏳ 進度：'+(i+1)+' / '+formKeyList.length+(failed.length?'（失敗 '+failed.length+'）':''));
     }
   }
 
@@ -11917,7 +11984,13 @@ async function clearAllStudentForms(){
     localStorage.setItem('history_logs', JSON.stringify(hLogs2));
   }catch(e){}
 
-  toast('✓ 已清除 '+esc(name)+' 的所有資料（本機+雲端共 '+formKeyList.length+' 份）');
+  if(failed.length === 0){
+    toast('✓ 已清除 '+esc(name)+' 的所有資料並通過對帳（本機+雲端共 '+formKeyList.length+' 份）');
+  }else{
+    toast('⚠ '+esc(name)+' 完成 '+(formKeyList.length-failed.length)+' / '+formKeyList.length+' 份，'+failed.length+' 份對帳失敗', false);
+    console.warn('[clearAllStudentForms] 對帳失敗清單:', failed);
+    alert('⚠ 學生「'+name+'」（'+sid+'）有 '+failed.length+' 份雲端資料對帳失敗，可能未清乾淨：\n\n'+failed.join('\n')+'\n\n建議：\n1. 檢查網路與 GAS_WRITE_SECRET 是否正確\n2. 直接打開 Google Sheets 手動清除這些列\n3. 或再次按下清除按鈕重試');
+  }
 }
 
 /* ── 備份所有資料為 JSON 檔 ── */
