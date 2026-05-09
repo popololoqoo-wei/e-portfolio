@@ -4341,9 +4341,16 @@ window.showAboutDialog = function(){
   if(existing) existing.remove();
 
   var changelog = [
+    {ver:'v1.5.2', date:'2026.05', notes:[
+      '【真正根因】清除雲端的請求未帶 sessionToken,被 GAS v18 默默拒絕',
+      '改用與 saveFormToSheets 相同的 fetch+JSON+sessionToken 方式',
+      '可真正等待後端回應,失敗會明確記錄到 console',
+    ]},
+    {ver:'v1.5.1', date:'2026.05', notes:[
+      'CSP form-action 加入 script.googleusercontent.com',
+      '此前清除按鈕跑流程,實際上送雲端的請求被 CSP 全數阻擋',
+    ]},
     {ver:'v1.5', date:'2026.05', notes:[
-      '【修正關鍵問題】CSP form-action 加入 script.googleusercontent.com',
-      '此前清除按鈕雖跑完流程,實際上送雲端的請求被瀏覽器 CSP 全數阻擋',
       '【後台】清除測試資料新增「對帳重試」機制',
       '清除雲端後會回頭驗證是否真的清乾淨,失敗自動重試最多 3 次',
       '清完仍對不上的會列出失敗清單給管理員,不再「假成功」',
@@ -11783,43 +11790,47 @@ async function updateAdminPwd(){
 }
 
 /* ── 清除本機測試資料：清空 APP.formData、APP.historyLog、localStorage 草稿 ── */
-/* ── 雲端清除 helper：把 formKey 的雲端資料覆蓋為空，並送出特殊清除指令 ── */
+/* ── 雲端清除 helper：把 formKey 的雲端資料覆蓋為空 ──
+   v1.5.2 修正：GAS v18 後端要求寫入操作必須帶 sessionToken,舊版 iframe form
+   submit 沒帶 token 會被後端默默拒絕(對帳就會失敗)。改用與 saveFormToSheets
+   完全相同的 fetch+JSON+sessionToken 方式,並真正等待後端回應。 */
 async function clearCloudFormData(formKey){
   if(!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return false;
-  return new Promise(function(resolve){
-    try{
-      var iframeId = '_clr_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-      var iframe = document.createElement('iframe');
-      iframe.name = iframeId; iframe.id = iframeId; iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      var form = document.createElement('form');
-      form.method = 'POST'; form.action = GAS_URL; form.target = iframeId; form.style.display = 'none';
-      var payload = {
-        action: 'saveForm',
-        formId: formKey,
-        data: '{}',           // 空資料覆蓋
-        history: '[]',        // 空歷史紀錄覆蓋
-        studentId: 'admin_clear',
-        // 【安全】帶上 WRITE_SECRET 通過 GAS 端身份驗證
-        secret: (typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET) ? GAS_WRITE_SECRET : ''
-      };
-      Object.entries(payload).forEach(function(entry){
-        var k=entry[0], v=entry[1];
-        var inp = document.createElement('input');
-        inp.type='hidden'; inp.name=k; inp.value=v;
-        form.appendChild(inp);
-      });
-      document.body.appendChild(form);
-      form.submit();
-      setTimeout(function(){
-        try{ document.body.removeChild(form); document.body.removeChild(iframe); }catch(e){}
-        resolve(true);
-      }, 1500);
-    }catch(e){
-      console.warn('clearCloudFormData failed:', e);
-      resolve(false);
+  var payload = {
+    action: 'saveForm',
+    formId: formKey,
+    data: '{}',
+    history: '[]',
+    studentId: APP.currentRole==='student' ? APP.currentUser.sid
+              : (APP.currentRole==='teacher' ? APP.currentUser.card : 'admin_clear'),
+    sessionToken: (typeof getSessionToken==='function' ? getSessionToken() : null) || '',
+    role: APP.currentRole || 'admin',
+    secret: (typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET) ? GAS_WRITE_SECRET : ''
+  };
+  if(!payload.sessionToken){
+    console.warn('[clearCloudFormData] 未取得 sessionToken,GAS v18 會拒絕寫入。請重新登入後再試。');
+  }
+  try{
+    var resp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(payload),
+      mode:'cors'
+    });
+    if(!resp.ok){
+      console.warn('[clearCloudFormData] HTTP', resp.status, formKey);
+      return false;
     }
-  });
+    var data = await resp.json().catch(function(){return null;});
+    if(data && data.error){
+      console.warn('[clearCloudFormData] backend rejected:', data.error, formKey);
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.warn('clearCloudFormData failed:', formKey, e && e.message);
+    return false;
+  }
 }
 
 /* ── 【對帳】回頭跟雲端確認指定 formKey 是否真的清乾淨 ──
