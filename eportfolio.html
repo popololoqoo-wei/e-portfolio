@@ -4641,22 +4641,26 @@ async function openForm(id){
     autoSaveDraft(APP.currentFormId);
   }
 
-  // ★★★ 修正 PIN 重複鎖回 bug ★★★
-  // 只有「真的切到不同表單」才重置老師解鎖狀態;同表單重新渲染(雲端同步、刷新等)不應該強制鎖回。
-  // 並尊重 _skipPinReset 旗標:剛 PIN 解鎖完不立即被重置。
+  // ★★★ 修正 PIN 重複鎖回 bug + 跨表單外洩 bug ★★★
+  // 規則:
+  //  - 同一張表單重新渲染(雲端同步、刷新等) → 保留解鎖狀態,不鎖回
+  //  - 切到「不同」表單 → 無條件重置解鎖狀態(不可被 _skipPinReset 旗標跳過,
+  //    否則會造成老師 PIN 解鎖後切到別的表單仍是解鎖狀態的安全漏洞)
+  //  - _skipPinReset 旗標只用於「同表單剛 PIN 解鎖完立即重新渲染」這個情境,
+  //    一旦真的切表單就一律失效。
   if(APP.currentRole==='student'){
     var _isSwitchingForm = (APP.currentFormId && APP.currentFormId !== id);
-    if(_isSwitchingForm && !APP._skipPinReset){
-      APP.teacherUnlocked=false;
-    }
-    // 筆試後測 PIN:只要離開 F-POST(切到任何其他表單),一律重置解鎖狀態
-    if(_isSwitchingForm && APP.currentFormId==='F-POST' && id!=='F-POST'){
-      APP.examUnlocked=false;
-    }
-    // 只有在真正切表單時才清旗標;同表單再次渲染保留旗標
     if(_isSwitchingForm){
+      // 切到不同表單 → 一律重置老師解鎖狀態(無條件,忽略 _skipPinReset)
+      APP.teacherUnlocked=false;
+      // 筆試後測 PIN:只要離開 F-POST(切到任何其他表單),一律重置解鎖狀態
+      if(APP.currentFormId==='F-POST' && id!=='F-POST'){
+        APP.examUnlocked=false;
+      }
+      // 切表單必清旗標
       APP._skipPinReset=false;
     }
+    // 同表單重新渲染:保留 teacherUnlocked 與 _skipPinReset 不動
   }
   // 老師端切換表單時,自動清掉學生欄位的「已確認」標記
   // (B 方案:每張新表單重新攔截,確保不延續上一張的確認狀態)
