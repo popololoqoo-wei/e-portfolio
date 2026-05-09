@@ -8288,7 +8288,17 @@ function autoSaveDraft(id){
     var key=el.getAttribute('data-key')||'';
     if(key.endsWith('_start')||key.endsWith('_end'))return;
     if(fid===id||fid===formKey){
-      var v=el.type==='checkbox'?el.checked:el.value;
+      var v;
+      // ★ radio:必須是 checked 才算有選;沒選的 radio 的 .value 仍然是 HTML 上的字串,
+      //   會誤判為「使用者已選」並寫入草稿,造成「點進表單什麼都沒做就被判草稿中」的 bug。
+      if(el.type==='radio'){
+        if(!el.checked) return;  // 未選的 radio 直接跳過,不寫入
+        v = el.value;
+      } else if(el.type==='checkbox'){
+        v = el.checked;
+      } else {
+        v = el.value;
+      }
       if(v!==''&&v!==false&&v!==null) APP.formData[formKey][key]=v;
     }
   });
@@ -9267,7 +9277,10 @@ function buildF13(f,d,canT,fkey,canS){
 
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   items.forEach(([key,label,max])=>{
-    const cur=parseInt(d[key]||0)||0;
+    // ★ 未填時 value 留空,不要預設 "0",否則 autoSaveDraft 會把 "0" 寫進草稿,
+    //   造成「點進表單什麼都沒做就被誤判為草稿中」。
+    const rawVal=d[key];
+    const cur=(rawVal===undefined||rawVal===null||rawVal==='')?'':(parseInt(rawVal)||0);
     // 用通用驗證函式：超分時跳警示 toast、視覺紅色閃一下、自動夾鉗到 0~max
     const labelEsc = String(label).replace(/'/g,"\\'");
     const oc=`validateScoreInput(this,'${fid}','${key}',${max},'${labelEsc}',calcF13Score)`;
@@ -9411,7 +9424,9 @@ function buildF14(f,d,canT,fkey,canS){
 
   items.forEach(function(item,i){
     var key='f14_sc_'+i;
-    var cur=parseInt(d[key]||0)||0;
+    // ★ 未填時 value 留空,不要預設 "0"(同 F13 修正)
+    var rawVal=d[key];
+    var cur=(rawVal===undefined||rawVal===null||rawVal==='')?'':(parseInt(rawVal)||0);
     // 用通用驗證函式：超分時跳警示 toast、視覺紅色閃一下、自動夾鉗到 0~max
     var labelEsc = String(item.label).replace(/'/g,"\\'");
     var oc="validateScoreInput(this,'"+fid+"','"+key+"',"+item.max+",'"+labelEsc+"',calcF14Score)";
