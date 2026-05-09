@@ -1715,6 +1715,84 @@ const EXAM_QUESTIONS = [
 const EXAM_PER_QUESTION_SCORE = 4;
 const EXAM_PASS_SCORE = 60;
 
+/* ─── 前端內建正解與解析（與 EXAM_QUESTIONS 索引對應） ───
+   原設計把答案存後端 (GAS) 是為防止學生透過 F12 偷看；
+   但實務上若無 GAS 後端，使用者送出後測卻看不到正解與解析，
+   失去學習意義。改為「前端 fallback」：
+   - 若 GAS 後端可用且回傳 review，優先使用後端版本（仍維持 GAS 防作弊機制）。
+   - 若後端不可用或無回傳 review，則使用此前端版本，至少可顯示正解與解析給學生對照。
+   ※ 題目來源：台灣考選部「呼吸治療師」歷屆高考公開試題與標準答案。
+*/
+const EXAM_ANSWERS = [
+  { answer: 'B', explanation: 'ARDS 胸部 X 光典型表現為「雙側肺浸潤／不透明（白肺）」，且常呈雙側肺門對稱性浸潤。肋膜積液不是 ARDS 的典型診斷影像表現（一般 Berlin 定義中也明確排除「無法以心衰竭或液體過多解釋」）。故①②正確、③不對 → 選 (B)。' },
+  { answer: 'A', explanation: 'ARDS 病人 PaO₂ 53 mmHg、FiO₂ 0.55、PEEP 僅 5 cmH₂O，主要問題是低血氧。優先策略是調升 PEEP 至 optimal PEEP 以增加肺泡再擴張、改善通氣灌流比。\n(B) 提高 IP 主要降 PaCO₂ 但會增加 plateau pressure 風險；本病人主要問題是缺氧不是 CO₂ 滯留。\n(C) 高 FiO₂ 會增加肺氧毒性；ARDS 應在 PEEP 調整足夠後仍不足氧合時才進一步提高 FiO₂。\n(D) 給予 NaHCO₃ 通常不建議，乳酸偏高是組織低灌流的後果，應從根本改善氧合與灌流。' },
+  { answer: 'A', explanation: 'ARDS 病人採俯臥（prone position）的核心機轉是改善背側（dependent）肺區的通氣，使該區的通氣與灌流更匹配，整體 V/Q ratio 改善 → 改善氧合。它對肺順應性影響有限，也不是讓肺血管擴張或讓病人放鬆。' },
+  { answer: 'B', explanation: '預防 VAP 的標準做法包括：(A) 床頭抬高 30–45 度、(C) Chlorhexidine 口腔護理、(D) 每日喚醒（停鎮靜評估拔管）。\n(B) 錯：每日例行更換管路反而增加 VAP 風險，最新指引建議「依需要時（污染、損壞）才更換」管路。' },
+  { answer: 'D', explanation: 'ECMO 需大量抗凝血。肺部大量出血者使用 ECMO 會加重出血、危及生命，屬於相對禁忌。\n(A)(B)(C) 嚴重氣喘合併呼吸衰竭、肺栓塞合併嚴重低血氧、心因性休克皆為 ECMO 經典適應症。' },
+  { answer: 'C', explanation: '吸入型一氧化氮（iNO）會在已通氣的肺泡擴散到鄰近的肺血管，使該區肺血管選擇性擴張，因此把血流引導至通氣良好的肺區，改善 V/Q 並改善氧合，且因 NO 與血紅素結合很快被代謝，幾乎不會降全身性血壓。' },
+  { answer: 'C', explanation: '重症肌無力（MG）為自體免疫攻擊神經肌肉接合處的乙醯膽鹼受器（AChR）。標準治療為「乙醯膽鹼酯酶抑制劑」（如 pyridostigmine），急性 crisis 可用免疫球蛋白、血漿置換、類固醇。\n(C) 「正腎上腺素」改善的是交感神經作用，與 AChR 機轉無關，無法改善 MG，反而可能加重症狀。' },
+  { answer: 'C', explanation: '深層靜脈血栓（DVT）的常見危險因子包括 Virchow 三要素：靜脈停滯、內皮損傷、高凝狀態。心臟衰竭因循環緩慢、靜脈停滯，反而是 DVT 的高危險族群。\n(C) 敘述「不會發生在心衰竭病患」明顯錯誤。' },
+  { answer: 'D', explanation: '肺水腫絕大多數源自「左心」功能不足（高血壓、心肌缺血、瓣膜逆流）導致的肺靜脈高壓。\n(D) 「右心」功能障礙合併容積過多會造成的是周邊水腫、肝鬱血、腹水等體循環症狀，並非肺水腫的常見促發因子。' },
+  { answer: 'D', explanation: '氣喘的特徵是「可逆性、廣泛性」的氣道阻塞、慢性氣道發炎、氣道過度敏感。\n(D) 「侷限性」通氣障礙不符合氣喘特徵；氣喘屬「廣泛性、阻塞性」通氣障礙，故為最不可能的描述。' },
+  { answer: 'B', explanation: 'HBO 適應症：CO 中毒、氣體栓塞、骨髓炎、糖尿病足與壞疽、放射性組織傷、減壓症等。\n(B) 「急性腸胃道出血」為相對禁忌：高壓氧治療無法止血，且過程中需病人配合進入艙內，不是 HBO 適應症。' },
+  { answer: 'A', explanation: 'ALS 為運動神經元退化性疾病，肌力會持續下降、無法逆轉。\n(A) Incentive spirometry（IS）原理是讓病人「主動深吸」訓練肺部擴張，但 ALS 病人吸氣肌無力進行性惡化，IS 對其呼吸肌訓練效果有限且容易疲勞，反而會加重呼吸衰竭，不適用。\n(B)(C) NIV 可代償呼吸肌力不足、提供潮氣量並擴張肺。\n(D) MIE 咳嗽機是 ALS 痰液清除的標準工具。' },
+  { answer: 'D', explanation: '高血壓急症（hypertensive emergency）定義為血壓顯著升高合併「目標器官急性損傷」，如：腦出血、急性肺水腫、視乳突水腫（眼底）、心肌梗塞、主動脈剝離等。\n(D) 「暈眩」屬非特異性症狀，並非器官明顯損傷的指標，故不算。' },
+  { answer: 'C', explanation: 'COPD 長期氧療（LTOT，每日 ≥15 小時）僅在「靜止 PaO₂ ≤ 55 mmHg 或 SpO₂ ≤ 88%」時才有延命效果；血氧未達標準的病人並不需要 24 小時氧氣治療。\n(A)(B)(D) 戒菸、肺復原、肺炎鏈球菌與流感疫苗都是 COPD 標準照護。' },
+  { answer: 'B', explanation: 'COPD 急性發作藥物緩解：短效 β2 agonist + 短效抗膽鹼藥物吸入；可考慮全身性類固醇；痰液變黃綠時加抗生素。\n(B) 短效 β2 agonist 一次高劑量到「6 mg」過高，臨床建議劑量為 albuterol 2.5 mg / 一次（mDI 4–8 puffs，每 puff 100 μg）等，6 mg 一次給予會顯著增加心律不整與低血鉀風險。' },
+  { answer: 'B', explanation: 'HFNC（高流量鼻導管）特點：(A) 提供些許 PEEP 改善肺泡再擴張；(C) 沖洗上呼吸道無效腔；(D) 高流量穩定 FiO₂ 並增加氧氣輸送。\n(B) 錯：多項研究（如 FLORALI 研究）顯示 HFNC 在某些低血氧呼吸衰竭族群可降低 28 天插管率與死亡率，並非「不能減少插管」。' },
+  { answer: 'A', explanation: 'qSOFA 三項：①呼吸速率 ≥22／分；②意識改變（GCS<15）；③收縮壓 ≤100 mmHg。≥2 項陽性提示敗血症高風險。\n(A) 「體溫」屬 SIRS 條件，不是 qSOFA 評估項目。' },
+  { answer: 'C', explanation: 'pH 7.2、PaCO₂ 60 mmHg、HCO₃⁻ 23 mEq/L → 急性「呼吸性酸中毒」（CO₂ 滯留），不是代謝酸中毒，也不是鹼中毒。病人意識清楚、血壓心跳穩定，符合 NIV 適應症（Class A）。\n(D) 不需立即插管：在嚴密監測下，先用 NIV 是一線處置。' },
+  { answer: 'A', explanation: 'NIV 適應症：意識清楚、血壓穩定、呼吸驅動完好、可保護氣道。\n(A) 「濃痰分泌物多」表示痰液清除困難，NIV 易造成痰液堆積、阻塞與肺炎，是 NIV 的相對禁忌。' },
+  { answer: 'B', explanation: '阻塞性睡眠呼吸中止（OSA）常與肥胖、上呼吸道狹窄、舌根後墜有關。鼻咽手術（UPPP）對部分病人有部分效果，「成功率有限且不能根治」（國際指引一線仍是 CPAP）。\n(B) 「可藉鼻咽手術根治」說法過於絕對，錯誤。' },
+  { answer: 'A', explanation: '氣喘可逆性測試標準：使用支氣管擴張劑後 FEV₁ 上升 ≥12% 且 ≥200 mL，符合(A)。\n(B) 氣喘病人不一定有抽菸史；(C) 氣喘病人通常較 COPD 年輕；(D) 氣喘預後一般比 COPD 好。' },
+  { answer: 'D', explanation: '即使術前肺功能正常的年輕人，仍可能因麻醉、疼痛抑制深呼吸與咳嗽、微吸入等因素出現術後肺部併發症（如肺塌陷、肺炎）。\n(D) 「不會出現呼吸系統併發症」過於絕對，錯誤。' },
+  { answer: 'C', explanation: '休克分類：心因性、低血容性、阻塞性、分布性。肺栓塞造成右心後負荷急遽上升、心輸出量下降，屬於「阻塞性休克（obstructive shock）」。其他典型阻塞性休克尚有心包填塞、張力性氣胸等。' },
+  { answer: 'C', explanation: '使氧解離曲線「左移」（血紅素對 O₂ 親合力上升）的因素：低溫、鹼中毒、低 PaCO₂、低 2,3-DPG、HbF（胎兒血紅素）、CO 中毒。\n(C) 「高 2,3-DPG」會使曲線「右移」（釋出更多 O₂），所以是不會造成左移的選項，故選 (C)。' },
+  { answer: 'B', explanation: '拔管後 10 分鐘內出現哮吼（stridor）最常見原因是「拔管後喉頭水腫」（post-extubation laryngeal edema）。\n(A) 哮吼是上呼吸道阻塞徵象，非肺塌陷。\n(C) 應使用「α-腎上腺受體促效劑（agonist）」如 racemic epinephrine 吸入，而非拮抗劑。\n(D) 不一定要立刻重插管，先用 racemic epinephrine、類固醇處理；嚴重時才重插。' }
+];
+
+/* 取得後測題目正解（給前端 fallback 計分使用） */
+function _examGetCorrectAnswer(origIdx){
+  if(typeof origIdx!=='number' || origIdx<0 || origIdx>=EXAM_ANSWERS.length) return '';
+  return (EXAM_ANSWERS[origIdx].answer||'').toUpperCase();
+}
+/* 取得後測題目解析 */
+function _examGetExplanation(origIdx){
+  if(typeof origIdx!=='number' || origIdx<0 || origIdx>=EXAM_ANSWERS.length) return '';
+  return EXAM_ANSWERS[origIdx].explanation||'';
+}
+/* 前端 fallback 計分（後端不可用時使用） */
+function _examGradeLocally(mode, order, answers){
+  var total = EXAM_QUESTIONS.length;
+  var perQ = EXAM_PER_QUESTION_SCORE;
+  var correctCnt = 0;
+  var wrongList = [];
+  var review = {}; // origIdx -> {answer, explanation}
+  for(var qi=0; qi<total; qi++){
+    var origIdx = order[qi];
+    var userAns = String(answers['q'+(qi+1)]||'').toUpperCase();
+    var correct = _examGetCorrectAnswer(origIdx);
+    if(userAns && userAns===correct){
+      correctCnt++;
+    } else {
+      wrongList.push(qi+1);
+    }
+    if(mode==='post'){
+      review[origIdx] = {
+        answer: correct,
+        explanation: _examGetExplanation(origIdx)
+      };
+    }
+  }
+  return {
+    score: correctCnt * perQ,
+    correctCnt: correctCnt,
+    total: total,
+    wrongList: wrongList,
+    review: mode==='post' ? review : null
+  };
+}
+
 /* ─── 重要：考題正解與解析「不在前端」 ───
    為避免學生透過開發者工具(F12)直接讀取，
    25 題的「正確答案」與「正解分析」皆儲存於 Google Apps Script 後端，
@@ -3772,12 +3850,16 @@ function getStatus(id){
     return 'draft';
   }
 
-  // ── F10A/F10B 輔導記錄：只看學生欄位 ──
+  // ── F10A/F10B 輔導記錄：學生欄位 + 老師欄位都要齊全才算完成 ──
   if(id==='F10A'||id==='F10B'){
     // F10 的日期欄位 key 是 'date'，不是 's_date'
-    var f10Req=['s_name','intern_cat','date','school','t_sign'];
+    // 基本資料 + 老師查核 8 項 + 老師備註 + 老師簽名 + 老師簽名日期 + 學生回答 5 題
+    var f10Req=['s_name','intern_cat','date','school',
+                'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+                't_note','t_sign','t_sign_date',
+                's_q2','s_q3','s_q4','s_q5','s_q6'];
     var f10Ok=f10Req.every(function(k){
-      if(k==='date'){return String(d[k]||'').trim().length>=8;}
+      if(k==='date'||k==='t_sign_date'){return String(d[k]||'').trim().length>=8;}
       return checkField(k);
     });
     if(f10Ok) return 'done';
@@ -6903,6 +6985,17 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         }
       }
     }catch(e){}
+    // ★ Fallback：若 review_data 缺失（如後端不可用造成沒寫入、或舊版資料），
+    // 對於後測且已送出的情況，改從前端 EXAM_ANSWERS 補上正解與解析，
+    // 避免 PDF 報告印出空白的「正解」與「逐題正解分析」。
+    if(examMode==='post' && submitted && Object.keys(pdfReviewMap).length===0 && typeof EXAM_ANSWERS!=='undefined'){
+      for(var fbi=0; fbi<EXAM_ANSWERS.length; fbi++){
+        pdfReviewMap[fbi] = {
+          answer: EXAM_ANSWERS[fbi].answer || '',
+          explanation: EXAM_ANSWERS[fbi].explanation || ''
+        };
+      }
+    }
 
     var perQ = (typeof EXAM_PER_QUESTION_SCORE!=='undefined') ? EXAM_PER_QUESTION_SCORE : 4;
     var passLine = (typeof EXAM_PASS_SCORE!=='undefined') ? EXAM_PASS_SCORE : 60;
@@ -9234,7 +9327,9 @@ function buildDOPS(f,d,canT,fkey,canS){
         var sel=(d[key]==v||d[key]===String(v))?'sel':'';
         var dis=!canT?'disabled':'';
         var dot=(d[key]==v||d[key]===String(v))?'●':'';
-        var oc="setDOPS('"+f.id+"','"+key+"',"+JSON.stringify(v)+",this)";
+        // 用單引號包裹數值，避免 JSON.stringify 對 'NA' 產生雙引號與外層 onclick 雙引號衝突
+        var vArg=(typeof v==='number')?String(v):"'"+v+"'";
+        var oc="setDOPS('"+f.id+"','"+key+"',"+vArg+",this)";
         h+='<td style="text-align:center;"><button class="d-btn '+sel+'" '+dis+' data-fid="'+fid+'" data-key="'+key+'" data-rval="'+v+'" onclick="'+oc+'">'+dot+'</button></td>';
       });
       h+='</tr>';
@@ -10092,9 +10187,10 @@ async function examSubmit(fid, mode){
   // 顯示送出中提示（避免使用者重複按）
   toast('考卷送出中，請稍候…');
 
-  // ★★★ 由 GAS 後端計分 ★★★
-  // 將「畫面題號（1~25）對應的學生答案」與「題序」送給後端，
-  // 後端比對自己保存的正解，回傳分數、錯題、(後測)正解+解析。
+  // ★★★ 計分流程 ★★★
+  // 優先嘗試 GAS 後端（保留原有防作弊機制）；
+  // 若後端不可用（未設定／連線失敗／回應無 review），則 fallback 改用前端內建答案計分，
+  // 確保即使無後端，學生在後測完成後也能看到正解與解析。
   var order = _examGetOrder(fid, mode);
   var answers = {};
   for(var k=1;k<=EXAM_QUESTIONS.length;k++){
@@ -10102,29 +10198,37 @@ async function examSubmit(fid, mode){
   }
   var sid = (APP.currentUser&&APP.currentUser.sid)||'guest';
 
+  var res = null;
+  var usedBackend = false;
+  // 1) 嘗試後端
   try{
     var apiResp = await _examCallApi('examGrade', {
-      mode: mode,           // 'pre' | 'post'
-      sid: sid,
-      fid: fid,
-      order: order,         // [0..24] 排列
-      answers: answers      // {q1:'A',...}
+      mode: mode, sid: sid, fid: fid, order: order, answers: answers
     });
-
-    if(!apiResp || !apiResp.ok){
-      toast('⚠ 計分失敗：'+(apiResp&&apiResp.error?apiResp.error:'伺服器無回應'));
-      return;
+    if(apiResp && apiResp.ok && apiResp.result){
+      res = apiResp.result;
+      usedBackend = true;
+      // 後測必須有 review 才算後端有效，否則改用本地補回（避免顯示「—」）
+      if(mode==='post' && (!res.review || (typeof res.review==='object' && Object.keys(res.review).length===0))){
+        var localRes = _examGradeLocally(mode, order, answers);
+        res.review = localRes.review;
+      }
     }
+  }catch(err){
+    console.warn('後端計分失敗，改用前端 fallback：', err && err.message ? err.message : err);
+  }
+  // 2) 後端失敗 → 本地計分
+  if(!res){
+    res = _examGradeLocally(mode, order, answers);
+  }
 
-    // 寫入結果到 formData / 草稿
-    var res = apiResp.result || {};
+  try{
     saveDraftField(fid,'submitted','true');
     saveDraftField(fid,'final_score',String(res.score||0));
     saveDraftField(fid,'final_correct',String(res.correctCnt||0));
     saveDraftField(fid,'final_total',String(res.total||EXAM_QUESTIONS.length));
     saveDraftField(fid,'final_passed',(res.score||0)>=EXAM_PASS_SCORE?'true':'false');
     saveDraftField(fid,'submit_time', new Date().toLocaleString('zh-TW',{hour12:false}));
-    // wrongList 用 JSON 字串保存
     saveDraftField(fid,'wrong_list', JSON.stringify(res.wrongList||[]));
 
     // 後測：把「每題對應的正解+解析」也存起來，之後顯示用
@@ -10132,7 +10236,11 @@ async function examSubmit(fid, mode){
       saveDraftField(fid,'review_data', JSON.stringify(res.review));
     }
 
-    toast('考卷已送出 ✓ 您的分數：'+(res.score||0)+' 分');
+    var scoreMsg = '考卷已送出 ✓ 您的分數：'+(res.score||0)+' 分';
+    if(!usedBackend){
+      scoreMsg += '（前端計分）';
+    }
+    toast(scoreMsg);
 
     try{
       var rawId = mode==='pre'?'F-PRE':'F-POST';
@@ -10144,8 +10252,8 @@ async function examSubmit(fid, mode){
       if(typeof openForm==='function') openForm(rawId);
     }, 350);
   }catch(err){
-    toast('⚠ 連線後端失敗，無法送出。請檢查網路或洽管理員。');
-    console.error('examSubmit failed:', err);
+    toast('⚠ 送出後寫入草稿失敗，請檢查瀏覽器設定。');
+    console.error('examSubmit save failed:', err);
   }
 }
 
@@ -10227,6 +10335,16 @@ function _buildExamCommon(f, d, fid, mode){
           }
         }
       }catch(e){}
+      // ★ Fallback：reviewMap 為空（舊資料無 review_data，例如送出時後端不可用且改版前未存）
+      // 仍能從前端 EXAM_ANSWERS 補上正解與解析。
+      if(Object.keys(reviewMap).length===0 && typeof EXAM_ANSWERS!=='undefined'){
+        for(var fi=0; fi<EXAM_ANSWERS.length; fi++){
+          reviewMap[fi] = {
+            answer: EXAM_ANSWERS[fi].answer || '',
+            explanation: EXAM_ANSWERS[fi].explanation || ''
+          };
+        }
+      }
     }
   }
   var passed = res ? res.score>=EXAM_PASS_SCORE : false;
@@ -12403,6 +12521,18 @@ function renderStatusSection(filterStatus){
   const mc=document.getElementById('main-content');
   const labelMap={done:'✅ 已完成',draft:'✏️ 草稿中（未完成）',new:'⭕ 未填寫'};
   const colorMap={done:'var(--green)',draft:'#0EA5E9',new:'var(--red)'};
+  // 與「總覽」同樣的分組結構
+  const groups=[
+    {label:'學習風格自我評估',ids:['F16']},
+    {label:'筆試評估',ids:['F-PRE','F-POST']},
+    {label:'學習評估表單',ids:['F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F11','F12']},
+    {label:'個案報告評分',ids:['F13','F14']},
+    {label:'DOPS 操作技術評核',ids:['D01','D02','D03','D04']},
+    {label:'EPA 可信賴專業活動',ids:['E01','E02','E03']},
+    {label:'核心課程-課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
+    {label:'實習課程總評值',ids:['F15']}
+  ];
+  // 過濾出此狀態的所有表單，計算總數量
   const filtered=FORMS.filter(function(f){return getStatus(f.id)===filterStatus;});
   let html='<div class="form-list-view">';
   var batchBtn=filterStatus==='done'
@@ -12417,23 +12547,57 @@ function renderStatusSection(filterStatus){
   if(filtered.length===0){
     html+=`<div style="text-align:center;padding:3rem;color:var(--ink3);">此分類目前沒有表單</div>`;
   } else {
-    html+='<div class="form-grid">';
-    filtered.forEach(function(f){
-      const st=getStatus(f.id);
-      const dotC=st==='done'?'dot-done':st==='draft'?'dot-draft':'dot-new';
-      const stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
-      const stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
-      const dlBtn=st==='done'
-        ?`<button onclick="event.stopPropagation();checkAndDownloadPDF('${f.id}')" style="margin-top:8px;width:100%;padding:6px 0;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.3px;" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">⬇ 下載 PDF</button>`
-        :'';
-      html+=`<div class="form-card" onclick="openForm('${f.id}')" style="display:flex;flex-direction:column;">
-        <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
-        <div class="form-card-sub">${f.sub}</div>
-        <div class="form-card-meta" style="flex:1;"><span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
-        ${dlBtn}
-      </div>`;
+    // 工具列（全部展開／收起）
+    var VIEW_KEY='statusSection_'+filterStatus;
+    html += '<div class="collapsible-toolbar">'
+      + '<div style="font-size:12px;color:var(--ink3);">點擊群組標題即可展開／收起；系統會記住您的選擇</div>'
+      + '<div class="collapsible-toolbar-actions">'
+        + '<button class="collapsible-toolbar-btn" onclick="collGrpExpandAll(\''+VIEW_KEY+'\')">▼ 全部展開</button>'
+        + '<button class="collapsible-toolbar-btn" onclick="collGrpCollapseAll(\''+VIEW_KEY+'\')">▲ 全部收起</button>'
+      + '</div>'
+    + '</div>';
+    // 依分組依次渲染
+    groups.forEach(function(g){
+      // 此狀態下，本組裡的表單清單
+      var inGroup=g.ids.filter(function(id){return getStatus(id)===filterStatus;});
+      if(inGroup.length===0) return; // 此分組目前無此狀態表單，整組省略
+      // 統計：本組總共多少 / 本組此狀態多少（讓使用者知道分組進度）
+      var groupAllStats=_collGrpStats(g, function(id){return getStatus(id);});
+      var isOpen=_collGrpIsOpen(VIEW_KEY, g.label, groupAllStats);
+      // 預設未開的話，預設打開（清單頁本來就只看一種狀態，分組打開比較直觀）
+      var savedKey=_collGrpRead(VIEW_KEY, g.label);
+      if(savedKey===null) isOpen=true;
+      html += '<div class="collapsible-group'+(isOpen?' is-open':'')+'" data-vk="'+VIEW_KEY+'" data-grp="'+VIEW_KEY+':'+g.label+'" data-label="'+g.label+'" data-default-open="1">';
+      // 自訂 group head：標題、本組此狀態份數
+      var chipColor=colorMap[filterStatus];
+      var chipIcon=filterStatus==='done'?'✅':(filterStatus==='draft'?'✏️':'⭕');
+      html += '<div class="collapsible-header" onclick="toggleCollGrp(this.parentElement.getAttribute(\'data-vk\'), this.parentElement.getAttribute(\'data-label\'))">'
+        + '<span class="collapsible-caret">▶</span>'
+        + '<span class="collapsible-title">'+escapeExamHtml(g.label)+'</span>'
+        + '<span class="collapsible-summary">'
+          + '<span class="collapsible-status-tags">'
+            + '<span class="stag" style="background:'+chipColor+';color:#fff;">'+chipIcon+' '+inGroup.length+' / '+groupAllStats.total+'</span>'
+          + '</span>'
+        + '</span>'
+      + '</div>';
+      html += '<div class="collapsible-body"><div class="form-grid">';
+      inGroup.forEach(function(id){
+        var f=findForm(id); if(!f) return;
+        var st=getStatus(id);
+        var stLabel=st==='done'?'✅ 已完成':st==='draft'?'✏️ 草稿中（未完成）':'⭕ 未填寫';
+        var stColor=st==='done'?'var(--green)':st==='draft'?'#0EA5E9':'var(--ink3)';
+        var dlBtn=st==='done'
+          ?`<button onclick="event.stopPropagation();checkAndDownloadPDF('${f.id}')" style="margin-top:8px;width:100%;padding:6px 0;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.3px;" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">⬇ 下載 PDF</button>`
+          :'';
+        html+=`<div class="form-card" onclick="openForm('${f.id}')" style="display:flex;flex-direction:column;">
+          <div class="form-card-name" style="margin-top:4px;">${f.name}</div>
+          <div class="form-card-sub">${f.sub}</div>
+          <div class="form-card-meta" style="flex:1;"><span style="font-size:11px;color:${stColor};font-weight:500;">${stLabel}</span></div>
+          ${dlBtn}
+        </div>`;
+      });
+      html+='</div></div></div>';
     });
-    html+='</div>';
   }
   html+='</div>';
   mc.innerHTML=html;
