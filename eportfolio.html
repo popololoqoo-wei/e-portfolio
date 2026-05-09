@@ -1360,6 +1360,44 @@ async function passwordMatches(input, stored, salt){
   return passwordMatchesV2(input, stored, salt || '');
 }
 
+/* ─── 【資安修補 v18.1】從後端載入學生/老師清單 ───
+   管理員 / 老師登入後呼叫；後端會驗證 session token 並決定回傳什麼。
+   - admin: 取得全部學生 + 全部老師
+   - teacher: 只取得學生清單（不含密碼明文）
+   - student: 後端會拒絕，前端不應呼叫
+   後端回傳格式：
+     {ok:true, students:{sid:{name,school,pwd,pwdStatus,expiry,...}}, 
+                teachers:{card:{name,pwd,pwdStatus,...}},
+                studentOrder:[...], teacherOrder:[...]}
+*/
+async function loadAccountsFromBackend(){
+  if(!GAS_URL) throw new Error('GAS_URL 未設定');
+  const token = getSessionToken();
+  if(!token) throw new Error('未登入或 session 已過期');
+  
+  const resp = await fetch(GAS_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({
+      action: 'loadAccounts',
+      sessionToken: token
+    })
+  });
+  if(!resp.ok) throw new Error('後端回應錯誤 ('+resp.status+')');
+  const data = await resp.json();
+  if(!data.ok) throw new Error(data.error || '載入失敗');
+  
+  // 寫入 APP
+  if(data.students) APP.students = data.students;
+  if(data.teachers) APP.teachers = data.teachers;
+  if(data.studentOrder && data.studentOrder.length>0) APP.studentOrder = data.studentOrder;
+  if(data.teacherOrder && data.teacherOrder.length>0) APP.teacherOrder = data.teacherOrder;
+  
+  console.log('[loadAccounts] 學生 ' + Object.keys(APP.students).length + 
+              ' 位，老師 ' + Object.keys(APP.teachers).length + ' 位');
+  return data;
+}
+
 /* ── 把現有密碼/PIN 自動升級為新版加鹽雜湊 ──
    【資安修補 v18】所有舊版資料統一升級：
    - 明文 → h2: (sha256(salt + ':' + plain))
@@ -1555,6 +1593,17 @@ async function enterApp(){
   // ★★★ 跨裝置同步：清空本地殘留，從 GAS 重新載入 ★★★
   APP.formData = {};
   APP.historyLog = {};
+
+  // 【資安修補 v18.1】管理員或老師登入後，從後端載入帳號清單
+  // 學生不需要載入（學生只看自己的資料）
+  if(APP.currentRole==='admin' || APP.currentRole==='teacher'){
+    try{
+      await loadAccountsFromBackend();
+    }catch(e){
+      console.warn('載入帳號清單失敗:', e);
+      toast('⚠ 帳號清單載入失敗：' + (e.message||e), false);
+    }
+  }
 
   // 顯示載入提示
   var mc0 = document.getElementById('main-content');
@@ -11324,10 +11373,10 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">學生帳號管理</div>
       <div class="admin-card-body">
-        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7C2D12;line-height:1.7;">
-          <b>🔓 密碼明文檢視模式</b><br>
-          學生密碼以「明文」儲存，可點擊密碼欄的 <b>👁</b> 圖示顯示原始密碼。<br>
-          <span style="color:#92400E;">⚠ 請務必嚴格控管 Google Sheets 與本機檔案的存取權限，避免密碼外洩。</span>
+        <div style="background:#D1FAE5;border-left:4px solid #10B981;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#064E3B;line-height:1.7;">
+          <b>🔒 密碼加密儲存</b><br>
+          所有學生密碼以 SHA-256 加鹽雜湊儲存，管理員與資料庫管理員都<b>無法</b>檢視原始密碼。<br>
+          若學生忘記密碼，請點擊「重設」按鈕將密碼重設為預設值「123」，並請學生立即登入後修改。
         </div>
         <div class="admin-row">
           <input id="ns-sid" placeholder="學號" style="max-width:120px;">
@@ -11336,7 +11385,7 @@ function renderAdmin(){
           <input id="ns-expiry" type="date" title="帳號到期日(預設新增日 +90 天)" style="max-width:140px;">
           <button class="btn-add" onclick="addStudent()">＋ 新增</button>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號　｜　舊版「雜湊」密碼無法檢視，請按「重設」設一個新明文密碼　｜　🛡 帳號到期日:不填則自動帶入 90 天後</div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號　｜　🛡 帳號到期日:不填則自動帶入 90 天後</div>
 
         <!-- ★ 批次操作工具列(可摺疊) -->
         <details id="batch-tools-wrap" style="margin-bottom:8px;border:1px solid #E5E7EB;border-radius:6px;background:#FAFBFC;">
@@ -11379,8 +11428,8 @@ function renderAdmin(){
     <div class="admin-card">
       <div class="admin-card-head">臨床老師帳號管理</div>
       <div class="admin-card-body">
-        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#7C2D12;line-height:1.7;">
-          <b>🔓 密碼明文檢視模式</b>　老師密碼同樣以明文儲存，可點 <b>👁</b> 圖示檢視。
+        <div style="background:#D1FAE5;border-left:4px solid #10B981;border-radius:4px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#064E3B;line-height:1.7;">
+          <b>🔒 密碼加密儲存</b>　老師密碼同樣以 SHA-256 雜湊儲存，無法檢視原始密碼；若忘記請按「重設」恢復為預設「000」。
         </div>
         <div class="admin-row">
           <input id="nt-card" placeholder="卡號" style="max-width:120px;">
@@ -11836,17 +11885,39 @@ async function addStudent(){
     toast('⚠ 此學號已存在');
     return;
   }
-  // 【資安修補 v18】預設密碼必須雜湊（per-user salt = sid）
-  // 預設密碼 '123' 仍允許首次登入，但已雜湊化，攻擊者從 Google Sheet 看不到原值
-  // 系統會在學生首次登入後提示更換為自訂密碼
-  // ★ 防呆:必設 expiry,避免「永久有效」漏洞
-  var defaultHash = await hashPassword(sid, '123');
-  APP.students[sid]={name,school,pwd:defaultHash,expiry:expiry,mustChangePwd:true};
+  // 【資安修補 v18.1】呼叫後端 API（密碼會在後端雜湊化）
+  const result = await callBackend('addStudent', {sid, name, school, expiry, pwd:'123'});
+  if(!result.ok){ toast('⚠ '+(result.error||'新增失敗'),false); return; }
+  // 後端成功 → 更新本地快取
+  APP.students[sid]={name,school,pwd:'h2:(remote)',expiry,mustChangePwd:true};
   refreshStudentTable();
-  saveConfigToSheets();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
   if(expiryEl) expiryEl.value='';
   toast('✓ 已新增學生（預設密碼:123 · 期限至 '+expiry+')');
+}
+
+/* 【資安修補 v18.1】統一的後端呼叫 helper
+   自動帶 sessionToken；token 失效時自動清除並引導重新登入 */
+async function callBackend(action, payload){
+  if(!GAS_URL) return {ok:false, error:'GAS_URL 未設定'};
+  const token = getSessionToken();
+  if(!token) return {ok:false, error:'未登入或登入逾時'};
+  try{
+    const resp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(Object.assign({action, sessionToken:token}, payload || {}))
+    });
+    if(!resp.ok) return {ok:false, error:'後端回應錯誤 ('+resp.status+')'};
+    const data = await resp.json();
+    if(data.error && (data.error.indexOf('token')>=0 || data.error.indexOf('逾時')>=0)){
+      clearSession();
+      toast('⚠ 登入逾時，請重新登入', false);
+    }
+    return data;
+  }catch(e){
+    return {ok:false, error: e.message || String(e)};
+  }
 }
 function refreshStudentTable(){
   // 【安全】只有管理員才能看到此表格(內含明文密碼)
@@ -11929,7 +12000,14 @@ function getStudentOrder(){
   APP.studentOrder = APP.studentOrder.filter(function(sid){ return APP.students[sid]; });
   return APP.studentOrder;
 }
-function delStudent(sid){delete APP.students[sid];refreshStudentTable();saveConfigToSheets();}
+async function delStudent(sid){
+  if(!confirm('確定要刪除學生 '+(APP.students[sid]?APP.students[sid].name:sid)+'？此動作無法還原。')) return;
+  const result = await callBackend('deleteStudent', {sid});
+  if(!result.ok){ toast('⚠ '+(result.error||'刪除失敗'),false); return; }
+  delete APP.students[sid];
+  refreshStudentTable();
+  toast('✓ 已刪除學生');
+}
 
 /* ─── 密碼顯示/隱藏切換 ─── */
 /* ─── 【資安修補 v18】此函式已廢棄 ───
@@ -11946,11 +12024,12 @@ async function resetStudentPwd(sid){
   var acc=APP.students[sid];
   if(!acc)return;
   if(!confirm('確定要將學生「'+acc.name+'」（'+sid+'）的密碼重設為預設值「123」嗎？\n\n重設後請通知學生使用新密碼登入，並請學生立即更改密碼。')) return;
-  // 【資安修補 v18】重設密碼也必須雜湊
-  APP.students[sid].pwd = await hashPassword(sid, '123');
-  APP.students[sid].mustChangePwd = true;  // 標記下次登入須改密碼
+  // 【資安修補 v18.1】走後端 API
+  const result = await callBackend('resetPassword', {target:'student', key:sid, newPwd:'123'});
+  if(!result.ok){ toast('⚠ '+(result.error||'重設失敗'),false); return; }
+  APP.students[sid].pwd = 'h2:(remote)';  // 本地佔位
+  APP.students[sid].mustChangePwd = true;
   refreshStudentTable();
-  saveConfigToSheets();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「123」');
 }
 
@@ -11959,11 +12038,12 @@ async function resetTeacherPwd(card){
   var acc=APP.teachers[card];
   if(!acc)return;
   if(!confirm('確定要將老師「'+acc.name+'」（'+card+'）的密碼重設為預設值「000」嗎？\n\n重設後請通知老師使用新密碼登入，並請老師立即更改密碼。')) return;
-  // 【資安修補 v18】重設密碼也必須雜湊
-  APP.teachers[card].pwd = await hashPassword(card, '000');
+  // 【資安修補 v18.1】走後端 API
+  const result = await callBackend('resetPassword', {target:'teacher', key:card, newPwd:'000'});
+  if(!result.ok){ toast('⚠ '+(result.error||'重設失敗'),false); return; }
+  APP.teachers[card].pwd = 'h2:(remote)';
   APP.teachers[card].mustChangePwd = true;
   refreshTeacherTable();
-  saveConfigToSheets();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「000」');
 }
 async function addTeacher(){
@@ -11980,11 +12060,11 @@ async function addTeacher(){
     toast('⚠ 此卡號已存在');
     return;
   }
-  // 【資安修補 v18】密碼必須雜湊
-  var hashedPwd = await hashPassword(card, pwd);
-  APP.teachers[card]={name, pwd: hashedPwd, mustChangePwd:(pwd==='000')};
+  // 【資安修補 v18.1】走後端 API
+  const result = await callBackend('addTeacher', {card, name, pwd});
+  if(!result.ok){ toast('⚠ '+(result.error||'新增失敗'),false); return; }
+  APP.teachers[card]={name, pwd:'h2:(remote)', mustChangePwd:(pwd==='000')};
   refreshTeacherTable();
-  saveConfigToSheets();
   document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
   toast('✓ 已新增老師');
 }
@@ -12040,7 +12120,14 @@ function getTeacherOrder(){
   APP.teacherOrder = APP.teacherOrder.filter(function(card){ return APP.teachers[card]; });
   return APP.teacherOrder;
 }
-function delTeacher(card){delete APP.teachers[card];refreshTeacherTable();saveConfigToSheets();}
+async function delTeacher(card){
+  if(!confirm('確定要刪除老師 '+(APP.teachers[card]?APP.teachers[card].name:card)+'？此動作無法還原。')) return;
+  const result = await callBackend('deleteTeacher', {card});
+  if(!result.ok){ toast('⚠ '+(result.error||'刪除失敗'),false); return; }
+  delete APP.teachers[card];
+  refreshTeacherTable();
+  toast('✓ 已刪除老師');
+}
 async function updateTeacherPwd(card){
   const inp=document.getElementById('tpwd_'+card);if(!inp)return;
   const p=inp.value.trim();if(!p)return;
@@ -12327,7 +12414,6 @@ async function editStudent(sid) {
   const trimmedSid = clipInput(newSid.trim(), MAX_SHORT_LENGTH);
   if (trimmedSid && trimmedSid !== sid) {
     if (!trimmedSid) { toast('⚠ 學號不可為空'); return; }
-    // 【安全】格式驗證
     if (!/^[A-Za-z0-9_-]+$/.test(trimmedSid)) { toast('⚠ 學號只能包含英數字底線減號'); return; }
     if (APP.students[trimmedSid]) { toast('⚠ 此學號「' + trimmedSid + '」已被使用'); return; }
   }
@@ -12335,35 +12421,43 @@ async function editStudent(sid) {
   if (newName === null) return;
   const newSchool = prompt('修改學校（目前：' + (acc.school||'') + '）', acc.school||'');
   if (newSchool === null) return;
-  // 【資安修補 v18】無論新舊，密碼不再向管理員顯示明文
   var curPwdHint = '（目前：已加密儲存，無法檢視）';
   const newPwd = prompt('修改密碼' + curPwdHint + '\n留空表示不變更；輸入新密碼將以加鹽雜湊儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanSchool = clipInput((newSchool||acc.school||'').trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
-  // 【資安修補 v18】salt 用「實際儲存用的學號」，若改學號就用新學號雜湊
+
+  // 【資安修補 v18.1】走後端 API
+  const payload = {
+    sid: sid,
+    newSid: trimmedSid && trimmedSid !== sid ? trimmedSid : undefined,
+    name: cleanName,
+    school: cleanSchool
+  };
+  if(cleanPwd !== null) payload.newPwd = cleanPwd;
+  const result = await callBackend('updateStudent', payload);
+  if(!result.ok){ toast('⚠ '+(result.error||'修改失敗'),false); return; }
+
+  // 後端成功 → 更新本地快取
   const targetSid = (trimmedSid && trimmedSid !== sid) ? trimmedSid : sid;
-  const finalPwd = cleanPwd !== null ? (await hashPassword(targetSid, cleanPwd)) : acc.pwd;
-  if (trimmedSid && trimmedSid !== sid) {
-    APP.students[trimmedSid] = {
-      name: cleanName,
-      school: cleanSchool,
-      pwd: finalPwd,
+  if (targetSid !== sid) {
+    APP.students[targetSid] = {
+      name: cleanName, school: cleanSchool,
+      pwd: cleanPwd !== null ? 'h2:(remote)' : acc.pwd,
       expiry: acc.expiry,
       selfRegistered: acc.selfRegistered,
       registeredAt: acc.registeredAt
     };
     delete APP.students[sid];
     if (APP.studentOrder && APP.studentOrder.indexOf(sid) >= 0) {
-      APP.studentOrder = APP.studentOrder.map(function(s){ return s === sid ? trimmedSid : s; });
+      APP.studentOrder = APP.studentOrder.map(function(s){ return s === sid ? targetSid : s; });
     }
   } else {
     APP.students[sid].name = cleanName;
     APP.students[sid].school = cleanSchool;
-    if (cleanPwd !== null) APP.students[sid].pwd = finalPwd;
+    if (cleanPwd !== null) APP.students[sid].pwd = 'h2:(remote)';
   }
   refreshStudentTable();
-  saveConfigToSheets();
   toast('✓ 學生資料已更新');
 }
 
@@ -12381,26 +12475,33 @@ async function editTeacher(card) {
   }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
-  // 【資安修補 v18】無論新舊，密碼不再向管理員顯示明文
   var curTPwdHint = '（目前：已加密儲存，無法檢視）';
   const newPwd = prompt('修改密碼' + curTPwdHint + '\n留空表示不變更；輸入新密碼將以加鹽雜湊儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
-  // 【資安修補 v18】salt 用實際儲存用的卡號
+
+  // 【資安修補 v18.1】走後端 API
+  const payload = {
+    card: card,
+    newCard: trimmedCard && trimmedCard !== card ? trimmedCard : undefined,
+    name: cleanName
+  };
+  if(cleanPwd !== null) payload.newPwd = cleanPwd;
+  const result = await callBackend('updateTeacher', payload);
+  if(!result.ok){ toast('⚠ '+(result.error||'修改失敗'),false); return; }
+
   const targetCard = (trimmedCard && trimmedCard !== card) ? trimmedCard : card;
-  const finalTPwd = cleanPwd !== null ? (await hashPassword(targetCard, cleanPwd)) : acc.pwd;
-  if (trimmedCard && trimmedCard !== card) {
-    APP.teachers[trimmedCard] = { name: cleanName, pwd: finalTPwd };
+  if (targetCard !== card) {
+    APP.teachers[targetCard] = { name: cleanName, pwd: cleanPwd !== null ? 'h2:(remote)' : acc.pwd };
     delete APP.teachers[card];
     if (APP.teacherOrder && APP.teacherOrder.indexOf(card) >= 0) {
-      APP.teacherOrder = APP.teacherOrder.map(function(c){ return c === card ? trimmedCard : c; });
+      APP.teacherOrder = APP.teacherOrder.map(function(c){ return c === card ? targetCard : c; });
     }
   } else {
     APP.teachers[card].name = cleanName;
-    if (cleanPwd !== null) APP.teachers[card].pwd = finalTPwd;
+    if (cleanPwd !== null) APP.teachers[card].pwd = 'h2:(remote)';
   }
   refreshTeacherTable();
-  saveConfigToSheets();
   toast('✓ 老師資料已更新');
 }
 
