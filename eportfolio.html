@@ -11744,13 +11744,15 @@ async function updateAdminPwd(){
   const p2=clipInput(document.getElementById('new-admin-pwd2').value, MAX_SHORT_LENGTH);
   if(!p||p!==p2){toast('密碼不一致',false);return;}
   if(p.length<8){toast('管理員密碼至少 8 碼', false); return;}
-  // 【資安修補 v18】管理員密碼用 salted hash
+  // 【資安修補 v18.2】呼叫後端 setAdminPwd（session 已驗證為 admin 即可）
+  // 與 setTeacherPin / setExamPin 行為一致:後端為真實驗證源,不需再手動執行 GAS 函式
+  const result = await callBackend('setAdminPwd', {newPwd: p});
+  if(!result.ok){ toast('⚠ '+(result.error||'更新失敗'), false); return; }
+  // 後端寫入成功 → 本地也更新一份(向下相容/離線 fallback 用)
   APP.adminPwd = await hashPassword(ADMIN_EMAIL, p);
-  saveConfigToSheets();
+  toast('✓ 管理員密碼已更新並同步至伺服器');
   document.getElementById('new-admin-pwd').value='';
   document.getElementById('new-admin-pwd2').value='';
-  // 提醒同時要去 GAS 端執行 setupAdminPassword 才會真正生效（後端是真實驗證源）
-  toast('✓ 前端管理員密碼已更新。請務必同時到 GAS 編輯器執行 setupAdminPassword 同步後端密碼，否則後端登入仍會使用舊密碼。');
 }
 
 /* ── 清除本機測試資料：清空 APP.formData、APP.historyLog、localStorage 草稿 ── */
