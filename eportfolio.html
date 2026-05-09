@@ -12139,6 +12139,7 @@ async function resetTeacherPwd(card){
   const result = await callBackend('resetPassword', {target:'teacher', key:card, newPwd:'000'});
   if(!result.ok){ toast('⚠ '+(result.error||'重設失敗'),false); return; }
   APP.teachers[card].pwd = 'h2:(remote)';
+  APP.teachers[card].pwdPlain = '000';  // ★ 同步明文,讓 👁 圖示立刻可顯示
   APP.teachers[card].mustChangePwd = true;
   refreshTeacherTable();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「000」');
@@ -12160,7 +12161,10 @@ async function addTeacher(){
   // 【資安修補 v18.1】走後端 API
   const result = await callBackend('addTeacher', {card, name, pwd});
   if(!result.ok){ toast('⚠ '+(result.error||'新增失敗'),false); return; }
-  APP.teachers[card]={name, pwd:'h2:(remote)', mustChangePwd:(pwd==='000')};
+  // ★ 同步保留明文密碼到本地(與學生帳號管理一致),
+  //   讓表格的 👁 圖示能立刻顯示原始密碼。後端必須同時把 pwdPlain 持久化,
+  //   否則 loadConfig 重抓後會覆蓋掉本地的 pwdPlain。
+  APP.teachers[card]={name, pwd:'h2:(remote)', pwdPlain:pwd, mustChangePwd:(pwd==='000')};
   refreshTeacherTable();
   document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
   toast('✓ 已新增老師');
@@ -12566,7 +12570,10 @@ async function editTeacher(card) {
   }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
-  var curTPwdHint = '（目前：已加密儲存，無法檢視）';
+  // ★ 若後端有保留明文,直接顯示給管理員看;沒有時才顯示「無法檢視」
+  var curTPwdHint = acc.pwdPlain
+    ? '（目前明文密碼：' + acc.pwdPlain + '）'
+    : '（目前：已加密儲存，無法檢視）';
   const newPwd = prompt('修改密碼' + curTPwdHint + '\n留空表示不變更；輸入新密碼將以加鹽雜湊儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
@@ -12583,14 +12590,22 @@ async function editTeacher(card) {
 
   const targetCard = (trimmedCard && trimmedCard !== card) ? trimmedCard : card;
   if (targetCard !== card) {
-    APP.teachers[targetCard] = { name: cleanName, pwd: cleanPwd !== null ? 'h2:(remote)' : acc.pwd };
+    // 改卡號:保留原明文(若無新密碼),或用新明文(若有改密碼)
+    APP.teachers[targetCard] = {
+      name: cleanName,
+      pwd: cleanPwd !== null ? 'h2:(remote)' : acc.pwd,
+      pwdPlain: cleanPwd !== null ? cleanPwd : (acc.pwdPlain || '')
+    };
     delete APP.teachers[card];
     if (APP.teacherOrder && APP.teacherOrder.indexOf(card) >= 0) {
       APP.teacherOrder = APP.teacherOrder.map(function(c){ return c === card ? targetCard : c; });
     }
   } else {
     APP.teachers[card].name = cleanName;
-    if (cleanPwd !== null) APP.teachers[card].pwd = 'h2:(remote)';
+    if (cleanPwd !== null) {
+      APP.teachers[card].pwd = 'h2:(remote)';
+      APP.teachers[card].pwdPlain = cleanPwd;  // ★ 同步明文
+    }
   }
   refreshTeacherTable();
   toast('✓ 老師資料已更新');
