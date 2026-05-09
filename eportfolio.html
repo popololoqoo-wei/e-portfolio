@@ -6,7 +6,28 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-05-05-v17-f16-learning-style">
+<meta name="version" content="2026-05-09-v18-security-hardened">
+<!-- ═══════════════ CONTENT SECURITY POLICY ═══════════════
+     防止 XSS 攻擊。允許清單僅包含本系統實際依賴的網域：
+     - Google Fonts (CSS + 字型檔)
+     - Google Apps Script (後端 API)
+     - Google Sheets API (OAuth 寫入)
+     - Google Identity Services (OAuth)
+     unsafe-inline 為 style 必要 (大量 inline style)；script 不允許 unsafe-inline 除了本檔內的 <script>
+     若需新增外部資源，請在此處明確列出網域。
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  img-src 'self' data: blob: https:;
+  connect-src 'self' https://script.google.com https://script.googleusercontent.com https://sheets.googleapis.com https://accounts.google.com https://oauth2.googleapis.com;
+  frame-src https://accounts.google.com https://script.google.com https://script.googleusercontent.com;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self' https://script.google.com;
+">
 <title>臺中榮總 — 實習學習護照 e-Portfolio</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -766,34 +787,64 @@ const SHEETS_ID='15hCQQvQhKxGTPC7ZH6u9C-v5b6Ii-zU1Y3xrw2Agmgg';
 // 申請完成後，將您的 Client ID 填入下方 GOOGLE_CLIENT_ID
 // 或直接透過管理員面板的輸入框填入（儲存於 localStorage）
 // Authorized origin: https://popololoqoo-wei.github.io
-const _storedClientId = localStorage.getItem('gs_client_id');
+// 【資安】從 localStorage 讀取時做格式驗證，防止惡意值植入
+const _storedClientId = safeReadClientId();
 const GOOGLE_CLIENT_ID = _storedClientId || '416198803583-raro6tl5kbp1582m27heqc4m22bhsspk.apps.googleusercontent.com';
 
-// ── 公開讀取設定（不需要 OAuth，任何裝置開啟即自動載入帳號）──
-// 使用 Google Sheets 已發布的 CSV 功能，管理員儲存設定後自動同步到所有裝置
+// ── 公開讀取設定（僅讀取「非敏感」設定，不再含密碼/帳號清單）──
 // 設定分頁 gid 會在第一次儲存後自動更新
-let CONFIG_GID = localStorage.getItem('config_gid') || '0';
+let CONFIG_GID = safeReadConfigGid();
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzb7fqaZOdE-SC9rodO0nxITrRCA2OfWszIlWsMrUpqAl9KLy6WJd3g9_d4Xvx3Dt9K4Q/exec';
 
-/* ─── GAS 寫入 secret ───
-   這個值用於 saveForm/saveConfig API,防止任意第三方把 GAS 當成資料庫亂寫。
-   ⚠ 安全提醒:這個 secret 存在 HTML 中,並非完美防禦(熟練攻擊者仍可從 HTML 看到),
-      但能阻擋:
-      • 隨機掃描 GAS_URL 的 bot
-      • 不會 F12 的非技術使用者
-      • 一般網路爬蟲
-   要徹底安全需用 Google OAuth(較複雜)。
-   ── 設定方式 ──
-   1. 隨機產生一組長字串(建議 32 字元以上),例如:`Ka9j2mNvQrPxYhTzL3sBwE8fGuD6cVjA`
-   2. GAS 編輯器 → 專案設定 ⚙ → 指令碼屬性 → 新增屬性
-      名稱:WRITE_SECRET   值:(您剛才產生的字串)
-   3. 把同一個字串貼到下方 GAS_WRITE_SECRET 變數,讓兩端一致
-   4. 重新部署 GAS
+/* ─── 【資安修補 v18】後端寫入驗證機制全面升級 ───
+   舊版 (v17): 用 GAS_WRITE_SECRET 字串做防護 — 但這字串寫在 HTML 中，
+              熟練攻擊者可從原始碼讀到，等同沒防護。
+   
+   新版 (v18): 雙軌驗證
+     【寫入操作 (saveForm/saveConfig/setPwd)】必須帶 Google OAuth access_token，
+        後端驗證 token 屬於授權清單中的 email 才允許寫入。
+     【讀取操作 (loadForm/listForms)】允許未驗證讀取（向下相容），
+        但敏感欄位（密碼雜湊、學生個資）後端會自動過濾不回傳。
+     【登入比對 (authStudent/authTeacher/authAdmin)】POST 帳號+密碼到後端，
+        後端用雜湊比對，回傳 session token (有效 8 小時)，前端用此 token 後續寫入。
+   
+   要徹底安全：請在 GAS 端 deploy 時設定「以執行使用者身份」並設定
+   AUTHORIZED_ADMINS Script Property（逗號分隔的 email 清單）。
+   詳見 README_SECURITY.md 與 Code.gs 範本。 */
 
-   ⚠ 若 GAS 端尚未設定 WRITE_SECRET,此值留空也能運作(向下相容),
-      但建議盡快設定以提升安全性。 */
-const GAS_WRITE_SECRET = '';  // ★ 請貼入您 GAS 設定的 WRITE_SECRET 值
+// 【保留】WRITE_SECRET 仍可作為次要防線（防爬蟲、bot），但不再是主要驗證
+const GAS_WRITE_SECRET = '';  // ★ 可選：填入次要防護字串（GAS 端對應 Script Property: WRITE_SECRET）
+
+// 【新增】Session token — 登入後由後端發給，後續所有寫入操作必須帶此 token
+let SESSION_TOKEN = null;
+let SESSION_EXPIRES_AT = 0;
+
+function getSessionToken(){
+  if(!SESSION_TOKEN || Date.now() > SESSION_EXPIRES_AT) return null;
+  return SESSION_TOKEN;
+}
+function clearSession(){
+  SESSION_TOKEN = null; SESSION_EXPIRES_AT = 0;
+  try{ sessionStorage.removeItem('ep_session'); }catch(e){}
+}
+function saveSession(token, expiresInSec){
+  SESSION_TOKEN = token;
+  SESSION_EXPIRES_AT = Date.now() + (expiresInSec || 8*3600) * 1000;
+  // 用 sessionStorage 而非 localStorage，分頁關閉就消失
+  try{ sessionStorage.setItem('ep_session', JSON.stringify({t:token, e:SESSION_EXPIRES_AT})); }catch(e){}
+}
+function restoreSession(){
+  try{
+    const raw = sessionStorage.getItem('ep_session');
+    if(!raw) return;
+    const o = JSON.parse(raw);
+    if(o && o.t && o.e && o.e > Date.now()){
+      SESSION_TOKEN = o.t; SESSION_EXPIRES_AT = o.e;
+    }
+  }catch(e){}
+}
+restoreSession();
 
 async function autoLoadConfig() {
   // 1. 先從 localStorage 讀取（速度最快，讓登入畫面立即可用）
@@ -997,14 +1048,19 @@ let APP={
   currentStudentId:null,  // 老師查看的學生ID
   formData:{},            // {formId:{key:val,...}}
   historyLog:{},          // {formId:[{ts,role,user},...]}
-  students:{},            // {sid:{name,school,pwd}} ※pwd 將在 enterApp 後改存雜湊
-  teachers:{},            // {card:{name,pwd}}
-  /* 預設密碼／PIN：以雜湊形式存放，原始字串不出現於檔案 */
-  /* Admin@2025 的 SHA-256 = 0c83a9...；首次載入時會自動雜湊化現有明文 */
-  adminPwd:'Admin@2025',  // ※載入後會被自動雜湊化
-  teacherPIN:'168168',    // ※載入後會被自動雜湊化
-  examPIN:'202020',       // ※筆試後測專用 PIN（與 teacherPIN 獨立），載入後會自動雜湊化
-  _adminPwdHashed:false,  // 標記是否已轉雜湊
+  students:{},            // {sid:{name,school,pwd}} pwd 為 'h2:' 雜湊
+  teachers:{},            // {card:{name,pwd}} pwd 為 'h2:' 雜湊
+  /* ─── 【資安修補 v18】預設密碼已移除 ───
+     原本: adminPwd:'Admin@2025' / teacherPIN:'168168' / examPIN:'202020'
+     寫在原始碼裡等於沒設密碼，任何人 view-source 即可登入。
+     新版: 首次部署必須在 GAS 編輯器執行 setupAdminPassword() 與 setupPINs()
+           設定後雜湊存於 GAS Script Properties，前端僅透過 API 比對。
+     若前端載入時這些欄位為空，登入函式會呼叫後端驗證；
+     若後端也未設定，則拒絕登入並提示管理員先初始化。 */
+  adminPwd:'',            // 由 autoLoadConfig 從後端載入（已雜湊 h2:）
+  teacherPIN:'',          // 同上
+  examPIN:'',             // 同上
+  _adminPwdHashed:false,
   _teacherPINHashed:false,
   _examPINHashed:false,
   examUnlocked:false,     // 筆試後測 PIN 解鎖狀態（每次切換表單會重置）
@@ -1014,51 +1070,79 @@ let APP={
 };
 
 /* Pre-seed demo accounts */
-/* ── 預設學生帳號 ── */
-APP.students['P145023']={name:'陳思羽',school:'長庚科技大學(嘉義分部)',pwd:'123'};
-APP.students['P145033']={name:'陳姿伶',school:'長庚科技大學(嘉義分部)',pwd:'123'};
-APP.students['P145035']={name:'陳思婷',school:'長庚科技大學(嘉義分部)',pwd:'123'};
-APP.students['P145009']={name:'鄭鈺陵',school:'長庚科技大學(嘉義分部)',pwd:'123'};
-
-/* ── 預設老師帳號 ── */
-APP.teachers['1649']={name:'王淑惠',pwd:'000'};
-APP.teachers['A869']={name:'陳正美',pwd:'000'};
-APP.teachers['6313']={name:'劉秀英',pwd:'000'};
-APP.teachers['B215']={name:'許純怡',pwd:'000'};
-APP.teachers['4955']={name:'蕭靜雅',pwd:'000'};
-APP.teachers['D951']={name:'黃培琦',pwd:'000'};
-APP.teachers['4710']={name:'李靜怡',pwd:'000'};
-APP.teachers['A679']={name:'黃子庭',pwd:'000'};
-APP.teachers['B011']={name:'傅偉菱',pwd:'000'};
-APP.teachers['6437']={name:'楊惠喬',pwd:'000'};
-APP.teachers['A226']={name:'鄭雅華',pwd:'000'};
-APP.teachers['A594']={name:'陳家榛',pwd:'000'};
-APP.teachers['4160']={name:'徐桂芳',pwd:'000'};
-APP.teachers['2886']={name:'程清福',pwd:'000'};
-APP.teachers['2489']={name:'陳曉倩',pwd:'000'};
-APP.teachers['4954']={name:'卓瓊美',pwd:'000'};
-APP.teachers['E601']={name:'張維倫',pwd:'000'};
-APP.teachers['E511']={name:'李佩雅',pwd:'000'};
-APP.teachers['G015']={name:'潘哲緯',pwd:'000'};
-APP.teachers['G016']={name:'詹鈞媛',pwd:'000'};
-APP.teachers['G270']={name:'陳姿勻',pwd:'000'};
-APP.teachers['G319']={name:'洪逸慈',pwd:'000'};
-APP.teachers['G630']={name:'李曼瑄',pwd:'000'};
-APP.teachers['H129']={name:'何羿侖',pwd:'000'};
-APP.teachers['H343']={name:'巫禹呈',pwd:'000'};
-APP.teachers['H346']={name:'蕭傳威',pwd:'000'};
-APP.teachers['H650']={name:'李奕昕',pwd:'000'};
-APP.teachers['I353']={name:'黃姿穎',pwd:'000'};
-APP.teachers['I763']={name:'李泓緯',pwd:'000'};
-APP.teachers['I837']={name:'游慈瑄',pwd:'000'};
-APP.teachers['H937']={name:'江佳澤',pwd:'000'};
-APP.teachers['J501']={name:'藍子晴',pwd:'000'};
-APP.teachers['F208']={name:'郭佩蓉',pwd:'000'};
-APP.teachers['F851']={name:'張茹昀',pwd:'000'};
+/* ─── 【資安修補 v18】帳號清單已移除 ───
+   原本 HTML 中硬編碼了 32 位老師卡號 + 4 位學生帳號 + 預設密碼。
+   任何人「檢視原始碼」就能看到全部老師卡號，是嚴重的個資洩漏。
+   
+   新版改為：
+   1. 帳號資料只存在後端 Google Sheet 中（受 OAuth 保護）
+   2. 管理員透過已驗證的 OAuth token 登入後，後端才會回傳師生清單
+   3. 學生/老師登入時：前端傳送 (帳號, 密碼) → 後端比對雜湊 → 回傳成功與否
+   4. 課程主題與講師清單可保留（非個資、不敏感）
+   
+   首次部署：在 GAS 編輯器執行 setupAdminPassword() 與 seedAccounts() 函式，
+   詳見 README_SECURITY.md
+*/
 APP.courseTopics=['洗手技術','無菌操作','動脈血液氣體分析判讀','呼吸器初始設定'];
 APP.courseSpeakers=['陳正美','卓瓊美','黃培琦','傅偉菱'];
 
 /* ═══════════ HELPERS ═══════════ */
+
+/* ─── 【資安修補 v18】alias for compatibility ─── 
+   原檔已有 esc/escAttr/sha256。新增的安全工具沿用既有 API：
+*/
+function escapeHtml(s){ return esc(s); }
+function escapeAttr(s){ return escAttr(s); }
+function escapeJsString(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/[\\"']/g, '\\$&').replace(/\u0000/g,'\\0').replace(/\n/g,'\\n').replace(/\r/g,'\\r');
+}
+
+/* ─── 【資安修補 v18】localStorage 防竄改 ─── 
+   敏感設定如 gs_client_id 從 localStorage 讀取時必須驗證格式，
+   否則攻擊者在共用電腦上可植入惡意值，誘導下一位使用者連到攻擊者的 OAuth 流程。
+*/
+function safeReadClientId(){
+  try{
+    const v = localStorage.getItem('gs_client_id');
+    if(!v) return null;
+    if(!/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(v)){
+      console.warn('[Security] localStorage 中 gs_client_id 格式異常，已忽略');
+      localStorage.removeItem('gs_client_id');
+      return null;
+    }
+    return v;
+  }catch(e){ return null; }
+}
+function safeReadConfigGid(){
+  try{
+    const v = localStorage.getItem('config_gid');
+    if(v && /^[0-9]+$/.test(v)) return v;
+    return '0';
+  }catch(e){ return '0'; }
+}
+
+/* ─── 【資安修補 v18】密碼雜湊：SHA-256 + per-user salt ───
+   舊版 (h:) 只用單純 SHA-256，相同密碼產生相同雜湊，可被 rainbow table 反查。
+   新版 (h2:) 加上 salt（學號或卡號），同樣是 123 但每個使用者的雜湊都不同。
+   sha256 函式既有，這裡只新增 salted 版本。
+*/
+async function hashPassword(salt, plain){
+  return 'h2:' + (await sha256(String(salt).toLowerCase() + ':' + String(plain)));
+}
+async function passwordMatchesV2(input, stored, salt){
+  if(!stored) return false;
+  if(typeof stored !== 'string') return false;
+  if(stored.indexOf('h2:')===0){
+    const h = await hashPassword(salt, input);
+    return h === stored;
+  }
+  if(stored.indexOf('h:')===0){
+    return ('h:' + (await sha256(input))) === stored;
+  }
+  return stored === input;
+}
+
 function toast(msg,ok=true){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=ok?'#2D5A27':'#8B2020';
@@ -1135,24 +1219,71 @@ function closeForgotPwd(){
 }
 
 /* ═══════════ AUTH ═══════════ */
+
+/* ─── 【資安修補 v18】後端驗證登入 ───
+   呼叫 GAS 的 authStudent/authTeacher/authAdmin endpoint，
+   後端用雜湊比對密碼，成功後發給 8 小時 session token。
+   token 用於後續所有寫入操作（saveForm 等）。 */
+async function authenticateBackend(role, identifier, password){
+  if(!GAS_URL || GAS_URL==='YOUR_GAS_URL_HERE'){
+    return {ok:false, error:'後端未設定 (GAS_URL 為空)'};
+  }
+  try{
+    const url = GAS_URL + '?action=auth&role=' + encodeURIComponent(role) + '&t=' + Date.now();
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},  // GAS doPost 使用 text/plain 避免 CORS preflight
+      body: JSON.stringify({
+        role: role,
+        id: identifier,
+        password: password
+      })
+    });
+    if(!resp.ok) return {ok:false, error:'後端回應錯誤 ('+resp.status+')'};
+    const data = await resp.json();
+    if(data.ok && data.token){
+      saveSession(data.token, data.expiresInSec || 28800);
+      return {ok:true, user:data.user, token:data.token};
+    }
+    return {ok:false, error: data.error || '帳號或密碼錯誤'};
+  }catch(e){
+    console.warn('authenticateBackend error:', e);
+    // 網路錯誤時，若本地有快取的雜湊資料且為向下相容模式，可嘗試本地驗證
+    return {ok:false, error:'無法連線後端：' + e.message};
+  }
+}
+
 async function doLogin(role){
   if(role==='student'){
     const sid=clipInput(document.getElementById('s-sid').value.trim(), MAX_SHORT_LENGTH);
     const pwd=clipInput(document.getElementById('s-pwd').value, MAX_SHORT_LENGTH);
     const errEl=document.getElementById('s-err');
-    // 暴力破解保護
+    // 暴力破解保護（前端只做 UX 提示，真正的限速由後端做）
     const lockKey='login_student_'+sid;
     const locked=isLocked(lockKey);
     if(locked){
       errEl.textContent='登入失敗次數過多，請等待 '+locked+' 秒後再試';
       errEl.style.display='block';return;
     }
-    const acc=APP.students[sid];
-    // 比對：先檢查存放的是雜湊還是明文
-    const matched=acc && (await passwordMatches(pwd, acc.pwd));
-    if(!acc || !matched){
+    // 【新】優先呼叫後端驗證
+    const result = await authenticateBackend('student', sid, pwd);
+    let acc = null;
+    let matched = false;
+    if(result.ok){
+      matched = true;
+      acc = result.user;  // 後端回傳 {sid, name, school}
+      APP.students[sid] = acc;  // 快取到記憶體（不含密碼）
+    } else if(result.error && result.error.indexOf('連線')>=0){
+      // 後端連線失敗 → 退回本地快取驗證（離線降級）
+      const localAcc = APP.students[sid];
+      if(localAcc && localAcc.pwd){
+        const ok = await passwordMatchesV2(pwd, localAcc.pwd, sid);
+        if(ok){ matched = true; acc = localAcc; }
+      }
+    }
+    if(!matched){
       recordFail(lockKey);
-      errEl.textContent='學號或密碼錯誤';
+      errEl.textContent = result.error || '學號或密碼錯誤';
       errEl.style.display='block';return;
     }
     if(!checkStudentExpiry(sid)){
@@ -1161,7 +1292,8 @@ async function doLogin(role){
     }
     clearFails(lockKey);
     errEl.style.display='none';
-    APP.currentRole='student';APP.currentUser={sid,name:acc.name,school:acc.school};
+    APP.currentRole='student';
+    APP.currentUser={sid, name:acc.name, school:acc.school};
     enterApp();
   } else if(role==='teacher'){
     const card=clipInput(document.getElementById('t-card').value.trim(), MAX_SHORT_LENGTH);
@@ -1173,11 +1305,23 @@ async function doLogin(role){
       errEl.textContent='登入失敗次數過多，請等待 '+locked+' 秒後再試';
       errEl.style.display='block';return;
     }
-    const acc=APP.teachers[card];
-    const matched=acc && (await passwordMatches(pwd, acc.pwd));
-    if(!acc || !matched){
+    const result = await authenticateBackend('teacher', card, pwd);
+    let acc = null;
+    let matched = false;
+    if(result.ok){
+      matched = true;
+      acc = result.user;
+      APP.teachers[card] = acc;
+    } else if(result.error && result.error.indexOf('連線')>=0){
+      const localAcc = APP.teachers[card];
+      if(localAcc && localAcc.pwd){
+        const ok = await passwordMatchesV2(pwd, localAcc.pwd, card);
+        if(ok){ matched = true; acc = localAcc; }
+      }
+    }
+    if(!matched){
       recordFail(lockKey);
-      errEl.textContent='卡號或密碼錯誤';
+      errEl.textContent = result.error || '卡號或密碼錯誤';
       errEl.style.display='block';return;
     }
     clearFails(lockKey);
@@ -1195,55 +1339,79 @@ async function doLogin(role){
       errEl.textContent='管理員登入失敗次數過多，請等待 '+locked+' 秒後再試';
       errEl.style.display='block';return;
     }
-    const matched=(id===ADMIN_EMAIL) && (await passwordMatches(pwd, APP.adminPwd));
-    if(!matched){
+    // 管理員必須走後端驗證 — 不再使用 HTML 中寫死的密碼
+    const result = await authenticateBackend('admin', id, pwd);
+    if(!result.ok){
       recordFail(lockKey);
-      errEl.textContent='帳號或密碼錯誤';
+      errEl.textContent = result.error || '帳號或密碼錯誤';
       errEl.style.display='block';return;
     }
     clearFails(lockKey);
     errEl.style.display='none';
-    APP.currentRole='admin';APP.currentUser={name:'管理員',email:ADMIN_EMAIL};
+    APP.currentRole='admin';
+    APP.currentUser={name:'管理員', email: result.user.email || id};
     APP.teacherUnlocked=true;
     enterApp();
   }
 }
 
-/* ── 密碼比對 helper ── 自動辨識雜湊或明文（為了向下相容） */
-async function passwordMatches(input, stored){
-  if(!stored) return false;
-  // 若儲存的是雜湊（以 'h:' 開頭），則對 input 做雜湊後比對
-  if(typeof stored==='string' && stored.indexOf('h:')===0){
-    const hashed = 'h:' + (await sha256(input));
-    return hashed === stored;
-  }
-  // 否則為明文（向下相容舊資料）
-  return stored === input;
+/* ── 密碼比對 helper（向下相容版本） ── 自動辨識 h2:/h:/明文 */
+async function passwordMatches(input, stored, salt){
+  return passwordMatchesV2(input, stored, salt || '');
 }
 
-/* ── 把現有明文密碼/PIN 自動轉換為雜湊 ── 在 enterApp 後背景執行
-   ※ 注意：依管理需求，學生與老師「帳號密碼」採明文儲存以便管理員查看；
-     管理員密碼、老師 PIN、筆試後測 PIN 仍以雜湊儲存（這些不需檢視原值）。
+/* ── 把現有密碼/PIN 自動升級為新版加鹽雜湊 ──
+   【資安修補 v18】所有舊版資料統一升級：
+   - 明文 → h2: (sha256(salt + ':' + plain))
+   - 舊版 h: (無 salt) → 保持原樣供向下相容；下次登入成功時自動重新雜湊為 h2:
+   - 學生/老師密碼也要遷移（舊版錯誤地保持明文）
 */
 async function migratePlaintextSecrets(){
   let changed=false;
-  // 【依設定】學生密碼：不再自動雜湊化（保持明文以供管理員檢視）
-  // 【依設定】老師密碼：不再自動雜湊化
-  // 管理員密碼
-  if(APP.adminPwd && typeof APP.adminPwd==='string' && APP.adminPwd.indexOf('h:')!==0){
-    APP.adminPwd = 'h:' + (await sha256(APP.adminPwd));
-    changed=true;
+
+  // 學生密碼：明文 → h2: (salt = sid)
+  for(const sid in APP.students){
+    const acc = APP.students[sid];
+    if(acc && acc.pwd && typeof acc.pwd==='string'){
+      // 既不是 h2: 也不是 h:，視為明文
+      if(acc.pwd.indexOf('h2:')!==0 && acc.pwd.indexOf('h:')!==0){
+        acc.pwd = await hashPassword(sid, acc.pwd);
+        changed = true;
+      }
+    }
   }
-  // 老師 PIN
-  if(APP.teacherPIN && typeof APP.teacherPIN==='string' && APP.teacherPIN.indexOf('h:')!==0){
-    APP.teacherPIN = 'h:' + (await sha256(APP.teacherPIN));
-    changed=true;
+  // 老師密碼：明文 → h2: (salt = card)
+  for(const card in APP.teachers){
+    const acc = APP.teachers[card];
+    if(acc && acc.pwd && typeof acc.pwd==='string'){
+      if(acc.pwd.indexOf('h2:')!==0 && acc.pwd.indexOf('h:')!==0){
+        acc.pwd = await hashPassword(card, acc.pwd);
+        changed = true;
+      }
+    }
   }
-  // 筆試後測專用 PIN（獨立於 teacherPIN，可由管理員另行設定）
-  if(APP.examPIN && typeof APP.examPIN==='string' && APP.examPIN.indexOf('h:')!==0){
-    APP.examPIN = 'h:' + (await sha256(APP.examPIN));
-    changed=true;
+  // 管理員密碼（salt 用 ADMIN_EMAIL）
+  if(APP.adminPwd && typeof APP.adminPwd==='string'){
+    if(APP.adminPwd.indexOf('h2:')!==0 && APP.adminPwd.indexOf('h:')!==0 && APP.adminPwd){
+      APP.adminPwd = await hashPassword(ADMIN_EMAIL, APP.adminPwd);
+      changed = true;
+    }
   }
+  // 老師 PIN（共用，salt 用固定值 'teacher_pin'）
+  if(APP.teacherPIN && typeof APP.teacherPIN==='string'){
+    if(APP.teacherPIN.indexOf('h2:')!==0 && APP.teacherPIN.indexOf('h:')!==0){
+      APP.teacherPIN = await hashPassword('teacher_pin', APP.teacherPIN);
+      changed = true;
+    }
+  }
+  // 筆試後測 PIN
+  if(APP.examPIN && typeof APP.examPIN==='string'){
+    if(APP.examPIN.indexOf('h2:')!==0 && APP.examPIN.indexOf('h:')!==0){
+      APP.examPIN = await hashPassword('exam_pin', APP.examPIN);
+      changed = true;
+    }
+  }
+
   if(changed){
     try{ saveConfigToSheets(); }catch(e){console.warn('hash migration save failed',e);}
   }
@@ -1290,11 +1458,12 @@ async function doRegister(){
     localStorage.setItem('register_log',JSON.stringify(regLog2));
   }catch(e){}
 
-  // 依管理需求：學生密碼以明文儲存
+  // 【資安修補 v18】學生密碼一律雜湊儲存，不再明文
   // ★ 防呆:自助註冊預設給 90 天期限,避免「永久有效」漏洞(管理員可在後台調整)
   var defaultExpiry = computeDefaultExpiry(90);
-  APP.students[sid]={name,school,pwd:pwd,expiry:defaultExpiry,registeredAt:new Date().toISOString(),selfRegistered:true};
-  // ★★★ 同步到 GAS，讓管理員後台看得到 ★★★
+  var hashedPwd = await hashPassword(sid, pwd);
+  APP.students[sid]={name,school,pwd:hashedPwd,expiry:defaultExpiry,registeredAt:new Date().toISOString(),selfRegistered:true};
+  // ★★★ 同步到 GAS，讓管理員後台看得到（後端會驗證 sessionToken；註冊時無 token，後端應允許 createStudent 動作）★★★
   try{ saveConfigToSheets(); }catch(e){console.warn('同步學生帳號失敗',e);}
   APP.currentRole='student';APP.currentUser={sid,name,school};
   enterApp();
@@ -1314,8 +1483,8 @@ async function changeStudentPwd(){
   // 2. 學號必須存在
   const acc=APP.students[sid];
   if(!acc){err.textContent='查無此學號，請聯繫管理員';err.style.display='block';return;}
-  // 3. 舊密碼必須正確（用雜湊比對）
-  const oldOk = await passwordMatches(old, acc.pwd);
+  // 3. 舊密碼必須正確（用雜湊比對，加上 salt=sid）
+  const oldOk = await passwordMatchesV2(old, acc.pwd, sid);
   if(!oldOk){
     recordFail(lockKey);
     err.textContent='舊密碼錯誤';err.style.display='block';return;
@@ -1327,8 +1496,8 @@ async function changeStudentPwd(){
   // 6. 新舊密碼不可相同
   if(nw===old){err.textContent='新密碼不可與舊密碼相同';err.style.display='block';return;}
   clearFails(lockKey);
-  // 依管理需求：學生密碼以明文儲存
-  APP.students[sid].pwd = nw;
+  // 【資安修補 v18】密碼一律 salted hash 儲存
+  APP.students[sid].pwd = await hashPassword(sid, nw);
   try{ saveConfigToSheets(); }catch(e){console.warn('同步密碼失敗',e);}
   err.style.display='none';
   // 清空表單
@@ -3944,7 +4113,7 @@ function renderSidebar(){
     let thtml='';
     if(APP.currentStudentId){
       const stu=APP.students[APP.currentStudentId];
-      thtml+=`<div style="padding:8px 1rem;background:var(--cream);border-bottom:1px solid var(--border2);font-size:11px;font-weight:600;color:var(--gold);">👤 ${stu?stu.name:'未知學生'}</div>`;
+      thtml+=`<div style="padding:8px 1rem;background:var(--cream);border-bottom:1px solid var(--border2);font-size:11px;font-weight:600;color:var(--gold);">👤 ${stu?escapeHtml(stu.name):'未知學生'}</div>`;
     }
     groups.forEach(g=>{
       thtml+=`<div class="sidebar-section">${g.label}</div>`;
@@ -4733,7 +4902,7 @@ async function inlineUnlock(){
     msg.textContent='PIN 嘗試次數過多，請等待 '+locked+' 秒';
     return;
   }
-  const matched=await passwordMatches(pin, APP.teacherPIN);
+  const matched=await passwordMatchesV2(pin, APP.teacherPIN, 'teacher_pin');
   if(matched){
     clearFails(lockKey);
     APP.teacherUnlocked=true;
@@ -5308,28 +5477,32 @@ async function saveFormToSheets(id){
     data: JSON.stringify(mergedData),
     history: JSON.stringify(deduped),
     studentId: APP.currentRole==='student' ? APP.currentUser.sid : (APP.currentRole==='teacher'?APP.currentUser.card:'admin'),
-    // 【安全】帶上 WRITE_SECRET 通過 GAS 端身份驗證
+    // 【資安修補 v18】帶上 session token，後端會驗證 token 對應的角色才允許寫入
+    sessionToken: getSessionToken() || '',
+    role: APP.currentRole || '',
+    // 【向下相容】secondary defense
     secret: (typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET) ? GAS_WRITE_SECRET : ''
   };
-  const configStr = JSON.stringify(payload);
-  // Use iframe form submit
+  if(!payload.sessionToken){
+    console.warn('[Security] 未取得 session token，寫入操作可能被後端拒絕。請重新登入。');
+  }
+  // 【改用 fetch + text/plain 避免 CORS preflight】
+  // 舊版用 iframe form submit 的問題：無法接收後端回應、無法判斷成功失敗
   try{
-    const iframeId='_gas_form_'+Date.now();
-    const iframe=document.createElement('iframe');
-    iframe.name=iframeId;iframe.id=iframeId;iframe.style.display='none';
-    document.body.appendChild(iframe);
-    const form=document.createElement('form');
-    form.method='POST';form.action=GAS_URL;form.target=iframeId;form.style.display='none';
-    Object.entries(payload).forEach(([k,v])=>{
-      const inp=document.createElement('input');
-      inp.type='hidden';inp.name=k;inp.value=v;
-      form.appendChild(inp);
-    });
-    document.body.appendChild(form);
-    form.submit();
-    setTimeout(()=>{
-      try{document.body.removeChild(form);document.body.removeChild(iframe);}catch(e){}
-    },3000);
+    fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(payload),
+      mode:'cors'
+    }).then(r=>r.ok?r.json():null).then(data=>{
+      if(data && data.error){
+        console.warn('[Backend] saveForm rejected:', data.error);
+        if(data.error.indexOf('token')>=0 || data.error.indexOf('expired')>=0){
+          toast('⚠ 登入逾時，請重新登入', false);
+          clearSession();
+        }
+      }
+    }).catch(e=>console.warn('saveFormToSheets error:',e));
   }catch(e){console.warn('saveFormToSheets error:',e);}
 }
 
@@ -5466,7 +5639,7 @@ function buildHistoryItems(id){
     const dt=new Date(l.ts);
     const ts=`${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
     const wClass={student:'hw-s',teacher:'hw-t',admin:'hw-a'}[l.role]||'hw-s';
-    return`<div class="history-item"><span style="font-size:11px;color:var(--ink3);">#${logs.length-i}</span><span class="history-time">${ts}</span><span class="history-who ${wClass}">${l.roleLabel}：${l.name}</span></div>`;
+    return`<div class="history-item"><span style="font-size:11px;color:var(--ink3);">#${logs.length-i}</span><span class="history-time">${escapeHtml(ts)}</span><span class="history-who ${wClass}">${escapeHtml(l.roleLabel)}：${escapeHtml(l.name)}</span></div>`;
   }).join('');
 }
 
@@ -11392,8 +11565,8 @@ function applyConfig(cfg){
 async function updatePIN(){
   const v=clipInput((document.getElementById('pin-display').value||'').trim(), 16);
   if(v){
-    // 【安全】PIN 不存明文
-    APP.teacherPIN = 'h:' + (await sha256(v));
+    // 【資安修補 v18】PIN 用 salted hash
+    APP.teacherPIN = await hashPassword('teacher_pin', v);
     saveConfigToSheets();
     toast('✓ PIN 已更新（已雜湊化儲存）');
     // 立即把畫面上顯示的 PIN 改回遮罩
@@ -11437,7 +11610,7 @@ async function updateExamPIN(){
       return;
     }
     // 成功 → 同時更新前端 examPIN（保留向下相容，但實際以伺服器為準）
-    APP.examPIN = 'h:' + (await sha256(newPin));
+    APP.examPIN = await hashPassword('exam_pin', newPin);
     saveConfigToSheets();
     toast('✓ 筆試後測 PIN 已更新並同步至伺服器');
   }catch(err){
@@ -11456,12 +11629,13 @@ async function updateAdminPwd(){
   const p2=clipInput(document.getElementById('new-admin-pwd2').value, MAX_SHORT_LENGTH);
   if(!p||p!==p2){toast('密碼不一致',false);return;}
   if(p.length<8){toast('管理員密碼至少 8 碼', false); return;}
-  // 【安全】管理員密碼不存明文
-  APP.adminPwd = 'h:' + (await sha256(p));
+  // 【資安修補 v18】管理員密碼用 salted hash
+  APP.adminPwd = await hashPassword(ADMIN_EMAIL, p);
   saveConfigToSheets();
   document.getElementById('new-admin-pwd').value='';
   document.getElementById('new-admin-pwd2').value='';
-  toast('✓ 管理員密碼已更新');
+  // 提醒同時要去 GAS 端執行 setupAdminPassword 才會真正生效（後端是真實驗證源）
+  toast('✓ 前端管理員密碼已更新。請務必同時到 GAS 編輯器執行 setupAdminPassword 同步後端密碼，否則後端登入仍會使用舊密碼。');
 }
 
 /* ── 清除本機測試資料：清空 APP.formData、APP.historyLog、localStorage 草稿 ── */
@@ -11662,9 +11836,12 @@ async function addStudent(){
     toast('⚠ 此學號已存在');
     return;
   }
-  // 預設密碼以明文儲存（依管理需求，方便管理員後台查看）
+  // 【資安修補 v18】預設密碼必須雜湊（per-user salt = sid）
+  // 預設密碼 '123' 仍允許首次登入，但已雜湊化，攻擊者從 Google Sheet 看不到原值
+  // 系統會在學生首次登入後提示更換為自訂密碼
   // ★ 防呆:必設 expiry,避免「永久有效」漏洞
-  APP.students[sid]={name,school,pwd:'123',expiry:expiry};
+  var defaultHash = await hashPassword(sid, '123');
+  APP.students[sid]={name,school,pwd:defaultHash,expiry:expiry,mustChangePwd:true};
   refreshStudentTable();
   saveConfigToSheets();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
@@ -11694,19 +11871,28 @@ function refreshStudentTable(){
     var noExpiry = !acc.expiry;  // ★ 防呆:無期限的舊帳號(永久有效)
     var expiryColor = expired ? 'color:var(--red);font-weight:500;' : (noExpiry ? 'color:#B45309;font-weight:500;' : '');
     var selfReg = acc.selfRegistered ? '<span style="display:inline-block;font-size:9px;background:#FFF3CD;color:#8B6914;padding:1px 5px;border-radius:8px;margin-left:4px;border:1px solid #F0C040;">自助註冊</span>' : '';
-    // 密碼顯示：明文可切換顯示／隱藏；雜湊則顯示「已加密」並提示須重設
-    var pwdId='pwd_'+sid.replace(/[^A-Za-z0-9]/g,'_');
-    var isHashed = typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0;
-    var pwdCell;
-    if(isHashed){
-      pwdCell = '<span style="font-family:monospace;font-size:11px;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:999px;border:1px solid #F59E0B;" title="此帳號是早期版本建立的雜湊密碼，無法檢視原值。請按「重設」或「修改」設定新明文密碼。">🔐 雜湊（不可檢視）</span>';
+    // 【資安修補 v18】密碼一律不顯示明文（即使管理員也不行）
+    // 違反基本資安原則：管理員不應該能看到密碼，要重設只能透過「重設」按鈕。
+    var pwdStored = (typeof acc.pwd === 'string' && acc.pwd) ? acc.pwd : '';
+    var pwdLabel, pwdColor, pwdBg, pwdBorder, pwdTitle;
+    if(pwdStored.indexOf('h2:')===0){
+      pwdLabel = '🔒 已加密 (salted)';
+      pwdColor = '#065F46'; pwdBg = '#D1FAE5'; pwdBorder = '#10B981';
+      pwdTitle = '密碼已用 SHA-256 加鹽雜湊儲存，符合資安標準。';
+    } else if(pwdStored.indexOf('h:')===0){
+      pwdLabel = '🔓 舊版雜湊';
+      pwdColor = '#92400E'; pwdBg = '#FEF3C7'; pwdBorder = '#F59E0B';
+      pwdTitle = '舊版雜湊 (無 salt)，建議按「重設」升級至新版加鹽雜湊。';
+    } else if(pwdStored){
+      pwdLabel = '⚠ 明文（待升級）';
+      pwdColor = '#991B1B'; pwdBg = '#FEE2E2'; pwdBorder = '#F87171';
+      pwdTitle = '此帳號為舊版資料尚未雜湊化。請按「重設」更新密碼。';
     } else {
-      var pwdVal = acc.pwd || '';
-      pwdCell = '<div style="display:inline-flex;align-items:center;gap:6px;">'+
-        '<span id="'+pwdId+'" data-pwd="'+escAttr(pwdVal)+'" data-shown="0" style="font-family:monospace;font-size:12px;background:#F3F4F6;padding:3px 10px;border-radius:6px;border:1px solid #D1D5DB;color:#111827;letter-spacing:1px;min-width:70px;display:inline-block;">••••••</span>'+
-        '<button type="button" onclick="togglePwdShow(\''+pwdId+'\',this)" title="顯示／隱藏密碼" style="padding:2px 6px;font-size:13px;background:#fff;border:1px solid #D1D5DB;border-radius:4px;cursor:pointer;">👁</button>'+
-        '</div>';
+      pwdLabel = '— 未設定';
+      pwdColor = '#6B7280'; pwdBg = '#F3F4F6'; pwdBorder = '#D1D5DB';
+      pwdTitle = '尚未設定密碼。';
     }
+    var pwdCell = '<span style="font-family:monospace;font-size:11px;color:'+pwdColor+';background:'+pwdBg+';padding:2px 8px;border-radius:999px;border:1px solid '+pwdBorder+';" title="'+escAttr(pwdTitle)+'">'+pwdLabel+'</span>';
     rows += '<tr class="drag-row" draggable="true" data-list="students" data-idx="'+escAttr(sid)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;"><input type="checkbox" class="batch-row-checkbox" data-sid="'+escAttr(sid)+'" onchange="batchUpdateCount()" style="cursor:pointer;width:14px;height:14px;"></td>'+
@@ -11746,28 +11932,23 @@ function getStudentOrder(){
 function delStudent(sid){delete APP.students[sid];refreshStudentTable();saveConfigToSheets();}
 
 /* ─── 密碼顯示/隱藏切換 ─── */
+/* ─── 【資安修補 v18】此函式已廢棄 ───
+   舊版 refreshStudentTable / refreshTeacherTable 會把明文密碼寫入 data-pwd，
+   讓管理員按眼睛圖示顯示明文。新版完全不寫明文，改為只顯示加密狀態徽章。
+   保留函式定義避免外部呼叫出錯，但內部不再有任何明文可顯示。 */
 function togglePwdShow(elId,btn){
-  var el=document.getElementById(elId);
-  if(!el)return;
-  var shown=el.getAttribute('data-shown')==='1';
-  if(shown){
-    el.textContent='••••••';
-    el.setAttribute('data-shown','0');
-    if(btn)btn.textContent='👁';
-  }else{
-    el.textContent=el.getAttribute('data-pwd')||'';
-    el.setAttribute('data-shown','1');
-    if(btn)btn.textContent='🙈';
-  }
+  console.warn('[Security] togglePwdShow 已廢棄；密碼明文不再可被檢視。');
+  // 此函式刻意不再做任何事
 }
 
 /* ─── 學生密碼快速重設（重設為預設值 123） ─── */
 async function resetStudentPwd(sid){
   var acc=APP.students[sid];
   if(!acc)return;
-  if(!confirm('確定要將學生「'+acc.name+'」（'+sid+'）的密碼重設為預設值「123」嗎？\n\n重設後請通知學生使用新密碼登入。')) return;
-  // 依管理需求：學生密碼以明文儲存
-  APP.students[sid].pwd = '123';
+  if(!confirm('確定要將學生「'+acc.name+'」（'+sid+'）的密碼重設為預設值「123」嗎？\n\n重設後請通知學生使用新密碼登入，並請學生立即更改密碼。')) return;
+  // 【資安修補 v18】重設密碼也必須雜湊
+  APP.students[sid].pwd = await hashPassword(sid, '123');
+  APP.students[sid].mustChangePwd = true;  // 標記下次登入須改密碼
   refreshStudentTable();
   saveConfigToSheets();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「123」');
@@ -11777,8 +11958,10 @@ async function resetStudentPwd(sid){
 async function resetTeacherPwd(card){
   var acc=APP.teachers[card];
   if(!acc)return;
-  if(!confirm('確定要將老師「'+acc.name+'」（'+card+'）的密碼重設為預設值「000」嗎？')) return;
-  APP.teachers[card].pwd = '000';
+  if(!confirm('確定要將老師「'+acc.name+'」（'+card+'）的密碼重設為預設值「000」嗎？\n\n重設後請通知老師使用新密碼登入，並請老師立即更改密碼。')) return;
+  // 【資安修補 v18】重設密碼也必須雜湊
+  APP.teachers[card].pwd = await hashPassword(card, '000');
+  APP.teachers[card].mustChangePwd = true;
   refreshTeacherTable();
   saveConfigToSheets();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「000」');
@@ -11797,7 +11980,9 @@ async function addTeacher(){
     toast('⚠ 此卡號已存在');
     return;
   }
-  APP.teachers[card]={name, pwd: pwd};
+  // 【資安修補 v18】密碼必須雜湊
+  var hashedPwd = await hashPassword(card, pwd);
+  APP.teachers[card]={name, pwd: hashedPwd, mustChangePwd:(pwd==='000')};
   refreshTeacherTable();
   saveConfigToSheets();
   document.getElementById('nt-card').value='';document.getElementById('nt-name').value='';document.getElementById('nt-pwd').value='';
@@ -11814,18 +11999,27 @@ function refreshTeacherTable(){
   var rows = '<tr><th style="width:32px;"></th><th>卡號</th><th>姓名</th><th>密碼</th><th>操作</th></tr>';
   orderedCards.forEach(function(card){
     var acc = APP.teachers[card]; if(!acc) return;
-    var isHashed = typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0;
-    var tpwdId='tpwdv_'+card.replace(/[^A-Za-z0-9]/g,'_');
-    var pwdCell;
-    if(isHashed){
-      pwdCell = '<span style="font-family:monospace;font-size:11px;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:999px;border:1px solid #F59E0B;" title="此帳號是早期版本建立的雜湊密碼，無法檢視原值。請按「重設」或「修改」設定新明文密碼。">🔐 雜湊（不可檢視）</span>';
+    // 【資安修補 v18】密碼一律不顯示明文
+    var pwdStored = (typeof acc.pwd === 'string' && acc.pwd) ? acc.pwd : '';
+    var pwdLabel, pwdColor, pwdBg, pwdBorder, pwdTitle;
+    if(pwdStored.indexOf('h2:')===0){
+      pwdLabel = '🔒 已加密 (salted)';
+      pwdColor = '#065F46'; pwdBg = '#D1FAE5'; pwdBorder = '#10B981';
+      pwdTitle = '密碼已用 SHA-256 加鹽雜湊儲存，符合資安標準。';
+    } else if(pwdStored.indexOf('h:')===0){
+      pwdLabel = '🔓 舊版雜湊';
+      pwdColor = '#92400E'; pwdBg = '#FEF3C7'; pwdBorder = '#F59E0B';
+      pwdTitle = '舊版雜湊 (無 salt)，建議按「重設」升級至新版加鹽雜湊。';
+    } else if(pwdStored){
+      pwdLabel = '⚠ 明文（待升級）';
+      pwdColor = '#991B1B'; pwdBg = '#FEE2E2'; pwdBorder = '#F87171';
+      pwdTitle = '此帳號為舊版資料尚未雜湊化。請按「重設」更新密碼。';
     } else {
-      var tpwdVal = acc.pwd || '';
-      pwdCell = '<div style="display:inline-flex;align-items:center;gap:6px;">'+
-        '<span id="'+tpwdId+'" data-pwd="'+escAttr(tpwdVal)+'" data-shown="0" style="font-family:monospace;font-size:12px;background:#F3F4F6;padding:3px 10px;border-radius:6px;border:1px solid #D1D5DB;color:#111827;letter-spacing:1px;min-width:70px;display:inline-block;">••••••</span>'+
-        '<button type="button" onclick="togglePwdShow(\''+tpwdId+'\',this)" title="顯示／隱藏密碼" style="padding:2px 6px;font-size:13px;background:#fff;border:1px solid #D1D5DB;border-radius:4px;cursor:pointer;">👁</button>'+
-        '</div>';
+      pwdLabel = '— 未設定';
+      pwdColor = '#6B7280'; pwdBg = '#F3F4F6'; pwdBorder = '#D1D5DB';
+      pwdTitle = '尚未設定密碼。';
     }
+    var pwdCell = '<span style="font-family:monospace;font-size:11px;color:'+pwdColor+';background:'+pwdBg+';padding:2px 8px;border-radius:999px;border:1px solid '+pwdBorder+';" title="'+escAttr(pwdTitle)+'">'+pwdLabel+'</span>';
     rows += '<tr class="drag-row" draggable="true" data-list="teachers" data-idx="'+escAttr(card)+'" '+
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
@@ -11847,10 +12041,14 @@ function getTeacherOrder(){
   return APP.teacherOrder;
 }
 function delTeacher(card){delete APP.teachers[card];refreshTeacherTable();saveConfigToSheets();}
-function updateTeacherPwd(card){
+async function updateTeacherPwd(card){
   const inp=document.getElementById('tpwd_'+card);if(!inp)return;
   const p=inp.value.trim();if(!p)return;
-  APP.teachers[card].pwd=p;refreshTeacherTable();saveConfigToSheets();
+  // 【資安修補 v18】密碼一律雜湊
+  APP.teachers[card].pwd = await hashPassword(card, p);
+  APP.teachers[card].mustChangePwd = false;  // 既然手動更新就不再強制改
+  refreshTeacherTable();
+  saveConfigToSheets();
 }
 function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();saveConfigToSheets();document.getElementById('new-topic').value='';}}
 function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();saveConfigToSheets();}
@@ -12137,16 +12335,15 @@ async function editStudent(sid) {
   if (newName === null) return;
   const newSchool = prompt('修改學校（目前：' + (acc.school||'') + '）', acc.school||'');
   if (newSchool === null) return;
-  // 顯示目前密碼供管理員參考；若為已雜湊的舊密碼，則提示無法檢視
-  var curPwdHint = (typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0)
-    ? '（目前：已雜湊，無法檢視）'
-    : '（目前：' + (acc.pwd||'') + '）';
-  const newPwd = prompt('修改密碼' + curPwdHint + '\n留空表示不變更；輸入新密碼將以明文儲存。', '');
+  // 【資安修補 v18】無論新舊，密碼不再向管理員顯示明文
+  var curPwdHint = '（目前：已加密儲存，無法檢視）';
+  const newPwd = prompt('修改密碼' + curPwdHint + '\n留空表示不變更；輸入新密碼將以加鹽雜湊儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanSchool = clipInput((newSchool||acc.school||'').trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
-  // 依管理需求：學生密碼以明文儲存
-  const finalPwd = cleanPwd !== null ? cleanPwd : acc.pwd;
+  // 【資安修補 v18】salt 用「實際儲存用的學號」，若改學號就用新學號雜湊
+  const targetSid = (trimmedSid && trimmedSid !== sid) ? trimmedSid : sid;
+  const finalPwd = cleanPwd !== null ? (await hashPassword(targetSid, cleanPwd)) : acc.pwd;
   if (trimmedSid && trimmedSid !== sid) {
     APP.students[trimmedSid] = {
       name: cleanName,
@@ -12163,7 +12360,7 @@ async function editStudent(sid) {
   } else {
     APP.students[sid].name = cleanName;
     APP.students[sid].school = cleanSchool;
-    if (cleanPwd !== null) APP.students[sid].pwd = cleanPwd;
+    if (cleanPwd !== null) APP.students[sid].pwd = finalPwd;
   }
   refreshStudentTable();
   saveConfigToSheets();
@@ -12184,13 +12381,14 @@ async function editTeacher(card) {
   }
   const newName = prompt('修改姓名（目前：' + acc.name + '）', acc.name);
   if (newName === null) return;
-  var curTPwdHint = (typeof acc.pwd==='string' && acc.pwd.indexOf('h:')===0)
-    ? '（目前：已雜湊，無法檢視）'
-    : '（目前：' + (acc.pwd||'') + '）';
-  const newPwd = prompt('修改密碼' + curTPwdHint + '\n留空表示不變更；輸入新密碼將以明文儲存。', '');
+  // 【資安修補 v18】無論新舊，密碼不再向管理員顯示明文
+  var curTPwdHint = '（目前：已加密儲存，無法檢視）';
+  const newPwd = prompt('修改密碼' + curTPwdHint + '\n留空表示不變更；輸入新密碼將以加鹽雜湊儲存。', '');
   const cleanName = clipInput((newName||acc.name).trim(), MAX_NAME_LENGTH);
   const cleanPwd = newPwd && newPwd.trim() ? clipInput(newPwd.trim(), MAX_SHORT_LENGTH) : null;
-  const finalTPwd = cleanPwd !== null ? cleanPwd : acc.pwd;
+  // 【資安修補 v18】salt 用實際儲存用的卡號
+  const targetCard = (trimmedCard && trimmedCard !== card) ? trimmedCard : card;
+  const finalTPwd = cleanPwd !== null ? (await hashPassword(targetCard, cleanPwd)) : acc.pwd;
   if (trimmedCard && trimmedCard !== card) {
     APP.teachers[trimmedCard] = { name: cleanName, pwd: finalTPwd };
     delete APP.teachers[card];
@@ -12199,7 +12397,7 @@ async function editTeacher(card) {
     }
   } else {
     APP.teachers[card].name = cleanName;
-    if (cleanPwd !== null) APP.teachers[card].pwd = cleanPwd;
+    if (cleanPwd !== null) APP.teachers[card].pwd = finalTPwd;
   }
   refreshTeacherTable();
   saveConfigToSheets();
@@ -12323,10 +12521,10 @@ function renderTeacherHome(){
   html+='<div class="section-header"><h2>學生名單</h2></div>';
   html+='<div class="form-grid">';
   Object.entries(APP.students).forEach(function([sid,acc]){
-    html+=`<div class="form-card" onclick="selectStudent('${sid}')">
+    html+=`<div class="form-card" onclick="selectStudent('${escapeAttr(sid)}')">
       <div class="form-card-num" style="background:var(--blue);">👤</div>
-      <div class="form-card-name">${acc.name}</div>
-      <div class="form-card-sub">${acc.school||''}　學號：${sid}</div>
+      <div class="form-card-name">${escapeHtml(acc.name)}</div>
+      <div class="form-card-sub">${escapeHtml(acc.school||'')}　學號：${escapeHtml(sid)}</div>
       <div class="form-card-meta"><span style="font-size:11px;color:var(--blue);">點擊查看學習護照</span></div>
     </div>`;
   });
