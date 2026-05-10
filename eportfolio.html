@@ -1632,6 +1632,9 @@ async function enterApp(){
   document.getElementById('app-screen').style.display='block';
   document.getElementById('login-screen').classList.remove('active');
   document.getElementById('app-screen').classList.add('active');
+  // ★ 切到 app-screen 後 topbar 才真正可見,此時量測高度才正確
+  //   (登入畫面時 topbar 是 display:none,offsetHeight=0)
+  if(typeof setTopbarHeightVar==='function') setTopbarHeightVar();
   const u=APP.currentUser;
   const roleLabel={student:'學生',teacher:'臨床老師',admin:'管理員'}[APP.currentRole];
   const roleClass={student:'chip-s',teacher:'chip-t',admin:'chip-a'}[APP.currentRole];
@@ -11646,9 +11649,9 @@ function setTopbarHeightVar(){
     if(!tb) return;
     // 用 rAF 等下一個 frame 確保 reflow/wrap 完成,量到正確高度
     requestAnimationFrame(function(){
-      var h = tb.offsetHeight || 56;
-      // 防呆:手機版 wrap 後可能超過 100px,設個合理上限
-      if(h < 40) h = 56;
+      var h = tb.offsetHeight || 0;
+      // 防呆:topbar 隱藏時 offsetHeight=0,此時不要寫 0 進去(會讓 sticky 黏在頂部疊上 topbar)
+      if(h < 40) return;
       document.documentElement.style.setProperty('--topbar-h', h + 'px');
     });
   }catch(e){}
@@ -11659,6 +11662,22 @@ window.addEventListener('resize', function(){ setTopbarHeightVar(); });
 if(document.fonts && document.fonts.ready){
   document.fonts.ready.then(function(){ setTopbarHeightVar(); });
 }
+// ★ 用 ResizeObserver 即時監聽 topbar 大小變化(手機版 wrap、字型載入、視窗縮放、螢幕方向變化都會觸發)
+//   這比 resize 事件可靠,連 .topbar 從 display:none 變 visible 也會立刻量到
+(function(){
+  if(typeof ResizeObserver==='undefined') return;
+  var attachObserver = function(){
+    var tb = document.querySelector('.topbar');
+    if(!tb) { setTimeout(attachObserver, 100); return; }
+    var ro = new ResizeObserver(function(){ setTopbarHeightVar(); });
+    ro.observe(tb);
+  };
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', attachObserver);
+  } else {
+    attachObserver();
+  }
+})();
 
 // 全域監聽所有 input/textarea/select 變更，立即更新 APP.formData 並存草稿
 document.addEventListener('change', function(e){
