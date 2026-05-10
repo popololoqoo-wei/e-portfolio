@@ -5714,6 +5714,53 @@ async function loadAllFormsFromSheets(){
           : (APP.currentStudentId || null);
   if(!sid) return;
 
+  // ★ 優化:用新的 loadAllForms API 一次抓所有表單(取代 33 次請求)
+  //   後端不支援的話,自動 fallback 回原本逐一抓的方式
+  try{
+    var controller = new AbortController();
+    var tid = setTimeout(function(){controller.abort();}, 12000); // 一次抓全部,timeout 給寬一點
+    var url = GAS_URL + '?action=loadAllForms&sid=' + encodeURIComponent(sid) + '&t=' + Date.now();
+    var resp = await fetch(url, {cache:'no-cache', signal:controller.signal});
+    clearTimeout(tid);
+    if(resp.ok){
+      var data = await resp.json();
+      if(data.ok && data.forms){
+        // 後端支援新 API → 一次寫入所有表單
+        Object.keys(data.forms).forEach(function(fkey){
+          var item = data.forms[fkey] || {};
+          // formKey 格式: "F01A_P145001" → baseId = "F01A"
+          var baseId = fkey.split('_')[0];
+          if(item.formData){
+            try{
+              var loaded = JSON.parse(item.formData);
+              APP.formData[fkey] = loaded;
+              APP.formData[baseId] = Object.assign({}, APP.formData[baseId]||{}, loaded);
+            }catch(e){}
+          }
+          if(item.history){
+            try{
+              var remoteLog = JSON.parse(item.history);
+              APP.historyLog[fkey] = remoteLog;
+              APP.historyLog[baseId] = remoteLog;
+            }catch(e){}
+          }
+        });
+        // 寫回 localStorage 備份
+        try{
+          localStorage.setItem('form_drafts', JSON.stringify(APP.formData));
+          localStorage.setItem('history_logs', JSON.stringify(APP.historyLog));
+        }catch(e){}
+        console.log('[loadAllForms] 一次載入 ' + Object.keys(data.forms).length + ' 份表單');
+        return;
+      }
+    }
+    // resp.ok 但沒有 data.forms → fall through 到舊版邏輯
+    console.warn('[loadAllForms] 後端未支援新 API,回退到逐張抓取');
+  }catch(e){
+    console.warn('[loadAllForms] 失敗,回退到逐張抓取:', e.name||e);
+  }
+
+  // ── 舊版 fallback:逐一抓取(後端尚未部署新 API 時使用)──
   var allFormIds = FORMS.map(function(f){ return f.id; });
   var loadPromises = [];
 
