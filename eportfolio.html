@@ -142,17 +142,25 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .logout-btn{padding:6px 14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:var(--r);color:#fff;font-size:11px;cursor:pointer;transition:all .15s;font-weight:500;}
 .logout-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4);}
 
-/* ─── 全域 sticky 表頭(F16 學習風格 70 題等長表單用) ─── */
-/* 黏附在 topbar 下方,避免滑到下面題目時忘記欄位意義 */
-.sticky-th{position:sticky !important;top:var(--topbar-h) !important;z-index:50 !important;background:#1A3A5C !important;background-clip:padding-box;color:#fff;padding:5px 6px !important;border:1px solid #DDD;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);}
-/* F16 卡片需要解除繼承自 .card 的 overflow:hidden,
-   否則 .card 會成為 sticky 的 containing block,
-   讓表頭只在卡片內部黏住(出了卡片就跟著滾走) */
-.f16-table-wrap{isolation:isolate;overflow:visible !important;}
-.f16-table-wrap .card-body{overflow:visible;}
+/* ─── F16 表頭:用 fixed 浮動表頭(不用 sticky,因為 sticky 在 <th> 上會被 <table> 困住) ─── */
+/* 原始表頭:正常 thead,沒有 sticky */
+.sticky-th{background:#1A3A5C !important;background-clip:padding-box;color:#fff;padding:5px 6px !important;border:1px solid #DDD;border-bottom:3px solid #B8860B;}
+/* 浮動表頭:fixed 在 topbar 下方,JS 控制顯示/隱藏與寬度 */
+.f16-floating-thead{position:fixed;left:0;right:0;top:var(--topbar-h);z-index:90;background:#1A3A5C;color:#fff;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);display:none;pointer-events:none;}
+.f16-floating-thead.show{display:block;}
+.f16-floating-thead table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed;}
+.f16-floating-thead th{background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid rgba(255,255,255,.1);text-align:center;font-weight:600;}
+.f16-floating-thead th:nth-child(2){text-align:left;}
+@media(max-width:768px){
+  .f16-floating-thead th{padding:3px 2px;font-size:10px;line-height:1.1;}
+  .f16-floating-thead th br{display:none;}
+  .f16-floating-thead th span{font-size:9px;display:inline;margin-left:2px;font-weight:400;}
+}
+/* 表格容器 */
+.f16-table-wrap{isolation:isolate;}
 /* 第一行 tbody tr 留較大上邊距,讓使用者捲到第 1 題時有充足過渡空間 */
 .f16-table-wrap tbody tr:first-child td{padding-top:28px !important;}
-/* 所有題目列 scroll-margin-top:讓「點擊跳到 X 題」或鍵盤聚焦時自動避開表頭 */
+/* 所有題目列 scroll-margin-top */
 .f16-table-wrap tbody tr{scroll-margin-top:calc(var(--topbar-h) + 60px);}
 
 /* ─── BODY LAYOUT ─── */
@@ -4608,6 +4616,9 @@ function _collGrpRenderToolbar(viewKey, sm){
 /* ═══════════ FORM LIST ═══════════ */
 function renderFormList(){
   APP.currentFormId=null;
+  // 離開表單時清除 F16 浮動表頭
+  var fh = document.getElementById('f16-floating-thead');
+  if(fh) fh.remove();
   renderSidebar();
   const mc=document.getElementById('main-content');
   const groups=[
@@ -10391,7 +10402,75 @@ function buildF16(f,d,canT,fkey,canS){
   // 渲染後初始化雷達圖
   setTimeout(function(){ try{ calcF16AndRender(fid); }catch(e){console.warn('F16 render:',e);} }, 50);
   setTimeout(function(){ try{ calcF16AndRender(fid); }catch(e){} }, 500);
+  // ★ 啟動浮動表頭 (因為 sticky 在 <th> 會被 <table> 困住,改用 fixed + JS 監聽捲動)
+  setTimeout(function(){ try{ initF16FloatingHeader(); }catch(e){console.warn('floating header:',e);} }, 100);
   return h;
+}
+
+/* ─── F16 浮動表頭 ─── 
+   sticky 在 table <th> 上不可靠(table 結構會限制 sticky containing block),
+   改用 fixed 浮動表頭 + scroll 監聽,模擬 sticky 行為。 */
+function initF16FloatingHeader(){
+  // 先清掉舊的浮動表頭(換頁時)
+  var old = document.getElementById('f16-floating-thead');
+  if(old) old.remove();
+  // 找到原表頭
+  var wrap = document.querySelector('.f16-table-wrap');
+  if(!wrap) return;
+  var origThead = wrap.querySelector('thead');
+  var origTable = wrap.querySelector('table');
+  if(!origThead || !origTable) return;
+  // 建立浮動表頭(複製原表頭)
+  var floating = document.createElement('div');
+  floating.id = 'f16-floating-thead';
+  floating.className = 'f16-floating-thead';
+  floating.innerHTML = '<table><thead>'+origThead.innerHTML+'</thead></table>';
+  document.body.appendChild(floating);
+  // 同步寬度的函式
+  function syncWidths(){
+    var origThs = origThead.querySelectorAll('th');
+    var floatThs = floating.querySelectorAll('th');
+    var rect = origTable.getBoundingClientRect();
+    floating.style.left = rect.left + 'px';
+    floating.style.width = rect.width + 'px';
+    for(var i=0; i<origThs.length && i<floatThs.length; i++){
+      floatThs[i].style.width = origThs[i].offsetWidth + 'px';
+    }
+  }
+  // 監聽捲動,決定要不要顯示浮動表頭
+  function onScroll(){
+    var rect = origThead.getBoundingClientRect();
+    var topbarH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))||56;
+    // 原表頭被 topbar 蓋到時,顯示浮動表頭
+    if(rect.top < topbarH && rect.bottom > topbarH){
+      // 原表頭剛好被 topbar 覆蓋一部分,還是顯示
+      floating.classList.add('show');
+      syncWidths();
+    } else if(rect.bottom <= topbarH){
+      // 原表頭完全滾到 topbar 上方,繼續顯示浮動表頭
+      floating.classList.add('show');
+      syncWidths();
+    } else {
+      // 原表頭還在 topbar 下方,不顯示浮動表頭(避免重複)
+      floating.classList.remove('show');
+    }
+  }
+  // 註冊事件(用 passive 提升效能,並儲存 handler 方便清除)
+  window.__f16ScrollHandler && window.removeEventListener('scroll', window.__f16ScrollHandler);
+  window.__f16ResizeHandler && window.removeEventListener('resize', window.__f16ResizeHandler);
+  window.__f16ScrollHandler = onScroll;
+  window.__f16ResizeHandler = function(){ syncWidths(); onScroll(); };
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', window.__f16ResizeHandler);
+  // 也監聽 main-content 的捲動(以防 main-content 才是真正的 scroll 容器)
+  var mc = document.getElementById('main-content');
+  if(mc){
+    mc.removeEventListener('scroll', onScroll);
+    mc.addEventListener('scroll', onScroll, {passive:true});
+  }
+  // 初始化執行一次
+  syncWidths();
+  onScroll();
 }
 
 /* ═══════════ 筆試前測 / 筆試後測 共用元件 ═══════════ */
