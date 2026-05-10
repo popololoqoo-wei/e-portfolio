@@ -1521,11 +1521,11 @@ async function doRegister(){
   const pwd2=clipInput(document.getElementById('r-pwd2').value, MAX_SHORT_LENGTH);
   const err=document.getElementById('r-err');
 
-  // 【安全】註冊頻率限制:每 5 分鐘最多註冊 3 個帳號(防自動化建大量假帳號)
+  // 【安全】註冊頻率限制:每 5 分鐘最多註冊 3 個帳號
   try{
     var now=Date.now();
     var regLog=JSON.parse(localStorage.getItem('register_log')||'[]');
-    regLog=regLog.filter(function(t){return (now-t)<300000;});  // 5 分鐘內
+    regLog=regLog.filter(function(t){return (now-t)<300000;});
     if(regLog.length>=3){
       err.textContent='⚠ 註冊次數過多，請 5 分鐘後再試';err.style.display='block';return;
     }
@@ -1533,37 +1533,52 @@ async function doRegister(){
 
   if(!sid||!name||!school||!pwd){err.textContent='請填寫所有欄位';err.style.display='block';return;}
   if(pwd.length<6){err.textContent='密碼至少6個字元';err.style.display='block';return;}
-  // 【安全】密碼長度上限,避免 DoS
   if(pwd.length>64){err.textContent='密碼過長（上限 64 碼）';err.style.display='block';return;}
   if(pwd!==pwd2){err.textContent='兩次密碼不一致';err.style.display='block';return;}
-  // 【安全】驗證學號格式（防止特殊字元、HTML 注入）
   if(!/^[A-Za-z0-9_-]+$/.test(sid)){err.textContent='學號只能包含英文字母、數字、底線或減號';err.style.display='block';return;}
-  // 【安全】學號長度檢查
   if(sid.length<3 || sid.length>20){err.textContent='學號長度應為 3-20 碼';err.style.display='block';return;}
-  // 【安全】姓名只允許中英文、空格、撇號(O'Brien 之類)、連字號;不允許 < > & " 等可能 HTML 注入的字元
   if(/[<>&"\\\/]/.test(name)){err.textContent='姓名包含不允許的特殊字元';err.style.display='block';return;}
-  // 檢查學號是否已存在
-  if(APP.students[sid]){err.textContent='此學號已被註冊，請聯繫管理員';err.style.display='block';return;}
   err.style.display='none';
 
-  // 記錄註冊時間
+  // ★ v19:改走後端 register API,不再用 saveConfigToSheets 整批同步
+  //   這樣自助註冊只新增一筆到 Students 分頁,不會把本地殘留的舊帳號(包括已被刪除的)洗回去
+  if(!GAS_URL){
+    err.textContent='⚠ 系統錯誤:後端未設定';err.style.display='block';return;
+  }
   try{
-    var now2=Date.now();
-    var regLog2=JSON.parse(localStorage.getItem('register_log')||'[]');
-    regLog2=regLog2.filter(function(t){return (now2-t)<300000;});
-    regLog2.push(now2);
-    localStorage.setItem('register_log',JSON.stringify(regLog2));
-  }catch(e){}
+    const resp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'register', sid:sid, name:name, school:school, pwd:pwd})
+    });
+    if(!resp.ok){
+      err.textContent='⚠ 後端回應錯誤 ('+resp.status+')';err.style.display='block';return;
+    }
+    const data = await resp.json();
+    if(!data.ok){
+      err.textContent='⚠ '+(data.error||'註冊失敗');err.style.display='block';return;
+    }
 
-  // 【資安修補 v18】學生密碼一律雜湊儲存，不再明文
-  // ★ 防呆:自助註冊預設給 90 天期限,避免「永久有效」漏洞(管理員可在後台調整)
-  var defaultExpiry = computeDefaultExpiry(90);
-  var hashedPwd = await hashPassword(sid, pwd);
-  APP.students[sid]={name,school,pwd:hashedPwd,expiry:defaultExpiry,registeredAt:new Date().toISOString(),selfRegistered:true};
-  // ★★★ 同步到 GAS，讓管理員後台看得到（後端會驗證 sessionToken；註冊時無 token，後端應允許 createStudent 動作）★★★
-  try{ saveConfigToSheets(); }catch(e){console.warn('同步學生帳號失敗',e);}
-  APP.currentRole='student';APP.currentUser={sid,name,school};
-  enterApp();
+    // 註冊成功 → 記錄 + 儲存 token + 直接登入
+    try{
+      var now2=Date.now();
+      var regLog2=JSON.parse(localStorage.getItem('register_log')||'[]');
+      regLog2=regLog2.filter(function(t){return (now2-t)<300000;});
+      regLog2.push(now2);
+      localStorage.setItem('register_log',JSON.stringify(regLog2));
+    }catch(e){}
+
+    // 儲存 session token
+    if(data.token && typeof setSessionToken==='function'){
+      setSessionToken(data.token, data.expiresInSec);
+    }
+    // 登入狀態
+    APP.currentRole='student';
+    APP.currentUser={sid:sid, name:name, school:school};
+    enterApp();
+  }catch(e){
+    err.textContent='⚠ 連線失敗:'+(e.message||e);err.style.display='block';
+  }
 }
 async function changeStudentPwd(){
   const sid=clipInput((document.getElementById('cp-sid').value||'').trim(), MAX_SHORT_LENGTH);
@@ -12357,9 +12372,12 @@ async function delStudent(sid){
   if(!confirm('確定要刪除學生 '+(APP.students[sid]?APP.students[sid].name:sid)+'？此動作無法還原。')) return;
   const result = await callBackend('deleteStudent', {sid});
   if(!result.ok){ toast('⚠ '+(result.error||'刪除失敗'),false); return; }
-  delete APP.students[sid];
+  // ★ v19:刪除成功後,強制從後端重新載入帳號清單,避免本地殘留把已刪資料洗回去
+  try{ await loadAccountsFromBackend(); }catch(e){ delete APP.students[sid]; }
   refreshStudentTable();
-  toast('✓ 已刪除學生');
+  var msg = '✓ 已刪除學生';
+  if(result.formsDeleted > 0) msg += '(同時清除 '+result.formsDeleted+' 份表單資料)';
+  toast(msg);
 }
 
 /* ─── 密碼顯示/隱藏切換 ─── */
@@ -12490,7 +12508,8 @@ async function delTeacher(card){
   if(!confirm('確定要刪除老師 '+(APP.teachers[card]?APP.teachers[card].name:card)+'？此動作無法還原。')) return;
   const result = await callBackend('deleteTeacher', {card});
   if(!result.ok){ toast('⚠ '+(result.error||'刪除失敗'),false); return; }
-  delete APP.teachers[card];
+  // ★ v19:刪除成功後,強制從後端重新載入帳號清單
+  try{ await loadAccountsFromBackend(); }catch(e){ delete APP.teachers[card]; }
   refreshTeacherTable();
   toast('✓ 已刪除老師');
 }
