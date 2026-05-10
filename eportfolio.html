@@ -1419,8 +1419,28 @@ async function loadAccountsFromBackend(){
   if(!data.ok) throw new Error(data.error || '載入失敗');
   
   // 寫入 APP
-  if(data.students) APP.students = data.students;
-  if(data.teachers) APP.teachers = data.teachers;
+  // ★ 合併策略:後端的 students/teachers 不一定回傳 pwdPlain,
+  //   為避免覆蓋掉本地原有的 pwdPlain(導致 👁 圖示無法檢視原始密碼),
+  //   採用「以後端為主、保留本地 pwdPlain」的合併方式。
+  if(data.students){
+    var prevStudents = APP.students || {};
+    Object.keys(data.students).forEach(function(sid){
+      var remote = data.students[sid] || {};
+      var local = prevStudents[sid] || {};
+      // 後端沒帶 pwdPlain 就沿用本地的;後端有帶就用後端的
+      if(!remote.pwdPlain && local.pwdPlain) remote.pwdPlain = local.pwdPlain;
+    });
+    APP.students = data.students;
+  }
+  if(data.teachers){
+    var prevTeachers = APP.teachers || {};
+    Object.keys(data.teachers).forEach(function(card){
+      var remote = data.teachers[card] || {};
+      var local = prevTeachers[card] || {};
+      if(!remote.pwdPlain && local.pwdPlain) remote.pwdPlain = local.pwdPlain;
+    });
+    APP.teachers = data.teachers;
+  }
   if(data.studentOrder && data.studentOrder.length>0) APP.studentOrder = data.studentOrder;
   if(data.teacherOrder && data.teacherOrder.length>0) APP.teacherOrder = data.teacherOrder;
   
@@ -12081,8 +12101,8 @@ async function addStudent(){
   // 【資安修補 v18.1】呼叫後端 API（密碼會在後端雜湊化）
   const result = await callBackend('addStudent', {sid, name, school, expiry, pwd:'123'});
   if(!result.ok){ toast('⚠ '+(result.error||'新增失敗'),false); return; }
-  // 後端成功 → 更新本地快取
-  APP.students[sid]={name,school,pwd:'h2:(remote)',expiry,mustChangePwd:true};
+  // 後端成功 → 更新本地快取(同步保留 pwdPlain 讓表格 👁 圖示可顯示)
+  APP.students[sid]={name,school,pwd:'h2:(remote)',pwdPlain:'123',expiry,mustChangePwd:true};
   refreshStudentTable();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
   if(expiryEl) expiryEl.value='';
@@ -12230,6 +12250,7 @@ async function resetStudentPwd(sid){
   const result = await callBackend('resetPassword', {target:'student', key:sid, newPwd:'123'});
   if(!result.ok){ toast('⚠ '+(result.error||'重設失敗'),false); return; }
   APP.students[sid].pwd = 'h2:(remote)';  // 本地佔位
+  APP.students[sid].pwdPlain = '123';     // ★ 同步明文,讓 👁 圖示立刻可顯示
   APP.students[sid].mustChangePwd = true;
   refreshStudentTable();
   toast('✓ 已將 '+esc(acc.name)+' 的密碼重設為「123」');
