@@ -145,8 +145,11 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 /* ─── 全域 sticky 表頭(F16 學習風格 70 題等長表單用) ─── */
 /* 黏附在 topbar 下方,避免滑到下面題目時忘記欄位意義 */
 .sticky-th{position:sticky !important;top:var(--topbar-h) !important;z-index:50 !important;background:#1A3A5C !important;background-clip:padding-box;color:#fff;padding:5px 6px !important;border:1px solid #DDD;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);}
-/* 表格容器需要有 isolation,避免 z-index 衝突 */
-.f16-table-wrap{isolation:isolate;}
+/* F16 卡片需要解除繼承自 .card 的 overflow:hidden,
+   否則 .card 會成為 sticky 的 containing block,
+   讓表頭只在卡片內部黏住(出了卡片就跟著滾走) */
+.f16-table-wrap{isolation:isolate;overflow:visible !important;}
+.f16-table-wrap .card-body{overflow:visible;}
 /* 第一行 tbody tr 留較大上邊距,讓使用者捲到第 1 題時有充足過渡空間 */
 .f16-table-wrap tbody tr:first-child td{padding-top:28px !important;}
 /* 所有題目列 scroll-margin-top:讓「點擊跳到 X 題」或鍵盤聚焦時自動避開表頭 */
@@ -554,10 +557,15 @@ input[type="date"]{
 @media (max-width: 767px) {
 
   /* 防止整體容器產生水平捲軸 */
+  /* 注意：使用 overflow-x:clip 而非 hidden，否則會破壞內部 position:sticky
+     (overflow:hidden 會讓元素變成 scroll container,導致 sticky 表頭錨定錯誤) */
   body, #main-content, .form-detail-body {
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
+  /* 手機版讓整個 body 捲動,而不是 main-content 內部捲動,
+     這樣 .sticky-th 才會以視窗為基準黏在 topbar 下方 */
+  .main-content { overflow-y: visible !important; }
 
   /* 3. 簽名欄位日期 input：全寬，不超出螢幕 */
   input[type="date"] {
@@ -4880,6 +4888,8 @@ async function openForm(id){
     try{ window.scrollTo({top:0, behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
     var mcEl = document.getElementById('main-content');
     if(mcEl) mcEl.scrollTop = 0;
+    // 重新量測 topbar 高度,確保 sticky 表頭(F16 等)能錨定到正確位置
+    if(typeof setTopbarHeightVar==='function') setTopbarHeightVar();
   }, 0);
 
   // 自動為每張 card 套上學生藍／老師紅／混合色
@@ -11614,12 +11624,21 @@ function setTopbarHeightVar(){
   try{
     var tb = document.querySelector('.topbar');
     if(!tb) return;
-    var h = tb.offsetHeight || 56;
-    document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    // 用 rAF 等下一個 frame 確保 reflow/wrap 完成,量到正確高度
+    requestAnimationFrame(function(){
+      var h = tb.offsetHeight || 56;
+      // 防呆:手機版 wrap 後可能超過 100px,設個合理上限
+      if(h < 40) h = 56;
+      document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    });
   }catch(e){}
 }
 // 視窗縮放時重新量測(直橫向切換、視窗大小變化時)
 window.addEventListener('resize', function(){ setTopbarHeightVar(); });
+// 字型載入完成後再量一次(自訂中文字型載入會改變 topbar 高度)
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(function(){ setTopbarHeightVar(); });
+}
 
 // 全域監聽所有 input/textarea/select 變更，立即更新 APP.formData 並存草稿
 document.addEventListener('change', function(e){
