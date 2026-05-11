@@ -1600,50 +1600,97 @@ async function doRegister(){
     err.textContent='⚠ 連線失敗:'+(e.message||e);err.style.display='block';
   }
 }
+/* 【v19.1 改密碼流程修補】
+   舊版只改記憶體 + saveConfigToSheets,但 v19 後端 saveConfig 不接受 students 欄位,
+   導致密碼根本沒寫進 Sheet,學生用新密碼登入會失敗。
+   新版改走後端專屬 API:
+     步驟 1:用舊密碼向後端 auth 取得 sessionToken
+     步驟 2:帶 token 呼叫 changePassword
+     步驟 3:後端回應 ok 才顯示成功
+   後端會同步寫入 PasswordHistory 分頁,管理員可在後台查看異動記錄。 */
 async function changeStudentPwd(){
   const sid=clipInput((document.getElementById('cp-sid').value||'').trim(), MAX_SHORT_LENGTH);
   const old=clipInput(document.getElementById('cp-old').value, MAX_SHORT_LENGTH);
   const nw=clipInput(document.getElementById('cp-new').value, MAX_SHORT_LENGTH);
   const nw2=clipInput(document.getElementById('cp-new2').value, MAX_SHORT_LENGTH);
   const err=document.getElementById('cp-err');
-  // 【安全】暴力破解保護
   const lockKey='changepwd_'+sid;
   const locked=isLocked(lockKey);
   if(locked){err.textContent='嘗試次數過多，請等待 '+locked+' 秒';err.style.display='block';return;}
-  // 1. 學號必填
+
+  // ── 前端基本驗證 ──
   if(!sid){err.textContent='請輸入學號';err.style.display='block';return;}
-  // 2. 學號必須存在
-  const acc=APP.students[sid];
-  if(!acc){err.textContent='查無此學號，請聯繫管理員';err.style.display='block';return;}
-  // 3. 舊密碼必須正確（用雜湊比對，加上 salt=sid）
-  const oldOk = await passwordMatchesV2(old, acc.pwd, sid);
-  if(!oldOk){
-    recordFail(lockKey);
-    err.textContent='舊密碼錯誤';err.style.display='block';return;
-  }
-  // 4. 新密碼長度
+  if(!old){err.textContent='請輸入舊密碼';err.style.display='block';return;}
   if(nw.length<6){err.textContent='新密碼至少 6 碼';err.style.display='block';return;}
-  // 5. 兩次輸入需一致
   if(nw!==nw2){err.textContent='新密碼兩次輸入不一致';err.style.display='block';return;}
-  // 6. 新舊密碼不可相同
   if(nw===old){err.textContent='新密碼不可與舊密碼相同';err.style.display='block';return;}
-  clearFails(lockKey);
-  // 【資安修補 v18】密碼一律 salted hash 儲存
-  APP.students[sid].pwd = await hashPassword(sid, nw);
-  try{ saveConfigToSheets(); }catch(e){console.warn('同步密碼失敗',e);}
-  err.style.display='none';
-  // 清空表單
-  document.getElementById('cp-sid').value='';
-  document.getElementById('cp-old').value='';
-  document.getElementById('cp-new').value='';
-  document.getElementById('cp-new2').value='';
-  toast('✓ '+esc(acc.name)+' 的密碼已更新，請以新密碼登入');
-  // 自動帶回登入畫面並預填學號
-  showPanel('student-login-panel');
-  setTimeout(function(){
-    var sidInput=document.getElementById('s-sid');
-    if(sidInput) sidInput.value=sid;
-  },50);
+  if(!GAS_URL){err.textContent='系統未設定後端，請聯繫管理員';err.style.display='block';return;}
+
+  // 顯示「處理中」狀態
+  err.style.color='var(--ink3)';
+  err.textContent='⏳ 正在更新密碼，請稍候…';
+  err.style.display='block';
+
+  try{
+    // ── 步驟 1:用舊密碼登入,取得 sessionToken ──
+    const authResp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'auth', role:'student', id:sid, password:old})
+    });
+    if(!authResp.ok) throw new Error('連線失敗 ('+authResp.status+')');
+    const authData = await authResp.json();
+    if(!authData.ok){
+      recordFail(lockKey);
+      err.style.color='var(--red)';
+      err.textContent = authData.error || '學號或舊密碼錯誤';
+      err.style.display='block';
+      return;
+    }
+
+    // ── 步驟 2:帶 token 呼叫 changePassword ──
+    const cpResp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({
+        action:'changePassword',
+        sessionToken: authData.token,
+        oldPwd: old,
+        newPwd: nw
+      })
+    });
+    if(!cpResp.ok) throw new Error('連線失敗 ('+cpResp.status+')');
+    const cpData = await cpResp.json();
+    if(!cpData.ok){
+      err.style.color='var(--red)';
+      err.textContent = cpData.error || '密碼更新失敗';
+      err.style.display='block';
+      return;
+    }
+
+    // ── 步驟 3:確認成功 ──
+    clearFails(lockKey);
+    err.style.display='none';
+    err.style.color='';
+    // 清空表單
+    document.getElementById('cp-sid').value='';
+    document.getElementById('cp-old').value='';
+    document.getElementById('cp-new').value='';
+    document.getElementById('cp-new2').value='';
+    const accName = (APP.students[sid] && APP.students[sid].name) || sid;
+    toast('✓ '+esc(accName)+' 的密碼已更新成功，請以新密碼登入');
+    // 自動帶回登入畫面並預填學號
+    showPanel('student-login-panel');
+    setTimeout(function(){
+      var sidInput=document.getElementById('s-sid');
+      if(sidInput) sidInput.value=sid;
+    },50);
+
+  }catch(e){
+    err.style.color='var(--red)';
+    err.textContent='⚠ 系統連線失敗：'+(e.message||e)+'，請稍後再試';
+    err.style.display='block';
+  }
 }
 function doLogout(){
   // 【安全】登出時清掉所有可能含他人帳號資料的 localStorage
@@ -11814,6 +11861,25 @@ function renderAdmin(){
       </div>
     </div>
 
+    <!-- ★ v19.1 密碼異動記錄 -->
+    <div class="admin-card">
+      <div class="admin-card-head">🔐 密碼異動記錄</div>
+      <div class="admin-card-body">
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:10px;line-height:1.6;">
+          顯示所有密碼變動紀錄（學生/老師自助改、管理員代改、新增帳號、自助註冊、重設密碼）。<br>
+          <span style="color:var(--red);">⚠ 此頁顯示密碼明文，請勿在公開場合操作或截圖。</span>
+        </div>
+        <div class="admin-row" style="gap:8px;flex-wrap:wrap;">
+          <button class="btn-update" onclick="loadPasswordHistory()">🔄 載入 / 重新整理</button>
+          <input id="pwd-history-filter" placeholder="篩選學號或卡號（留空 = 全部）" style="flex:1;min-width:180px;">
+          <button class="btn-update" onclick="loadPasswordHistory()">🔍 套用篩選</button>
+          <button class="btn-update" onclick="downloadPasswordHistoryCSV()" style="background:#E0F2FE;color:#0369A1;border-color:#7DD3FC;">📥 下載 CSV</button>
+        </div>
+        <div id="pwd-history-status" style="font-size:11px;color:var(--ink3);margin-top:8px;"></div>
+        <div id="pwd-history-list" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
   </div>`;
   mc.innerHTML=html;
   refreshStudentTable();refreshTeacherTable();refreshTopicList();refreshSpeakerList();
@@ -12334,6 +12400,149 @@ async function callBackend(action, payload){
   }catch(e){
     return {ok:false, error: e.message || String(e)};
   }
+}
+
+/* ════════════════════════════════════════════════
+   ★ v19.1 密碼異動記錄
+   ════════════════════════════════════════════════ */
+let _pwdHistoryCache = [];  // 快取最近一次 loadPasswordHistory 的結果,供 CSV 下載使用
+
+async function loadPasswordHistory(){
+  if(APP.currentRole !== 'admin') return;
+  const statusEl = document.getElementById('pwd-history-status');
+  const listEl = document.getElementById('pwd-history-list');
+  if(!statusEl || !listEl) return;
+
+  const filterInput = document.getElementById('pwd-history-filter');
+  const filterKey = filterInput ? filterInput.value.trim() : '';
+
+  statusEl.style.color='var(--ink3)';
+  statusEl.textContent='⏳ 載入中…';
+  listEl.innerHTML='';
+
+  const payload = {limit: 500};
+  if(filterKey) payload.sid = filterKey;
+
+  const data = await callBackend('loadPasswordHistory', payload);
+  if(!data.ok){
+    statusEl.style.color='var(--red)';
+    statusEl.textContent = '⚠ 載入失敗：' + (data.error || '未知錯誤');
+    _pwdHistoryCache = [];
+    return;
+  }
+  const entries = data.entries || [];
+  _pwdHistoryCache = entries;
+
+  if(entries.length === 0){
+    statusEl.style.color='var(--ink3)';
+    statusEl.textContent = filterKey ?
+      '查無「'+esc(filterKey)+'」的密碼異動記錄' :
+      '尚無任何密碼異動記錄';
+    return;
+  }
+  statusEl.style.color='var(--ink2)';
+  statusEl.textContent = '共 '+entries.length+' 筆記錄'+(filterKey?'（已篩選：'+esc(filterKey)+'）':'')+'，依時間由新到舊排序';
+
+  // 動作標籤對照
+  const actionLabel = {
+    selfChange:  {txt:'自助改密碼', bg:'#DBEAFE', color:'#1E40AF'},
+    adminReset:  {txt:'管理員重設', bg:'#FEF3C7', color:'#78350F'},
+    adminUpdate: {txt:'管理員代改', bg:'#FEE2E2', color:'#991B1B'},
+    addAccount:  {txt:'新增帳號',   bg:'#D1FAE5', color:'#065F46'},
+    register:    {txt:'自助註冊',   bg:'#EDE9FE', color:'#5B21B6'}
+  };
+  const roleLabel = { student:'學生', teacher:'老師' };
+
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  html += '<tr style="background:var(--cream);">';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">時間</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">角色</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">帳號</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">姓名</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">舊密碼</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">新密碼</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">動作</th>';
+  html += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2);">操作者</th>';
+  html += '</tr>';
+
+  entries.forEach(function(e){
+    var tsDisplay = e.timestamp;
+    try{
+      var d = new Date(e.timestamp);
+      if(!isNaN(d.getTime())){
+        tsDisplay = d.getFullYear()+'-'+
+          String(d.getMonth()+1).padStart(2,'0')+'-'+
+          String(d.getDate()).padStart(2,'0')+' '+
+          String(d.getHours()).padStart(2,'0')+':'+
+          String(d.getMinutes()).padStart(2,'0')+':'+
+          String(d.getSeconds()).padStart(2,'0');
+      }
+    }catch(_){}
+    var actInfo = actionLabel[e.action] || {txt:e.action, bg:'#E5E7EB', color:'#374151'};
+    var actBadge = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:8px;background:'+actInfo.bg+';color:'+actInfo.color+';font-weight:600;">'+esc(actInfo.txt)+'</span>';
+    html += '<tr style="border-bottom:1px solid #F1F1EE;">';
+    html += '<td style="padding:6px 8px;font-family:monospace;font-size:11px;color:var(--ink2);white-space:nowrap;">'+esc(tsDisplay)+'</td>';
+    html += '<td style="padding:6px 8px;">'+esc(roleLabel[e.role]||e.role)+'</td>';
+    html += '<td style="padding:6px 8px;font-family:monospace;">'+esc(e.accountKey)+'</td>';
+    html += '<td style="padding:6px 8px;">'+esc(e.accountName||'—')+'</td>';
+    html += '<td style="padding:6px 8px;font-family:monospace;color:var(--ink3);">'+esc(e.oldPwdPlain||'—')+'</td>';
+    html += '<td style="padding:6px 8px;font-family:monospace;font-weight:600;">'+esc(e.newPwdPlain||'—')+'</td>';
+    html += '<td style="padding:6px 8px;">'+actBadge+'</td>';
+    html += '<td style="padding:6px 8px;color:var(--ink3);font-size:11px;">'+esc(e.actor||'—')+'</td>';
+    html += '</tr>';
+  });
+  html += '</table>';
+  listEl.innerHTML = html;
+}
+
+function downloadPasswordHistoryCSV(){
+  if(!_pwdHistoryCache || _pwdHistoryCache.length === 0){
+    toast('沒有可下載的記錄，請先點「載入」', false);
+    return;
+  }
+  // CSV 標頭
+  var headers = ['時間','角色','帳號','姓名','舊密碼明文','新密碼明文','動作','操作者'];
+  var actionLabel = {
+    selfChange:'自助改密碼', adminReset:'管理員重設', adminUpdate:'管理員代改',
+    addAccount:'新增帳號', register:'自助註冊'
+  };
+  var roleLabel = { student:'學生', teacher:'老師' };
+  function csvEscape(v){
+    var s = String(v==null?'':v);
+    if(s.indexOf(',')>=0 || s.indexOf('"')>=0 || s.indexOf('\n')>=0){
+      s = '"' + s.replace(/"/g,'""') + '"';
+    }
+    return s;
+  }
+  var lines = [headers.map(csvEscape).join(',')];
+  _pwdHistoryCache.forEach(function(e){
+    lines.push([
+      e.timestamp,
+      roleLabel[e.role] || e.role,
+      e.accountKey,
+      e.accountName,
+      e.oldPwdPlain,
+      e.newPwdPlain,
+      actionLabel[e.action] || e.action,
+      e.actor
+    ].map(csvEscape).join(','));
+  });
+  // 加 BOM 讓 Excel 開啟時辨識 UTF-8
+  var csv = '\uFEFF' + lines.join('\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var ts = new Date();
+  var fname = 'password_history_'+
+    ts.getFullYear()+
+    String(ts.getMonth()+1).padStart(2,'0')+
+    String(ts.getDate()).padStart(2,'0')+'_'+
+    String(ts.getHours()).padStart(2,'0')+
+    String(ts.getMinutes()).padStart(2,'0')+'.csv';
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  toast('✓ 已下載 '+fname);
 }
 function refreshStudentTable(){
   // 【安全】只有管理員才能看到此表格(內含明文密碼)
