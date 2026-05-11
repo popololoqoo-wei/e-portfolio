@@ -1430,7 +1430,9 @@ async function loadAccountsFromBackend(){
   // ★ 合併策略:後端的 students/teachers 不一定回傳 pwdPlain,
   //   為避免覆蓋掉本地原有的 pwdPlain(導致 👁 圖示無法檢視原始密碼),
   //   採用「以後端為主、保留本地 pwdPlain」的合併方式。
-  if(data.students){
+  // ★ 修補：後端若回傳空物件（例如學生角色，後端不回 teachers 詳細資料），
+  //   不可覆蓋掉本地由 autoLoadConfig() 帶來的清單，否則簽名下拉會變空。
+  if(data.students && Object.keys(data.students).length > 0){
     var prevStudents = APP.students || {};
     Object.keys(data.students).forEach(function(sid){
       var remote = data.students[sid] || {};
@@ -1440,7 +1442,7 @@ async function loadAccountsFromBackend(){
     });
     APP.students = data.students;
   }
-  if(data.teachers){
+  if(data.teachers && Object.keys(data.teachers).length > 0){
     var prevTeachers = APP.teachers || {};
     Object.keys(data.teachers).forEach(function(card){
       var remote = data.teachers[card] || {};
@@ -1683,6 +1685,19 @@ async function enterApp(){
     // 管理員/老師角色：仍顯示警告
     if(APP.currentRole==='admin' || APP.currentRole==='teacher'){
       toast('⚠ 帳號清單載入失敗：' + (e.message||e), false);
+    }
+  }
+
+  // 【簽名清單修補】若老師清單仍為空（例如後端對學生不回 teachers），
+  // 重新呼叫 autoLoadConfig 從公開 config 拿姓名清單，
+  // 確保表單中的「老師簽名」下拉選單有選項可選。
+  if(!APP.teachers || Object.keys(APP.teachers).length === 0){
+    try{
+      await autoLoadConfig();
+      console.log('[fallback] 已從 config 補載老師清單，共 ' +
+        Object.keys(APP.teachers||{}).length + ' 位');
+    }catch(e){
+      console.warn('補載 config 失敗:', e);
     }
   }
 
