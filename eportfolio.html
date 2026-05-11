@@ -1671,13 +1671,17 @@ async function enterApp(){
   APP.formData = {};
   APP.historyLog = {};
 
-  // 【資安修補 v18.1】管理員或老師登入後，從後端載入帳號清單
-  // 學生不需要載入（學生只看自己的資料）
-  if(APP.currentRole==='admin' || APP.currentRole==='teacher'){
-    try{
-      await loadAccountsFromBackend();
-    }catch(e){
-      console.warn('載入帳號清單失敗:', e);
+  // 【資安修補 v18.1 + 簽名清單修補】所有角色登入後，皆從後端載入帳號清單
+  // 學生需要老師姓名清單，才能在表單中選擇老師簽名（下拉選單）。
+  // 後端應自行依角色決定回傳內容：學生僅取得老師姓名（無密碼/雜湊）。
+  // 若後端對學生角色拒絕回傳，前端容錯不擋登入流程。
+  try{
+    await loadAccountsFromBackend();
+  }catch(e){
+    console.warn('載入帳號清單失敗:', e);
+    // 學生角色：靜默失敗（不影響使用，僅老師下拉可能為空）
+    // 管理員/老師角色：仍顯示警告
+    if(APP.currentRole==='admin' || APP.currentRole==='teacher'){
       toast('⚠ 帳號清單載入失敗：' + (e.message||e), false);
     }
   }
