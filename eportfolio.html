@@ -741,10 +741,24 @@ input[type="date"]{
 
       <!-- TEACHER -->
       <div id="panel-teacher" style="display:none;">
-        <div class="fg"><label>教師卡號</label><input id="t-card" placeholder="請輸入卡號"></div>
-        <div class="fg"><label>密碼</label><div class="pwd-wrap"><input id="t-pwd" type="password" placeholder="預設：000"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('t-pwd',this)" title="顯示密碼">👁</button></div></div>
-        <button class="btn-primary" onclick="doLogin('teacher')">登入</button>
-        <div class="login-err" id="t-err">卡號或密碼錯誤</div>
+        <div id="teacher-login-panel">
+          <div class="fg"><label>教師卡號</label><input id="t-card" placeholder="請輸入卡號"></div>
+          <div class="fg"><label>密碼</label><div class="pwd-wrap"><input id="t-pwd" type="password" placeholder="預設：000"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('t-pwd',this)" title="顯示密碼">👁</button></div></div>
+          <button class="btn-primary" onclick="doLogin('teacher')">登入</button>
+          <div class="login-err" id="t-err">卡號或密碼錯誤</div>
+          <div style="margin-top:8px;font-size:11px;text-align:left;"><a href="javascript:void(0)" onclick="showPanel('teacher-change-panel')" style="color:var(--ink3);text-decoration:none;border-bottom:1px dashed var(--ink3);">修改密碼</a></div>
+        </div>
+        <div id="teacher-change-panel" style="display:none;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:1rem;">修改密碼</div>
+          <div style="background:#FFF8E8;border:1px solid #F0C040;border-radius:6px;padding:8px 12px;font-size:11px;color:#8B6914;margin-bottom:12px;line-height:1.5;">⚠ 請輸入您的<b>教師卡號</b>與<b>舊密碼</b>，系統才能正確更新您的密碼</div>
+          <div class="fg"><label>教師卡號</label><input id="tcp-card" placeholder="請輸入您的卡號" autocomplete="username"></div>
+          <div class="fg"><label>舊密碼</label><div class="pwd-wrap"><input id="tcp-old" type="password" placeholder="目前的密碼"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('tcp-old',this)" title="顯示密碼">👁</button></div></div>
+          <div class="fg"><label>新密碼</label><div class="pwd-wrap"><input id="tcp-new" type="password" placeholder="至少 6 碼"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('tcp-new',this)" title="顯示密碼">👁</button></div></div>
+          <div class="fg"><label>確認新密碼</label><div class="pwd-wrap"><input id="tcp-new2" type="password" placeholder="再次輸入新密碼"><button type="button" class="pwd-eye" onclick="togglePwdVisibility('tcp-new2',this)" title="顯示密碼">👁</button></div></div>
+          <button class="btn-primary" onclick="changeTeacherPwd()">儲存新密碼</button>
+          <div class="login-err" id="tcp-err">密碼修改失敗</div>
+          <button class="btn-ghost" onclick="showPanel('teacher-login-panel')">← 返回</button>
+        </div>
       </div>
 
       <!-- ADMIN -->
@@ -1220,7 +1234,9 @@ function togglePwdVisibility(inputId, btn){
 }
 
 function showPanel(id){
-  ['student-login-panel','student-reg-panel','student-change-panel'].forEach(p=>{
+  // ★ v19.1:擴充支援老師端的 teacher-login-panel / teacher-change-panel
+  ['student-login-panel','student-reg-panel','student-change-panel',
+   'teacher-login-panel','teacher-change-panel'].forEach(p=>{
     const el=document.getElementById(p);if(el)el.style.display='none';
   });
   const target=document.getElementById(id);if(target)target.style.display='block';
@@ -1684,6 +1700,92 @@ async function changeStudentPwd(){
     setTimeout(function(){
       var sidInput=document.getElementById('s-sid');
       if(sidInput) sidInput.value=sid;
+    },50);
+
+  }catch(e){
+    err.style.color='var(--red)';
+    err.textContent='⚠ 系統連線失敗：'+(e.message||e)+'，請稍後再試';
+    err.style.display='block';
+  }
+}
+
+/* 【v19.1】老師自助改密碼
+   流程與 changeStudentPwd 完全相同,差別只在 role='teacher'、欄位 id 字首為 tcp- */
+async function changeTeacherPwd(){
+  const card=clipInput((document.getElementById('tcp-card').value||'').trim(), MAX_SHORT_LENGTH);
+  const old=clipInput(document.getElementById('tcp-old').value, MAX_SHORT_LENGTH);
+  const nw=clipInput(document.getElementById('tcp-new').value, MAX_SHORT_LENGTH);
+  const nw2=clipInput(document.getElementById('tcp-new2').value, MAX_SHORT_LENGTH);
+  const err=document.getElementById('tcp-err');
+  const lockKey='changetpwd_'+card;
+  const locked=isLocked(lockKey);
+  if(locked){err.textContent='嘗試次數過多，請等待 '+locked+' 秒';err.style.display='block';return;}
+
+  // ── 前端基本驗證 ──
+  if(!card){err.textContent='請輸入教師卡號';err.style.display='block';return;}
+  if(!old){err.textContent='請輸入舊密碼';err.style.display='block';return;}
+  if(nw.length<6){err.textContent='新密碼至少 6 碼';err.style.display='block';return;}
+  if(nw!==nw2){err.textContent='新密碼兩次輸入不一致';err.style.display='block';return;}
+  if(nw===old){err.textContent='新密碼不可與舊密碼相同';err.style.display='block';return;}
+  if(!GAS_URL){err.textContent='系統未設定後端，請聯繫管理員';err.style.display='block';return;}
+
+  // 顯示「處理中」狀態
+  err.style.color='var(--ink3)';
+  err.textContent='⏳ 正在更新密碼，請稍候…';
+  err.style.display='block';
+
+  try{
+    // ── 步驟 1:用舊密碼向後端登入,取得 sessionToken ──
+    const authResp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'auth', role:'teacher', id:card, password:old})
+    });
+    if(!authResp.ok) throw new Error('連線失敗 ('+authResp.status+')');
+    const authData = await authResp.json();
+    if(!authData.ok){
+      recordFail(lockKey);
+      err.style.color='var(--red)';
+      err.textContent = authData.error || '卡號或舊密碼錯誤';
+      err.style.display='block';
+      return;
+    }
+
+    // ── 步驟 2:帶 token 呼叫 changePassword ──
+    const cpResp = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({
+        action:'changePassword',
+        sessionToken: authData.token,
+        oldPwd: old,
+        newPwd: nw
+      })
+    });
+    if(!cpResp.ok) throw new Error('連線失敗 ('+cpResp.status+')');
+    const cpData = await cpResp.json();
+    if(!cpData.ok){
+      err.style.color='var(--red)';
+      err.textContent = cpData.error || '密碼更新失敗';
+      err.style.display='block';
+      return;
+    }
+
+    // ── 步驟 3:確認成功 ──
+    clearFails(lockKey);
+    err.style.display='none';
+    err.style.color='';
+    document.getElementById('tcp-card').value='';
+    document.getElementById('tcp-old').value='';
+    document.getElementById('tcp-new').value='';
+    document.getElementById('tcp-new2').value='';
+    const accName = (APP.teachers[card] && APP.teachers[card].name) || card;
+    toast('✓ '+esc(accName)+' 的密碼已更新成功，請以新密碼登入');
+    // 自動帶回老師登入畫面並預填卡號
+    showPanel('teacher-login-panel');
+    setTimeout(function(){
+      var cardInput=document.getElementById('t-card');
+      if(cardInput) cardInput.value=card;
     },50);
 
   }catch(e){
