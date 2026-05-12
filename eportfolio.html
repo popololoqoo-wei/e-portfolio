@@ -778,7 +778,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5 · 2026.05</span></div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5.3 · 2026.05</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -4581,6 +4581,12 @@ window.showAboutDialog = function(){
   if(existing) existing.remove();
 
   var changelog = [
+    {ver:'v1.5.3', date:'2026.05', notes:[
+      '【修正】離開 F16 學習風格表後,左上角浮動表頭殘留 bug',
+      '原因:#f16-floating-thead 是 appendChild 到 document.body 的 fixed 元素',
+      'openForm/renderAdmin 切換時未清除,scroll 監聽也持續觸發顯示',
+      '在三個切換入口(openForm/renderFormList/renderAdmin)補上清除邏輯',
+    ]},
     {ver:'v1.5.2', date:'2026.05', notes:[
       '【真正根因】清除雲端的請求未帶 sessionToken,被 GAS v18 默默拒絕',
       '改用與 saveFormToSheets 相同的 fetch+JSON+sessionToken 方式',
@@ -4817,9 +4823,19 @@ function _collGrpRenderToolbar(viewKey, sm){
 /* ═══════════ FORM LIST ═══════════ */
 function renderFormList(){
   APP.currentFormId=null;
-  // 離開表單時清除 F16 浮動表頭
+  // 離開表單時清除 F16 浮動表頭與相關監聽
   var fh = document.getElementById('f16-floating-thead');
   if(fh) fh.remove();
+  if(window.__f16ScrollHandler){
+    window.removeEventListener('scroll', window.__f16ScrollHandler);
+    var _f16mc = document.getElementById('main-content');
+    if(_f16mc) _f16mc.removeEventListener('scroll', window.__f16ScrollHandler);
+    window.__f16ScrollHandler = null;
+  }
+  if(window.__f16ResizeHandler){
+    window.removeEventListener('resize', window.__f16ResizeHandler);
+    window.__f16ResizeHandler = null;
+  }
   renderSidebar();
   const mc=document.getElementById('main-content');
   const groups=[
@@ -4930,6 +4946,25 @@ async function openForm(id){
   // 老師端切換表單時,自動清掉學生欄位的「已確認」標記
   // (B 方案:每張新表單重新攔截,確保不延續上一張的確認狀態)
   // 這個動作其實是自動發生的,因為每張表單的 DOM 都會重新渲染
+
+  // ★★★ 修正:切到非 F16 表單時,清除 F16 浮動表頭與相關 scroll/resize 監聽 ★★★
+  // 原因:F16 的浮動表頭(#f16-floating-thead)是 appendChild 到 document.body 的 fixed 元素,
+  //      不會隨 main-content 重新渲染而消失;scroll handler 也會繼續觸發顯示,
+  //      導致切到別張表單(例如 ILPs)時,左上角仍殘留「題目敘述/0 不像/1 有點像/2 很像」表頭。
+  if(id !== 'F16'){
+    var _f16fh = document.getElementById('f16-floating-thead');
+    if(_f16fh) _f16fh.remove();
+    if(window.__f16ScrollHandler){
+      window.removeEventListener('scroll', window.__f16ScrollHandler);
+      var _f16mc = document.getElementById('main-content');
+      if(_f16mc) _f16mc.removeEventListener('scroll', window.__f16ScrollHandler);
+      window.__f16ScrollHandler = null;
+    }
+    if(window.__f16ResizeHandler){
+      window.removeEventListener('resize', window.__f16ResizeHandler);
+      window.__f16ResizeHandler = null;
+    }
+  }
 
   APP.currentFormId=id;
   renderSidebar();
@@ -11764,6 +11799,19 @@ function renderAdmin(){
   if(APP.currentRole!=='admin'){
     console.warn('renderAdmin called without admin role – blocked');
     return;
+  }
+  // 進入管理頁前清除 F16 浮動表頭(同 openForm 的修正)
+  var _f16fh = document.getElementById('f16-floating-thead');
+  if(_f16fh) _f16fh.remove();
+  if(window.__f16ScrollHandler){
+    window.removeEventListener('scroll', window.__f16ScrollHandler);
+    var _f16mc = document.getElementById('main-content');
+    if(_f16mc) _f16mc.removeEventListener('scroll', window.__f16ScrollHandler);
+    window.__f16ScrollHandler = null;
+  }
+  if(window.__f16ResizeHandler){
+    window.removeEventListener('resize', window.__f16ResizeHandler);
+    window.__f16ResizeHandler = null;
   }
   document.getElementById('sidebar').querySelectorAll('.sidebar-item').forEach(el=>el.classList.remove('active'));
   const mc=document.getElementById('main-content');
