@@ -778,7 +778,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5.3 · 2026.05</span></div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5.4 · 2026.05</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -1214,10 +1214,12 @@ function _normalizeDateStr(s){
   return '';
 }
 
-function toast(msg,ok=true){
+function toast(msg,ok=true,durationMs){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.background=ok?'#2D5A27':'#8B2020';
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+  t.classList.add('show');
+  var dur = (typeof durationMs==='number' && durationMs>0) ? durationMs : 2500;
+  setTimeout(()=>t.classList.remove('show'),dur);
 }
 function togglePwdVisibility(inputId, btn){
   var inp = document.getElementById(inputId);
@@ -4581,6 +4583,12 @@ window.showAboutDialog = function(){
   if(existing) existing.remove();
 
   var changelog = [
+    {ver:'v1.5.4', date:'2026.05', notes:[
+      '【UX】清除測試資料完成後,改用 alert 強制提示(需手動按確定才關閉)',
+      '管理頁新增「最後清除結果」面板,持久顯示直到使用者主動關閉',
+      '失敗時會列出對帳失敗清單,即使不小心關掉 alert 也能在面板看到',
+      'toast 進度訊息延長至 8~10 秒,避免一閃即逝',
+    ]},
     {ver:'v1.5.3', date:'2026.05', notes:[
       '【修正】離開 F16 學習風格表後,左上角浮動表頭殘留 bug',
       '原因:#f16-floating-thead 是 appendChild 到 document.body 的 fixed 元素',
@@ -11900,12 +11908,35 @@ function renderAdmin(){
     <div class="admin-card" style="border-color:#FCA5A5;">
       <div class="admin-card-head" style="background:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);">⚠ 測試資料清除工具</div>
       <div class="admin-card-body">
+        ${(function(){
+          var r = APP._lastClearResult;
+          if(!r) return '';
+          var bg = r.ok ? '#DCFCE7' : '#FEE2E2';
+          var border = r.ok ? '#16A34A' : '#DC2626';
+          var icon = r.ok ? '✅' : '⚠';
+          var title = r.ok ? '上次清除已完成（通過對帳）' : '上次清除有部分失敗';
+          var detail = '時間：'+esc(r.ts)+'　|　範圍：'+esc(r.type)+'　|　成功 '+r.success+' / '+r.total+(r.failed?'　|　失敗 '+r.failed:'');
+          var failedHtml = '';
+          if(r.failed && r.failedList && r.failedList.length){
+            failedHtml = '<div style="margin-top:6px;font-size:11px;color:#7F1D1D;max-height:100px;overflow:auto;background:#fff;border:1px dashed #FCA5A5;border-radius:4px;padding:6px 8px;"><b>失敗清單：</b><br>'+r.failedList.map(esc).join('<br>')+'</div>';
+          }
+          return '<div id="last-clear-result" style="background:'+bg+';border:2px solid '+border+';border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">'
+            + '<div style="font-size:20px;line-height:1;">'+icon+'</div>'
+            + '<div style="flex:1;font-size:12px;color:#1F2937;line-height:1.6;">'
+            +   '<div style="font-weight:700;margin-bottom:2px;">'+esc(title)+'</div>'
+            +   '<div style="color:#4B5563;">'+detail+'</div>'
+            +   failedHtml
+            + '</div>'
+            + '<button onclick="APP._lastClearResult=null;renderAdmin();" title="關閉" style="background:transparent;border:none;font-size:16px;color:#6B7280;cursor:pointer;padding:0 4px;line-height:1;">✕</button>'
+          + '</div>';
+        })()}
         <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#7F1D1D;line-height:1.7;">
           <b>⚠ 此工具僅在系統正式上線前清除測試階段資料使用。</b><br>
           • 同時清除「本機」與「雲端 Google Sheets」的表單資料與歷史紀錄<br>
           • <b>不會</b>刪除學生/老師帳號、密碼、PIN 等設定<br>
           • 雲端清除過程約 30 秒至 2 分鐘（依資料量），請耐心等候<br>
-          • 操作前會要求二次確認，請謹慎使用
+          • 操作前會要求二次確認，請謹慎使用<br>
+          • <b>清除完成時會跳出對話框,需手動按「確定」才會關閉,確保不會錯過結果</b>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button onclick="clearLocalTestData()" style="padding:8px 16px;background:#F59E0B;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🧹 清除所有測試資料（本機+雲端）</button>
@@ -12388,11 +12419,32 @@ async function clearLocalTestData(){
   }catch(e){}
 
   if(failed.length === 0){
-    toast('✓ 本機與雲端測試資料已全部清除並通過對帳（共 '+formKeyList.length+' 份）');
+    var msgOk = '✓ 本機與雲端測試資料已全部清除並通過對帳（共 '+formKeyList.length+' 份）';
+    toast(msgOk, true, 8000);
+    // 寫入持久結果面板(不會自動消失,要使用者按 ✕ 關閉)
+    APP._lastClearResult = {
+      ok: true,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '清除所有測試資料',
+      total: formKeyList.length,
+      success: formKeyList.length,
+      failed: 0,
+      failedList: []
+    };
+    alert('✅ 清除完成\n\n本機與雲端測試資料已全部清除並通過對帳\n共 '+formKeyList.length+' 份\n\n（這個視窗按下「確定」前不會自動關閉）');
   }else{
     var preview = failed.slice(0, 5).join(', ') + (failed.length>5?' ...':'');
-    toast('⚠ 完成 '+(formKeyList.length-failed.length)+' / '+formKeyList.length+' 份，'+failed.length+' 份對帳失敗：'+preview, false);
+    toast('⚠ 完成 '+(formKeyList.length-failed.length)+' / '+formKeyList.length+' 份，'+failed.length+' 份對帳失敗：'+preview, false, 10000);
     console.warn('[clearLocalTestData] 對帳失敗清單:', failed);
+    APP._lastClearResult = {
+      ok: false,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '清除所有測試資料',
+      total: formKeyList.length,
+      success: formKeyList.length-failed.length,
+      failed: failed.length,
+      failedList: failed
+    };
     alert('⚠ 有 '+failed.length+' 份雲端資料對帳失敗，可能未清乾淨：\n\n'+failed.join('\n')+'\n\n建議：\n1. 檢查網路與 GAS_WRITE_SECRET 是否正確\n2. 直接打開 Google Sheets 手動清除這些列\n3. 或再次按下清除按鈕重試');
   }
   setTimeout(function(){
@@ -12456,12 +12508,34 @@ async function clearAllStudentForms(){
   }catch(e){}
 
   if(failed.length === 0){
-    toast('✓ 已清除 '+esc(name)+' 的所有資料並通過對帳（本機+雲端共 '+formKeyList.length+' 份）');
+    var msgOk = '✓ 已清除 '+esc(name)+' 的所有資料並通過對帳（本機+雲端共 '+formKeyList.length+' 份）';
+    toast(msgOk, true, 8000);
+    APP._lastClearResult = {
+      ok: true,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '清除指定學生「'+name+'」('+sid+')',
+      total: formKeyList.length,
+      success: formKeyList.length,
+      failed: 0,
+      failedList: []
+    };
+    alert('✅ 清除完成\n\n學生「'+name+'」('+sid+') 的所有資料已清除並通過對帳\n本機+雲端共 '+formKeyList.length+' 份\n\n（這個視窗按下「確定」前不會自動關閉）');
   }else{
-    toast('⚠ '+esc(name)+' 完成 '+(formKeyList.length-failed.length)+' / '+formKeyList.length+' 份，'+failed.length+' 份對帳失敗', false);
+    toast('⚠ '+esc(name)+' 完成 '+(formKeyList.length-failed.length)+' / '+formKeyList.length+' 份，'+failed.length+' 份對帳失敗', false, 10000);
     console.warn('[clearAllStudentForms] 對帳失敗清單:', failed);
+    APP._lastClearResult = {
+      ok: false,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '清除指定學生「'+name+'」('+sid+')',
+      total: formKeyList.length,
+      success: formKeyList.length-failed.length,
+      failed: failed.length,
+      failedList: failed
+    };
     alert('⚠ 學生「'+name+'」（'+sid+'）有 '+failed.length+' 份雲端資料對帳失敗，可能未清乾淨：\n\n'+failed.join('\n')+'\n\n建議：\n1. 檢查網路與 GAS_WRITE_SECRET 是否正確\n2. 直接打開 Google Sheets 手動清除這些列\n3. 或再次按下清除按鈕重試');
   }
+  // 重新渲染管理頁,顯示最後清除結果面板
+  if(typeof renderAdmin==='function') setTimeout(renderAdmin, 300);
 }
 
 /* ── 備份所有資料為 JSON 檔 ── */
