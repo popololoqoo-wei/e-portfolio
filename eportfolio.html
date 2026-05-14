@@ -9578,11 +9578,14 @@ function buildF11(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   let h=basicInfoCard(fid,d,'');
   const flds=[['goal','學習目標（你想學什麼？）',4],['motivation','學習動機',3],['strategy','學習策略與資源',3],['difficulty','可能遭遇的困難',2],['criteria','評估內容與指標',3],['timeline','預計時程',2]];
+  // ★ 修正：傳入 fid（含學號的 formKey）而非 f.id（裸 id），
+  //   否則 ta() 會讀寫 APP.formData['F11'](裸 id)，但 openForm 流程中會主動刪除裸 id，
+  //   導致使用者切到別張表單再回來時，剛剛填的內容消失。
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">個人化學習計畫（學生填寫）</div></div><div class="card-body">
-    ${flds.map(([k,l,r])=>`<div class="field"><label>${l}</label>${ta(f.id,k,r,false)}</div>`).join('')}
+    ${flds.map(([k,l,r])=>`<div class="field"><label>${l}</label>${ta(fid,k,r,false)}</div>`).join('')}
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
-    <div class="field">${ta(f.id,'t_fb',4,!canT)}</div>
+    <div class="field">${ta(fid,'t_fb',4,!canT)}</div>
     <div class="g2">
       <div class="field"><label>老師簽名<span class="t-badge">老師</span></label>${makeDropdown(fid,'t_sign',getTeacherList(),!canT,'請選擇老師',true)}</div>
       <div class="field"><label>老師簽名日期<span class="t-badge">老師</span></label><input type="date" value="${d['t_sign_date']||''}" ${!canT?'disabled':''} data-fid="${fid}" data-key="t_sign_date" onchange="saveDraftField('${fid}','t_sign_date',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${!canT?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;"></div>
