@@ -8401,14 +8401,18 @@ async function updateSatisfactionAverages(sheetName, latestData) {
 
 /* ═══════════ FIELD HELPERS ═══════════ */
 function fi(fid,key,type,disabled,ph,val){
-  const v=val!==undefined?val:((APP.formData[fid]||{})[key]||'');
+  // 讀取點也做 canonical 轉換:即使呼叫端傳裸 id (f.id),也能讀到正確 formKey 的值
+  const readKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
+  const v=val!==undefined?val:((APP.formData[readKey]||{})[key]||'');
   const dis=disabled?'disabled':'';
   // 即時儲存：與 ta() 一致,改用 saveDraftField 寫入 canonical formKey 並落地 localStorage
   const oc=`saveDraftField('${fid}','${key}',this.value)`;
   return`<input type="${type||'text'}" value="${String(v).replace(/"/g,'&quot;')}" ${dis} data-fid="${fid}" data-key="${key}" oninput="${oc}" onchange="${oc}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);" placeholder="${ph||''}">`;
 }
 function ta(fid,key,rows,disabled,ph){
-  const v=(APP.formData[fid]||{})[key]||'';
+  // 讀取點也做 canonical 轉換:即使呼叫端傳裸 id (f.id),也能讀到正確 formKey 的值
+  const readKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
+  const v=(APP.formData[readKey]||{})[key]||'';
   const dis=disabled?'disabled':'';
   // 即時儲存：用 saveDraftField 寫入 canonical formKey 並落地 localStorage,
   // 避免「打字後切表單/重整就消失」的問題。
