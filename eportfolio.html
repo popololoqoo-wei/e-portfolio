@@ -8432,7 +8432,9 @@ function getTeacherList(){
   return Object.values(APP.teachers||{}).map(function(t){return t.name;}).filter(Boolean).sort();
 }
 function makeDropdown(fid,key,options,disabled,placeholder,isTeacher){
-  var val=(APP.formData[fid]||{})[key]||'';
+  // 讀取點 canonical 轉換:即使呼叫端傳裸 id (f.id),也能讀到正確 formKey 的值
+  var readKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
+  var val=(APP.formData[readKey]||{})[key]||'';
   var dis=disabled?' disabled':'';
   var bg=disabled?'var(--cream)':'#fff';
   var oc="saveDraftField('"+fid+"','"+key+"',this.value)";
@@ -8469,12 +8471,14 @@ function signRow(fid,sKey,tKey,canT,tLabel){
 /* ── 拆分版簽名 helper：讓學生簽名緊接學生填寫區、老師簽名緊接老師填寫區 ── */
 function studentSignRow(fid, sKey){
   sKey = sKey || 's_sign';
-  var d=APP.formData[fid]||{};
+  // canonical key 轉換:避免自動帶入時寫到裸 id
+  var canKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
+  var d=APP.formData[canKey]||{};
   var sDateKey=sKey+'_date';
   // 學生自動帶入
   if(APP.currentRole==='student'&&APP.currentUser&&!d[sKey]){
-    if(!APP.formData[fid])APP.formData[fid]={};
-    APP.formData[fid][sKey]=APP.currentUser.name;
+    if(!APP.formData[canKey])APP.formData[canKey]={};
+    APP.formData[canKey][sKey]=APP.currentUser.name;
   }
   var sStudents=getStudentList();
   var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
@@ -8770,7 +8774,9 @@ function dateRangeField(fid,key,disabled){
 
 
 function signDateWithTimestamp(fid,key,disabled,isTeacher){
-  var val=(APP.formData[fid]||{})[key]||'';
+  // 讀取點 canonical 轉換:即使呼叫端傳裸 id (f.id),也能讀到正確 formKey 的值
+  var readKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
+  var val=(APP.formData[readKey]||{})[key]||'';
   var dis=disabled?' disabled':'';
   var bg=disabled?'var(--cream)':'#fff';
   var oc="saveDraftField('"+fid+"','"+key+"',this.value+' '+new Date().toLocaleString('zh-TW',{hour12:false}));";
