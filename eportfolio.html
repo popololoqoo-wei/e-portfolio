@@ -9633,6 +9633,11 @@ function buildF13(f,d,canT,fkey,canS){
   const items=[['s1','一、整體架構',5],['s2a','（一）前言',5],['s2b','（二）評估（含個案簡介）',20],['s2c','（三）問題確立',10],['s2d','（四）治療計畫與措施',20],['s2e','（五）結果評值',5],['s2f','（六）文獻查證',15],['s2g','（七）結論與討論',15],['s2h','（八）參考資料',5]];
   let h=basicInfoCard(fid,d,'');
 
+  // ── 個案報告題目（學生填寫）──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">個案報告題目<span class="s-badge">學生填寫</span></div></div><div class="card-body">';
+  h+='<div class="field">'+ta(fid,'case_title',2,false)+'</div>';
+  h+='</div></div>';
+
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">評分項目（滿分100分）<span class="t-badge">老師評分</span></div></div><div class="card-body">`;
   items.forEach(([key,label,max])=>{
     // ★ 未填時 value 留空,不要預設 "0",否則 autoSaveDraft 會把 "0" 寫進草稿,
@@ -9750,7 +9755,7 @@ function buildF14(f,d,canT,fkey,canS){
   let h=basicInfoCard(fid,d,'');
 
   // ── 個案報告題目（學生填寫）──
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">個案報告題目</div></div><div class="card-body">';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">個案報告題目<span class="s-badge">學生填寫</span></div></div><div class="card-body">';
   h+='<div class="field">'+ta(fid,'case_title',2,false)+'</div>';
   h+='</div></div>';
 
