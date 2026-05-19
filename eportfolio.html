@@ -8408,7 +8408,10 @@ function fi(fid,key,type,disabled,ph,val){
 function ta(fid,key,rows,disabled,ph){
   const v=(APP.formData[fid]||{})[key]||'';
   const dis=disabled?'disabled':'';
-  return`<textarea rows="${rows||3}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);resize:vertical;" placeholder="${ph||''}">${v}</textarea>`;
+  // 即時儲存：用 saveDraftField 寫入 canonical formKey 並落地 localStorage,
+  // 避免「打字後切表單/重整就消失」的問題。
+  const oc=`saveDraftField('${fid}','${key}',this.value)`;
+  return`<textarea rows="${rows||3}" ${dis} data-fid="${fid}" data-key="${key}" oninput="${oc}" onchange="${oc}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);resize:vertical;" placeholder="${ph||''}">${v}</textarea>`;
 }
 function dateField(fid,key,disabled,label){
   const v=(APP.formData[fid]||{})[key]||'';
@@ -8976,13 +8979,13 @@ function buildF02(f,d,canT,fkey,canS){
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">回饋</div></div><div class="card-body">
     <div class="s-block">
       <div class="s-block-title">📝 學生心得與簽名</div>
-      <div class="field"><label>學生心得與建議</label>${ta(f.id,'s_comment',3,false)}</div>
-      ${studentSignRow(f.id,'s_sign')}
+      <div class="field"><label>學生心得與建議</label>${ta(fid,'s_comment',3,false)}</div>
+      ${studentSignRow(fid,'s_sign')}
     </div>
     <div class="t-block">
       <div class="t-block-title">✏️ 實習總指導教師回饋與簽名</div>
-      <div class="field"><label>實習總指導教師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-      ${teacherSignRow(f.id,'t_sign',canT)}
+      <div class="field"><label>實習總指導教師回饋<span class="t-badge">老師</span></label>${ta(fid,'t_fb',3,!canT)}</div>
+      ${teacherSignRow(fid,'t_sign',canT)}
     </div>
   </div></div>`;
   return h;
