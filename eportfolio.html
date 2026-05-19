@@ -8403,7 +8403,9 @@ async function updateSatisfactionAverages(sheetName, latestData) {
 function fi(fid,key,type,disabled,ph,val){
   const v=val!==undefined?val:((APP.formData[fid]||{})[key]||'');
   const dis=disabled?'disabled':'';
-  return`<input type="${type||'text'}" value="${String(v).replace(/"/g,'&quot;')}" ${dis} data-fid="${fid}" data-key="${key}" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['${key}']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);" placeholder="${ph||''}">`;
+  // 即時儲存：與 ta() 一致,改用 saveDraftField 寫入 canonical formKey 並落地 localStorage
+  const oc=`saveDraftField('${fid}','${key}',this.value)`;
+  return`<input type="${type||'text'}" value="${String(v).replace(/"/g,'&quot;')}" ${dis} data-fid="${fid}" data-key="${key}" oninput="${oc}" onchange="${oc}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:${disabled?'var(--cream)':'#fff'};color:var(--ink);font-size:13px;font-family:var(--ff-sans);" placeholder="${ph||''}">`;
 }
 function ta(fid,key,rows,disabled,ph){
   const v=(APP.formData[fid]||{})[key]||'';
@@ -9498,19 +9500,19 @@ function buildF08(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
   const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
   let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
-    <div class="field"><label>主診斷</label>${fi(f.id,'diagnosis','text',false)}</div></div>
+    <div class="field"><label>主診斷</label>${fi(fid,'diagnosis','text',false)}</div></div>
     <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">全人討論（包含2個以上面向）<span style="font-size:10px;font-weight:400;color:var(--ink3);margin-left:4px;">若無建議，請填寫「無」</span></div></div><div class="card-body">
-    ${[['生理(Body)','疾病之檢查、檢驗、診斷與治療'],['心理(Mind)','對疾病的認知、自我照護的技能與態度'],['靈性(Spirit)','信仰、心靈關懷，精神上的支持與安慰'],['社會(Social)','家人協助、轉介服務、出院準備']].map(([t,hint])=>`<div class="field"><label>${t}<span style="font-size:10px;color:var(--ink3);margin-left:4px;">${hint}</span></label>${ta(f.id,'discuss_'+t[0],2,false)}</div>`).join('')}
+    ${[['生理(Body)','疾病之檢查、檢驗、診斷與治療'],['心理(Mind)','對疾病的認知、自我照護的技能與態度'],['靈性(Spirit)','信仰、心靈關懷，精神上的支持與安慰'],['社會(Social)','家人協助、轉介服務、出院準備']].map(([t,hint])=>`<div class="field"><label>${t}<span style="font-size:10px;color:var(--ink3);margin-left:4px;">${hint}</span></label>${ta(fid,'discuss_'+t[0],2,false)}</div>`).join('')}
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">跨團隊照護<span style="font-size:10px;font-weight:400;color:var(--ink3);margin-left:4px;">若無建議，請填寫「無」</span></div></div><div class="card-body">
-    ${[1,2,3].map(i=>`<div class="g2"><div class="field"><label>團隊職類 ${i}</label>${fi(f.id,'team_type_'+i,'text',false)}</div><div class="field"><label>照護重點 ${i}</label>${fi(f.id,'team_care_'+i,'text',false)}</div></div>`).join('')}
+    ${[1,2,3].map(i=>`<div class="g2"><div class="field"><label>團隊職類 ${i}</label>${fi(fid,'team_type_'+i,'text',false)}</div><div class="field"><label>照護重點 ${i}</label>${fi(fid,'team_care_'+i,'text',false)}</div></div>`).join('')}
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">學員心得與老師回饋</div></div><div class="card-body">
-    <div class="field"><label>學員學習心得</label>${ta(f.id,'s_feeling',3,false)}</div>
-    ${studentSignRow(f.id,'s_sign')}
-    <div class="field"><label>臨床老師回饋<span class="t-badge">老師</span></label>${ta(f.id,'t_fb',3,!canT)}</div>
-    ${teacherSignRow(f.id,'t_sign',canT)}
+    <div class="field"><label>學員學習心得</label>${ta(fid,'s_feeling',3,false)}</div>
+    ${studentSignRow(fid,'s_sign')}
+    <div class="field"><label>臨床老師回饋<span class="t-badge">老師</span></label>${ta(fid,'t_fb',3,!canT)}</div>
+    ${teacherSignRow(fid,'t_sign',canT)}
   </div></div>`;
   return h;
 }
