@@ -4006,8 +4006,10 @@ function runAutoSave(bareId){
   try{
     // 直接呼叫 saveForm，與「按儲存按鈕」效果完全相同
     // 這會建立 historyLog 紀錄，讓狀態判定能正確運作
+    // ★ silent=true:autoSave 是背景觸發,不該跳「老師必填未完成」對話框
+    //   (那個對話框只在使用者主動按「儲存表單」按鈕時跳)
     if(typeof saveForm === 'function'){
-      saveForm(bareId);
+      saveForm(bareId, true);
       showAutoSaveIndicator('saved');
     }
   }catch(e){
@@ -4546,6 +4548,37 @@ async function switchStudent(sid, formId){
      && typeof teacherConfirmLeaveIfIncomplete==='function'){
     if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
   }
+  // ★★★ 關鍵:切換學生「之前」,先把當前學生的表單資料 flush 到雲端 ★★★
+  // 在 APP.currentStudentId 被改之前,先用「當前學生」的 formKey 儲存。
+  // 如果不這樣,老師對 A 學生填的分數,在切到 B 學生時會留在記憶體/localStorage,
+  // 但「沒推上雲端」,結果 A 學生用學生帳號登入時看不到老師寫的內容。
+  if(APP.currentRole==='teacher' && APP.currentFormId && APP.currentStudentId
+     && !APP.currentFormId.startsWith('__')){
+    var _curBareId = APP.currentFormId.indexOf('_')>=0
+      ? APP.currentFormId.split('_')[0] : APP.currentFormId;
+    // 取消任何 pending 的 autoSave 倒數,改為「立即」儲存
+    if(typeof _autoSaveTimers !== 'undefined' && _autoSaveTimers[_curBareId]){
+      clearTimeout(_autoSaveTimers[_curBareId]);
+      delete _autoSaveTimers[_curBareId];
+    }
+    // 直接呼叫底層儲存:把 APP.formData[<current formKey>] 推到雲端 + localStorage
+    try{
+      var _curFormKey = getFormKey(_curBareId); // 此時 currentStudentId 還是「舊學生」
+      if(_curFormKey && APP.formData[_curFormKey]
+         && Object.keys(APP.formData[_curFormKey]).length>0){
+        // 寫入 localStorage 草稿(立即生效)
+        try{
+          var _drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+          _drafts[_curFormKey] = Object.assign({}, APP.formData[_curFormKey]);
+          localStorage.setItem('form_drafts', JSON.stringify(_drafts));
+        }catch(e){}
+        // 寫入雲端 GAS(非同步,不等待)
+        if(typeof saveFormToSheets === 'function'){
+          saveFormToSheets(_curFormKey);
+        }
+      }
+    }catch(e){ console.warn('switchStudent flush failed:', e); }
+  }
   APP.currentStudentId = sid;
   APP.teacherUnlocked = true;
   // ★ 切換學生後執行 migration：把裸 id 的資料併到 formKey
@@ -4561,6 +4594,30 @@ function selectStudent(sid){
   if(APP.currentRole==='teacher' && APP.currentFormId
      && typeof teacherConfirmLeaveIfIncomplete==='function'){
     if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
+  // ★★★ 切換學生前,先 flush 當前表單到雲端(若有未儲存資料) ★★★
+  if(APP.currentRole==='teacher' && APP.currentFormId && APP.currentStudentId
+     && !APP.currentFormId.startsWith('__')){
+    var _curBareId = APP.currentFormId.indexOf('_')>=0
+      ? APP.currentFormId.split('_')[0] : APP.currentFormId;
+    if(typeof _autoSaveTimers !== 'undefined' && _autoSaveTimers[_curBareId]){
+      clearTimeout(_autoSaveTimers[_curBareId]);
+      delete _autoSaveTimers[_curBareId];
+    }
+    try{
+      var _curFormKey = getFormKey(_curBareId);
+      if(_curFormKey && APP.formData[_curFormKey]
+         && Object.keys(APP.formData[_curFormKey]).length>0){
+        try{
+          var _drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+          _drafts[_curFormKey] = Object.assign({}, APP.formData[_curFormKey]);
+          localStorage.setItem('form_drafts', JSON.stringify(_drafts));
+        }catch(e){}
+        if(typeof saveFormToSheets === 'function'){
+          saveFormToSheets(_curFormKey);
+        }
+      }
+    }catch(e){ console.warn('selectStudent flush failed:', e); }
   }
   APP.currentStudentId = sid;
   APP.currentFormId = null;
@@ -5975,15 +6032,16 @@ function unlockTeacherFieldsInDOM(){
 async function reloadFormKeepUnlocked(id){}
 
 /* ═══════════ SAVE ═══════════ */
-function saveForm(id){
+function saveForm(id, silent){
+  // silent=true:背景自動儲存(來自 autoSave 或跳轉 flush),不跳任何 confirm
   // ★ 取消 pending 的自動儲存計時器（避免重複儲存）
   if(typeof _autoSaveTimers !== 'undefined' && _autoSaveTimers[id]){
     clearTimeout(_autoSaveTimers[id]);
     delete _autoSaveTimers[id];
   }
   // ★ F15 「實習課程總評值」屬於最終評核,儲存前彈窗確認
-  // (僅老師端適用 — F15 由老師填寫)
-  if(id==='F15' && APP.currentRole==='teacher'){
+  // (僅老師端適用 — F15 由老師填寫;silent 模式跳過)
+  if(id==='F15' && APP.currentRole==='teacher' && !silent){
     var f15Confirm = '您正在儲存「實習課程總評值」 — 這份是學生的最終評核表。\n\n請再次確認您填寫的分數與評語無誤。\n資料儲存後仍可返回修改,但建議盡量一次填妥再儲存。\n\n是否確認儲存?';
     if(!confirm(f15Confirm)) return;
   }
@@ -6113,7 +6171,8 @@ function saveForm(id){
   // - 只針對「老師應填但未填」的欄位;學生欄位由學生自己負責
   // - 老師可選擇「仍要儲存」(例如分多次填) 或「取消儲存先回去補」
   // - 該表單若定義上沒有老師必填欄位(例如純筆試 F-PRE / F-CT* / F16) → 不檢查
-  if(APP.currentRole==='teacher' && formHasTeacherRequiredFields(id)){
+  // - silent 模式(自動儲存)不跳對話框,直接靜默儲存
+  if(!silent && APP.currentRole==='teacher' && formHasTeacherRequiredFields(id)){
     var _form=findForm(id);
     var _missing=getTeacherMissingFields(id);
     if(_missing.length>0){
