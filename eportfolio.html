@@ -5370,6 +5370,25 @@ async function openForm(id){
   // ★ 為所有 radio 啟用「再點同一值就清除」功能
   try{ enableRadioToggleClear(); }catch(e){console.warn('enableRadioToggleClear failed:',e);}
 
+  // ★★★ 終極保險:對所有「明確的老師元素」主動標記 data-student-confirmed='1' ★★★
+  //   即使有任何 handler 意外掛上去,守護函式入口會檢查此標記直接放行,
+  //   100% 確保老師欄位絕對不會跳「修改學生欄位?」警示。
+  try{
+    var _mc = document.getElementById('main-content');
+    if(_mc){
+      _mc.querySelectorAll('[data-teacher="1"]').forEach(function(el){
+        el.setAttribute('data-student-confirmed','1');
+      });
+      // 也對 data-key 或 data-rkey 在老師白名單的元素標記
+      _mc.querySelectorAll('[data-key],[data-rkey]').forEach(function(el){
+        var k = el.getAttribute('data-key') || el.getAttribute('data-rkey') || '';
+        if(k && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(k)){
+          el.setAttribute('data-student-confirmed','1');
+        }
+      });
+    }
+  }catch(e){ console.warn('teacher field pre-confirm failed:',e); }
+
   // 360度評估表：初始化自動計算
   if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
   setTimeout(function(){
@@ -5759,10 +5778,27 @@ function lockStudentFields(){
   //   EPA 表單(E01/E02/E03):s_name、school、s_date、s_date_start、s_date_end、intern_cat 不守護
   var currentFid = APP.currentFormId || '';
   var currentBare = currentFid.indexOf('_')>=0 ? currentFid.split('_')[0] : currentFid;
+
+  // ★★★ F15 實習課程評值表:整張表跳過守護 ★★★
+  //   F15 是老師主導的最終評核表,主要欄位都是老師評分(學習態度 6 題 + 專業 10 題
+  //   + 溝通 4 題 + 加分項目),學生只填自己的請假紀錄與心得反思。
+  //   為了避免任何意外路徑導致老師點評分按鈕跳出「修改學生欄位?」警示,
+  //   F15 整張表完全跳過守護機制。
+  if(currentBare==='F15') return;
+
   var EPA_EXEMPT_KEYS = ['s_name','school','s_date','s_date_start','s_date_end','intern_cat'];
   var isEPAForm = (currentBare==='E01'||currentBare==='E02'||currentBare==='E03');
   function isExemptForCurrentForm(key){
     if(isEPAForm && EPA_EXEMPT_KEYS.indexOf(key)>=0) return true;
+    return false;
+  }
+
+  // ★ 強防護:任何元素若標記為 data-teacher="1",或它的 data-key/data-rkey 屬於老師欄位白名單,
+  //   一律視為老師欄位,絕對不掛守護(避免老師被自己該填的欄位擋下來)
+  function isExplicitTeacherElement(el){
+    if(el.getAttribute('data-teacher')==='1') return true;
+    var k = el.getAttribute('data-key') || el.getAttribute('data-rkey') || '';
+    if(k && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(k)) return true;
     return false;
   }
 
@@ -5771,6 +5807,7 @@ function lockStudentFields(){
     var key=el.getAttribute('data-key')||'';
     if(!isStudentFieldKey(key)) return;
     if(isExemptForCurrentForm(key)) return; // EPA 等表單的基本資料豁免
+    if(isExplicitTeacherElement(el)) return; // ★ 元素明確標記為老師欄位 → 不守護
     // 跳過已經 readonly 的欄位(例如學生姓名自動帶入,本身就唯讀)
     if(el.hasAttribute('readonly')) return;
     // 跳過已經處理過的欄位(避免重複綁定)
@@ -5809,7 +5846,11 @@ function lockStudentFields(){
   });
 
   // 對學生欄位的 button(評分按鈕等)也加守護
+  // ★ 嚴格條件:必須有 data-student="1" 而且 沒有 data-teacher="1"(防止屬性互衝)
   mc.querySelectorAll('button[data-student="1"]').forEach(function(btn){
+    if(btn.getAttribute('data-teacher')==='1') return; // 同時有 teacher 標記 → 視為老師欄位,跳過
+    var rkey = btn.getAttribute('data-rkey') || btn.getAttribute('data-key') || '';
+    if(rkey && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(rkey)) return; // 白名單豁免
     if(btn.getAttribute('data-student-guarded')==='1') return;
     btn.setAttribute('data-student-guarded','1');
     btn.style.borderLeft = '3px solid #3B82F6';
@@ -5821,6 +5862,11 @@ function lockStudentFields(){
 /* mousedown / click 守護:阻止互動 → 跳 confirm → 確認後解除該元素守護 */
 function _studentFieldGuardHandler(ev){
   var el = ev.currentTarget;
+  // ★ 終極保險:如果該元素其實是老師欄位(後來才被標記),直接放行
+  //   (避免任何意外:元素的 data-teacher 屬性、或 data-rkey 對應老師白名單)
+  if(el.getAttribute('data-teacher')==='1') return;
+  var _k = el.getAttribute('data-key') || el.getAttribute('data-rkey') || '';
+  if(_k && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(_k)) return;
   // 已確認過 → 直接放行(讓 click 走完原本流程)
   if(el.getAttribute('data-student-confirmed')==='1') return;
   // 未確認 → 阻止 + 跳 confirm
@@ -11013,7 +11059,8 @@ function buildF15(f,d,canT,fkey,canS){
       [5,4,3,2,1].forEach(v=>{
         var cur=(d[key]===v||d[key]==v);
         var selCls=cur?'sel-t':'';
-        s+=`<td style="text-align:center;"><button class="r-btn ${selCls}" data-teacher="1" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${v},'t',this);${extraOC}" ${!canT?'disabled':''} style="border-radius:4px;padding:4px 8px;font-size:12px;cursor:${!canT?'not-allowed':'pointer'};">${v}</button></td>`;
+        // ★ data-student-confirmed="1" 確保不會跳「修改學生欄位」警示(這是老師評分,絕非學生欄位)
+        s+=`<td style="text-align:center;"><button class="r-btn ${selCls}" data-teacher="1" data-student-confirmed="1" data-fid="${fid}" data-rkey="${key}" data-rval="${v}" onclick="setRating('${fid}','${key}',${v},'t',this);${extraOC}" ${!canT?'disabled':''} style="border-radius:4px;padding:4px 8px;font-size:12px;cursor:${!canT?'not-allowed':'pointer'};">${v}</button></td>`;
       });
       s+=`</tr>`;
     });
@@ -11033,7 +11080,7 @@ function buildF15(f,d,canT,fkey,canS){
   var bonusOC=`saveDraftField('${fid}','bonus',this.value);calcF15Score('${fid}')`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">加分項目<span class="t-badge">老師</span><span id="f15_bonus_score_${fid}_lbl" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--green);"></span></div></div><div class="card-body">
     <div class="field"><label>臨床專業能力可獨立負責一般治療師1/2以上工作量</label>
-      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus_${fid}" value="${v}" data-fid="${fid}" data-key="bonus" data-teacher="1" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="${bonusOC}" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
+      <div class="check-group">${['是（+5分）','否（+0分）'].map(v=>`<label class="check-item"><input type="radio" name="f15_bonus_${fid}" value="${v}" data-fid="${fid}" data-key="bonus" data-teacher="1" data-student-confirmed="1" ${d['bonus']===v?'checked':''} ${!canT?'disabled':''} onchange="${bonusOC}" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div>
     </div>
   </div></div>`;
 
