@@ -4299,6 +4299,11 @@ const STUDENT_OR_NEUTRAL_FIELDS_KEY = [];  // 已改用 isStudentOrNeutralFieldK
 function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
 function getStatus(id){
+  // ★ 老師端尚未選定學生 → 沒有「當前學生」的真實資料可看,一律回 'new'
+  //   避免被任何裸 id 殘留誤判成 done/draft,造成頂部數字錯亂、
+  //   或顯示出別位學生的表單。
+  if(APP.currentRole==='teacher' && !APP.currentStudentId) return 'new';
+
   const formKey=getFormKey(id);
 
   // ★ 讀取資料：以 formKey 為主，但仍向下相容讀取裸 id（避免 migration 還沒跑時誤判）
@@ -4613,6 +4618,8 @@ async function switchStudent(sid, formId){
   // ★ 切換學生後執行 migration：把裸 id 的資料併到 formKey
   try{ migrateBareKeysToFormKey(); }catch(e){console.warn('migration failed:',e);}
   renderSidebar();
+  // ★ 切學生後更新頂部 quick-nav,讓統計數字反映新選定學生
+  if(typeof updateQuickNav==='function') updateQuickNav();
   // Reload the same form with the new student's data
   await openForm(formId);
 }
@@ -4700,6 +4707,9 @@ function selectStudent(sid){
   });
   html+='</div>';
   mc.innerHTML=html;
+  // ★ 重要:切學生後務必更新頂部 quick-nav,讓「未填/草稿中/已完成」數字
+  //   反映「當前選定學生」的真實狀態,避免老師看到上一位學生的舊數字。
+  if(typeof updateQuickNav==='function') updateQuickNav();
 }
 
 function getStudentFormStatus(formId, sid){
@@ -4992,6 +5002,12 @@ function renderFormList(){
      && typeof teacherConfirmLeaveIfIncomplete==='function'){
     if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
   }
+  // ★ 老師端按「📋 總覽」時:
+  //   - 未選學生 → 轉導到老師首頁(學生名單),不能顯示「自己」的表單
+  //   - 已選學生 → 沿用原本邏輯顯示總覽,但內部 getStatus 會用該學生的 formKey 計算
+  if(APP.currentRole==='teacher' && !APP.currentStudentId){
+    if(typeof renderTeacherHome==='function') return renderTeacherHome();
+  }
   APP.currentFormId=null;
   // 離開表單時清除 F16 浮動表頭與相關監聽
   var fh = document.getElementById('f16-floating-thead');
@@ -5067,6 +5083,8 @@ function renderFormList(){
   });
   html+='</div>';
   mc.innerHTML=html;
+  // ★ 重渲染總覽後同步更新頂部 quick-nav
+  if(typeof updateQuickNav==='function') updateQuickNav();
 }
 
 /* ═══════════ OPEN FORM ═══════════ */
@@ -14076,10 +14094,18 @@ function showUnfilledNotification() {
 
 function updateQuickNav(){
   if(!APP.currentUser)return;
-  var sm=getStatusSummary();
   var nd=document.getElementById('qnav-new-cnt');
   var draftEl=document.getElementById('qnav-draft-cnt');
   var dd=document.getElementById('qnav-done-cnt');
+  // ★ 老師端尚未選定學生時,沒有「當前學生」可以統計,顯示「—」避免誤導
+  //   (老師選了學生之後才會看到真實數字)
+  if(APP.currentRole==='teacher' && !APP.currentStudentId){
+    if(nd) nd.textContent='—';
+    if(draftEl) draftEl.textContent='—';
+    if(dd) dd.textContent='—';
+    return;
+  }
+  var sm=getStatusSummary();
   if(nd)nd.textContent=sm.newF;
   if(draftEl)draftEl.textContent=sm.draft||0;
   if(dd)dd.textContent=sm.done;
@@ -14118,6 +14144,9 @@ function renderTeacherHome(){
   html+='</div>';
   html+='</div>';
   mc.innerHTML=html;
+  // ★ 進入首頁(沒有選定學生)時更新頂部 quick-nav
+  //   此時 currentStudentId=null,getStatus 會用裸 id 查 → 應顯示為「無資料」狀態
+  if(typeof updateQuickNav==='function') updateQuickNav();
 }
 
 
@@ -14307,6 +14336,11 @@ function renderStatusSection(filterStatus){
      && !APP.currentFormId.startsWith('__')
      && typeof teacherConfirmLeaveIfIncomplete==='function'){
     if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
+  // ★ 老師端必須先選定學生才能看狀態分類頁;否則統計沒有意義
+  if(APP.currentRole==='teacher' && !APP.currentStudentId){
+    toast('⚠ 請先從左側或首頁選定一位學生,才能查看該學生的表單狀態');
+    return;
   }
   APP.currentFormId='__status_'+filterStatus;
   renderSidebar();
