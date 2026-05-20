@@ -6874,46 +6874,152 @@ function buildHistoryItems(id){
   }).join('');
 }
 
-/* ═══════════ PDF DOWNLOAD ═══════════ */
+/* ═══════════ PDF DOWNLOAD ═══════════
+ * 判定原則（方案 C：嚴格判定）
+ *   PDF 可下載 ⇔ getStatus(id) === 'done'
+ *
+ * getStatus 已內建檢查 REQUIRED_STUDENT_FIELDS：
+ *   ✓ 所有題目欄位都填完（評核項目、回饋、心得…）
+ *   ✓ 學生簽名 + 學生簽名日期
+ *   ✓ 老師簽名 + 老師簽名日期（roles='both' 表單）
+ *   ✓ 虛擬必填項（__prof_any / __team_first / __sc_any）
+ *
+ * 不再使用「historyLog 有儲存紀錄」當條件 ── 因為自動儲存會稀釋它，
+ * 任何角色登入後動 20 秒就會留紀錄，無法真正反映「雙方確認完成」。
+ * 改以「必填欄位 + 雙方簽名」為單一判準，語意清楚且無法繞過。
+ */
 function canDownloadPDF(id){
-  const formKey=getFormKey(id);
-  // 同時檢查 formKey 和 id 兩個可能的 key
-  const logs=(APP.historyLog[formKey]||[]).concat(APP.historyLog[id]||[]);
-  // 合併兩個可能的 formData
-  const d=Object.assign({},APP.formData[id]||{},APP.formData[formKey]||{});
+  // 借用既有的完整必填判定 — 必須回傳 'done' 才能下載
+  if(typeof getStatus !== 'function') return false;
+  return getStatus(id) === 'done';
+}
 
-  // 條件1：有儲存記錄
-  if(logs.length===0) return false;
+/* 找出當前表單還缺哪些必填欄位（給錯誤訊息用）
+ * 回傳人類可讀的欄位名稱陣列，例如 ['老師簽名','建議加強','評量結果'] */
+function getMissingRequiredFields(id){
+  if(typeof REQUIRED_STUDENT_FIELDS === 'undefined') return [];
+  const bareId = id.indexOf('_')>=0 ? id.split('_')[0] : id;
+  const formKey = (typeof getFormKey==='function') ? getFormKey(id) : id;
+  // 合併所有資料來源（與 getStatus 內部相同邏輯）
+  const d = {};
+  function mergeRO(src){
+    if(!src) return;
+    Object.keys(src).forEach(function(k){
+      var v=src[k];
+      if(v===''||v===null||v===undefined||v===false) return;
+      if(d[k]===''||d[k]===null||d[k]===undefined||d[k]===false) d[k]=v;
+    });
+  }
+  mergeRO(APP.formData[formKey]);
+  try{
+    var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    mergeRO(allDrafts[formKey]);
+    if(formKey!==id) mergeRO(allDrafts[id]);
+  }catch(e){}
+  if(formKey!==id) mergeRO(APP.formData[id]);
 
-  // 條件2：有實質資料（至少2個欄位有值）
-  const filledKeys=Object.keys(d).filter(function(k){
-    var v=d[k];
-    return v!==undefined && v!=='' && v!==false && v!==null;
+  function hasRealVal(v){
+    if(v===undefined||v===null||v===false) return false;
+    var s=String(v).trim();
+    if(s===''||s==='[]'||s==='{}'||s==='null') return false;
+    return true;
+  }
+
+  // 取必填清單（向下相容：F04/F06/F07/F10 分內外科變體，REQUIRED 通常用 bareId 或變體 id）
+  var req = (REQUIRED_STUDENT_FIELDS[id] || REQUIRED_STUDENT_FIELDS[bareId] || []).slice();
+  // roles='both' 額外要求老師簽名
+  var f = (typeof findForm==='function') ? findForm(id) : null;
+  if(f && f.roles==='both' && req.indexOf('t_sign')<0) req.push('t_sign');
+
+  // 欄位名稱對照（盡量用使用者看得懂的中文）
+  var LABEL = {
+    's_name':'學生姓名','school':'實習學校','intern_cat':'實習類別','s_date':'實習日期',
+    's_sign':'學生簽名','s_sign_date':'學生簽名日期',
+    't_sign':'老師簽名','t_sign_date':'老師簽名日期',
+    't_sign2':'老師簽名（第二位）','t_sign2_date':'老師簽名日期（第二位）',
+    't_fb':'老師回饋','t_good':'表現良好','t_improve':'建議加強','t_comment':'綜合意見',
+    't_note':'輔導備註','t_title':'老師職稱','director_fb':'指導教師評語',
+    'peer_good':'其他團隊優點','peer_suggest':'其他團隊建議','peer_sign':'其他團隊簽名',
+    'team_good':'跨團隊優點','team_suggest':'跨團隊建議','team_sign':'跨團隊簽名','team_title':'跨團隊職稱',
+    'host_sign':'主持人簽名','host_sign_date':'主持人簽名日期','host_date':'主持人日期',
+    's_fb':'學生回饋','s_feeling':'學生心得','s_comment':'學生綜合意見','s_improve':'學生自評加強',
+    'complexity':'技術複雜度','case_dx':'主診斷','diagnosis':'診斷',
+    'result':'評量結果（合格/不合格）','score_grade':'評分等級','epa_level':'EPA 信賴等級',
+    'bonus':'加分項目','follow_date':'追蹤日期',
+    '__prof_any':'參加職類（至少一項）','__team_first':'跨團隊照護第一組','__sc_any':'臨床情境（至少一項）',
+    'q_basic':'基本資料查核','q_self':'自評查核','q_progress':'進度查核','q_detail':'細項查核',
+    'q_t_sign':'老師查核簽名','q_feeling':'心得查核','q_t_fb':'老師查核回饋','q_all_sign':'總簽名',
+    'env_review':'環境評值','teacher_review':'老師評值','self_review':'自我評值',
+    'goal':'學習目標','motivation':'動機','strategy':'策略','difficulty':'困難','criteria':'達成標準','timeline':'時程',
+    'bed':'病床號','pt_name':'病人名','gender':'性別','birth_date':'出生日期',
+    'rt_ind':'呼吸治療指徵','vent_type':'呼吸器類型','medical_focus':'醫療重點','rt_plan':'呼吸治療計畫',
+    'cat':'會議類別','date':'日期',
+    'discuss_生':'生理討論','discuss_心':'心理討論','discuss_靈':'靈性討論','discuss_社':'社會討論',
+    'c1':'跨領域合作項目 1','c2':'跨領域合作項目 2','c3':'跨領域合作項目 3',
+    's1':'個案分項評分 1','s2a':'個案分項評分 2a','s2b':'個案分項評分 2b','s2c':'個案分項評分 2c',
+    's2d':'個案分項評分 2d','s2e':'個案分項評分 2e','s2f':'個案分項評分 2f','s2g':'個案分項評分 2g','s2h':'個案分項評分 2h',
+    's_q2':'學生回答 2','s_q3':'學生回答 3','s_q4':'學生回答 4','s_q5':'學生回答 5','s_q6':'學生回答 6'
+  };
+  function labelOf(k){
+    if(LABEL[k]) return LABEL[k];
+    // 規則化的編號欄位
+    if(/^f01_pre_(\d+)$/.test(k))  return '學前評值 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f01_post_(\d+)$/.test(k)) return '學後自評 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f01_p1_(\d+)$/.test(k))   return '指導者評核 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f02_(\d+)$/.test(k))      return '臨床表現 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f06_(\d+)$/.test(k))      return 'CbD 評估 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f07_(\d+)$/.test(k))      return '360 度評核 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f14_sc_(\d+)$/.test(k))   return 'PPT 評分 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f15_att_(\d+)$/.test(k))  return '學習態度 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f15_skl_(\d+)$/.test(k))  return '專業技能 第'+(parseInt(RegExp.$1)+1)+'項';
+    if(/^f15_com_(\d+)$/.test(k))  return '溝通能力 第'+(parseInt(RegExp.$1)+1)+'項';
+    var m = /^(D0[1-4])_i(\d+)$/.exec(k);
+    if(m) return 'DOPS '+m[1]+' 評核項目 '+m[2];
+    return k; // fallback：原 key
+  }
+
+  // 找出缺的（與 getStatus 內部 checkField 行為一致）
+  var missing = [];
+  req.forEach(function(k){
+    // 虛擬必填的特例
+    if(k==='__prof_any'){
+      var ok = Object.keys(d).some(function(kk){ return kk.indexOf('prof_')===0 && d[kk]===true; });
+      if(!ok) missing.push(labelOf(k));
+      return;
+    }
+    if(k==='__team_first'){
+      if(!(hasRealVal(d['team_type_1']) && hasRealVal(d['team_care_1']))) missing.push(labelOf(k));
+      return;
+    }
+    if(k==='__sc_any'){
+      var raw = d['e01_sc']||d['e02_sc']||d['e03_sc']||'';
+      var ok2 = false;
+      if(raw){ try{ var arr=JSON.parse(raw); ok2 = Array.isArray(arr)&&arr.length>0; }catch(e){} }
+      if(!ok2) missing.push(labelOf(k));
+      return;
+    }
+    if(!hasRealVal(d[k])) missing.push(labelOf(k));
   });
-  if(filledKeys.length < 2) return false;
-
-  return true;
+  return missing;
 }
 
 function checkAndDownloadPDF(id){
-  if(!canDownloadPDF(id)){
-    const f=findForm(id);
-    const needsTeacher=f&&f.roles==='both';
-    if(needsTeacher){
-      const formKey=getFormKey(id);
-      const logs=APP.historyLog[formKey]||[];
-      const hasStudentSaved=logs.some(function(l){return l.role==='student';});
-      const hasTeacherSaved=logs.some(function(l){return l.role==='teacher'||l.role==='admin';});
-      var missing=[];
-      if(!hasStudentSaved) missing.push('學生');
-      if(!hasTeacherSaved) missing.push('臨床老師');
-      toast('⚠ 尚未完成：'+missing.join('、')+'的資料尚未儲存，雙方都儲存後才可下載 PDF', false);
-    } else {
-      toast('⚠ 請先儲存表單再下載 PDF', false);
-    }
+  if(canDownloadPDF(id)){
+    downloadPDF(id);
     return;
   }
-  downloadPDF(id);
+  // 找出缺哪些欄位，給使用者具體訊息
+  var missing = [];
+  try{ missing = getMissingRequiredFields(id); }catch(e){ missing = []; }
+  if(missing.length === 0){
+    // 理論上不該到這（getStatus!=='done' 但又找不到缺項）— 給通用訊息
+    toast('⚠ 表單尚未完成，請確認所有必填欄位都已填寫並簽名', false);
+    return;
+  }
+  // 最多列 5 項，超過就省略
+  var preview = missing.slice(0, 5).join('、');
+  var more = missing.length > 5 ? '… 等 '+missing.length+' 項' : '';
+  toast('⚠ 尚有必填欄位未完成：'+preview+more+'，全部填寫並雙方簽名後才可下載 PDF', false);
 }
 
 function downloadPDF(id){
