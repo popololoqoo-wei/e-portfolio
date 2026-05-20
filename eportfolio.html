@@ -187,32 +187,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   .rating-table th,.rating-table td{padding:4px 3px;font-size:10px;}
   .r-btn{width:24px;height:24px;font-size:9px;}
 
-  /* ─── 手機版 topbar:兩排式佈局,避免右區擠壓標題 ───
-   * 桌機版單排:[標題+副標題......][用戶][角色][首頁][同步][登出]
-   * 手機版兩排:
-   *   第一排:[標題 + 副標題]                                  (橫跨整列)
-   *   第二排:[用戶徽章][角色徽章][🏠首頁][🔄同步][登出]      (橫跨整列,右對齊)
-   *
-   * 實作方式:topbar 用 flex-wrap:wrap + 兩個子區各設 width:100%,
-   *          強制兩個子區換行到不同列。
-   *          用 !important 是因為桌機版的 height:56px 會跟手機版的 height:auto 衝突,
-   *          沒 !important 時部分手機瀏覽器(尤其 iOS Safari)的 CSS 解析優先級行為
-   *          可能讓 height:56px 殘留,壓迫兩排式佈局。 */
-  .topbar{
-    padding:6px 10px !important;
-    height:auto !important;
-    min-height:52px !important;
-    gap:4px !important;
-    flex-wrap:wrap !important;
-    align-items:center !important;
-  }
-  .topbar-left{flex:1 1 100% !important;min-width:0;gap:6px;width:100%;}
-  .topbar-title{font-size:13px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .topbar-sub{font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .topbar-right{flex:1 1 100% !important;gap:6px;flex-wrap:wrap;justify-content:flex-end;width:100%;}
-  .user-badge{font-size:10px;padding:3px 8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .role-chip{font-size:9px;padding:2px 7px;}
-  .logout-btn{padding:4px 10px;font-size:10px;}
+  /* ─── 手機版 topbar:佔位用,實際規則移到 768px media query 外的獨立規則(見下方) ─── */
 
   /* ─── 手機版 可摺疊群組工具列:換行+小尺寸 ─── */
   .collapsible-toolbar{flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:10px;}
@@ -241,6 +216,91 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   .f16-table-wrap th.sticky-th span{font-size:9px !important;display:inline !important;margin-left:2px !important;font-weight:400 !important;}
   /* 第一行 td 留更大上邊距,讓使用者捲到第 1 題時題目文字不會貼著表頭底部 */
   .f16-table-wrap tbody tr:first-child td{padding-top:18px !important;}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * ★ 手機版 topbar 兩排式佈局 — 獨立 media query,最高 specificity
+ *
+ * 為什麼獨立寫,而不放在上面的 @media(max-width:768px) 內:
+ *   多次嘗試在 768px media query 內套用 column / flex-wrap 都失效。
+ *   懷疑原因:某些 iOS Safari 版本對「同 selector 在 media query 內二次定義」
+ *   的處理優先級異常,且原始 .topbar 規則有 height:56px,
+ *   會跟我們的 height:auto 拉鋸。
+ *
+ * 解法:
+ *   1. 用 body .topbar 提高 specificity(0,1,1 vs 原本的 0,0,1)
+ *   2. 用 !important 雙重保險
+ *   3. 斷點放寬到 1100px,確保任何手機/平板必定匹配
+ *      (桌機通常 ≥ 1280px,不會影響)
+ *   4. 規則放在所有原本 topbar 規則之後,優先級最高
+ *
+ * 結構:
+ *   桌機版單排:[標題+副標題......][用戶][角色][首頁][同步][登出]
+ *   手機版兩排:
+ *     第一排:[標題 + 副標題]                                   ← 100% 寬,左對齊
+ *     第二排:                  [用戶][角色][首頁][同步][登出]   ← 100% 寬,右對齊
+ * ════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  body .topbar {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 6px 10px !important;
+    flex-wrap: wrap !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+  body .topbar .topbar-left {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    order: 1 !important;
+  }
+  body .topbar .topbar-right {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 6px !important;
+    order: 2 !important;
+  }
+  body .topbar .topbar-title {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body .topbar .topbar-sub {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body .topbar .user-badge {
+    font-size: 10px !important;
+    padding: 3px 8px !important;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body .topbar .role-chip {
+    font-size: 9px !important;
+    padding: 2px 7px !important;
+  }
+  body .topbar .logout-btn {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+  }
 }
 .mobile-nav{display:none;background:var(--paper);border-bottom:1px solid var(--border);padding:10px 12px;gap:6px;overflow-x:auto;align-items:center;position:sticky;top:56px;z-index:40;box-shadow:0 1px 3px rgba(15,23,42,.04);}
 .mobile-nav-btn{padding:7px 14px;border:1px solid var(--border);border-radius:999px;font-size:11px;white-space:nowrap;cursor:pointer;color:var(--ink2);background:#fff;flex-shrink:0;transition:all .15s;font-weight:500;}
