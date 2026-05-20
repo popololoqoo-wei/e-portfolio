@@ -5606,6 +5606,28 @@ function _studentFieldGuardFocusHandler(ev){
  *  - 兩個虛擬必填(__sc_any、__prof_any、__team_first)不在此檢查範圍(由 getStatus 另外處理)
  *  - 簽名、簽名日期等也包含在內(這些通常是 t_sign / t_sign_date)
  *  - 資料來源:APP.formData[formKey] 與 localStorage 草稿合併取非空值 */
+
+/* 判斷某表單「定義上」是否含有老師必填欄位
+ * - F-PRE / F-POST / F-CT01~12 純筆試類表單,完全沒有老師欄位 → 回 false
+ * - F16 學習風格自評,roles='student',也沒有老師欄位 → 回 false
+ * - F01A 學前評值,roles='student',沒有老師欄位 → 回 false
+ * - 其餘 roles='both' 的表單,通常至少有 t_sign / t_sign_date → 回 true */
+function formHasTeacherRequiredFields(formId){
+  var f=findForm(formId);
+  if(!f) return false;
+  // roles='student':純學生表單,不需要老師填
+  if(f.roles==='student') return false;
+  // roles='both' 一律視為「需要老師簽名」,即使 REQUIRED 名單沒列 t_sign
+  if(f.roles==='both') return true;
+  // 其他情況看 REQUIRED 名單是否含有非學生欄位
+  var req=(typeof REQUIRED_STUDENT_FIELDS!=='undefined'&&REQUIRED_STUDENT_FIELDS[formId])
+    ? REQUIRED_STUDENT_FIELDS[formId] : [];
+  return req.some(function(k){
+    if(!k||k.indexOf('__')===0) return false;
+    return !isStudentFieldKey(k);
+  });
+}
+
 function getTeacherMissingFields(formId){
   var req=(typeof REQUIRED_STUDENT_FIELDS!=='undefined'&&REQUIRED_STUDENT_FIELDS[formId])
     ? REQUIRED_STUDENT_FIELDS[formId].slice() : [];
@@ -5699,13 +5721,15 @@ function teacherHasStartedForm(formId){
   });
 }
 
-/* 在跳轉前檢查老師必填:若有缺漏,跳 confirm 詢問是否仍要離開
- * 回傳 true 表示「可繼續跳轉」,false 表示「使用者選擇留下」 */
+/* 在跳轉前檢查老師必填:只要該表單「定義上有」老師必填欄位,且尚未填完,就跳警示
+ * 回傳 true 表示「可繼續跳轉」,false 表示「使用者選擇留下」
+ * 注意:不再要求「老師已動筆」才警示——只要這份表單需要老師填、而且還沒填完,就要提醒,
+ * 避免老師不小心點到某張需要評核的表單但忘了填就離開。 */
 function teacherConfirmLeaveIfIncomplete(formId){
   if(APP.currentRole!=='teacher') return true;
   if(!formId) return true;
-  // 沒動筆 → 不用煩使用者
-  if(!teacherHasStartedForm(formId)) return true;
+  // 該表單定義上沒有老師需要填的欄位(例如 F-PRE / F-CT01~12 / F16 等) → 不警示
+  if(!formHasTeacherRequiredFields(formId)) return true;
   var missing=getTeacherMissingFields(formId);
   if(missing.length===0) return true;
   var f=findForm(formId);
@@ -5714,8 +5738,8 @@ function teacherConfirmLeaveIfIncomplete(formId){
   if(missing.length>8) preview+=' ...等 '+missing.length+' 項';
   var msg='⚠ 老師必填欄位尚未完成\n\n'+
           '表單:'+fname+'\n'+
-          '未填欄位:'+preview+'\n\n'+
-          '直接離開將不會自動儲存這些欄位的當前內容。\n'+
+          '未填欄位('+missing.length+'):'+preview+'\n\n'+
+          '直接離開將不會儲存這些欄位。\n'+
           '建議您回到表單填完後再按「儲存表單」。\n\n'+
           '是否仍要離開?';
   return confirm(msg);
@@ -6025,23 +6049,20 @@ function saveForm(id){
   // ★★★ 老師端必填欄位檢查:儲存前若有缺漏,跳出警示讓老師選擇 ★★★
   // - 只針對「老師應填但未填」的欄位;學生欄位由學生自己負責
   // - 老師可選擇「仍要儲存」(例如分多次填) 或「取消儲存先回去補」
-  // - 純學生表單(F16/F-PRE/F-POST/F-CT*)老師通常不會儲存,此檢查不適用
-  if(APP.currentRole==='teacher'){
+  // - 該表單若定義上沒有老師必填欄位(例如純筆試 F-PRE / F-CT* / F16) → 不檢查
+  if(APP.currentRole==='teacher' && formHasTeacherRequiredFields(id)){
     var _form=findForm(id);
-    var _isStudentOnly=(_form&&_form.roles==='student');
-    if(!_isStudentOnly){
-      var _missing=getTeacherMissingFields(id);
-      if(_missing.length>0){
-        var _preview=_missing.slice(0,10).join('、');
-        if(_missing.length>10) _preview+=' ...等 '+_missing.length+' 項';
-        var _msg='⚠ 老師必填欄位尚未完成\n\n'+
-                 '表單:'+(_form?_form.name:id)+'\n'+
-                 '未填欄位('+_missing.length+'):'+_preview+'\n\n'+
-                 '建議您回到表單填完再儲存,以確保評核資料完整。\n\n'+
-                 '按「確定」 → 仍儲存目前的部分內容(可日後再回來補)\n'+
-                 '按「取消」 → 不儲存,回到表單繼續填寫';
-        if(!confirm(_msg)) return;
-      }
+    var _missing=getTeacherMissingFields(id);
+    if(_missing.length>0){
+      var _preview=_missing.slice(0,10).join('、');
+      if(_missing.length>10) _preview+=' ...等 '+_missing.length+' 項';
+      var _msg='⚠ 老師必填欄位尚未完成\n\n'+
+               '表單:'+(_form?_form.name:id)+'\n'+
+               '未填欄位('+_missing.length+'):'+_preview+'\n\n'+
+               '建議您回到表單填完再儲存,以確保評核資料完整。\n\n'+
+               '按「確定」 → 仍儲存目前的部分內容(可日後再回來補)\n'+
+               '按「取消」 → 不儲存,回到表單繼續填寫';
+      if(!confirm(_msg)) return;
     }
   }
 
