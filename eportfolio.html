@@ -1841,6 +1841,9 @@ async function enterApp(){
   // ★★★ 跨裝置同步：清空本地殘留，從 GAS 重新載入 ★★★
   APP.formData = {};
   APP.historyLog = {};
+  // ★ 一次性清理:把 localStorage 與記憶體裡所有「裸 id」條目掃乾淨,
+  //   避免歷史殘留污染當前學生的表單(例如「學生簽名」帶到別人的名字)。
+  try{ if(typeof purgeBareIdContamination==='function') purgeBareIdContamination(); }catch(e){}
 
   // 【資安修補 v18.1 + 簽名清單修補】所有角色登入後，皆從後端載入帳號清單
   // 學生需要老師姓名清單，才能在表單中選擇老師簽名（下拉選單）。
@@ -1888,19 +1891,26 @@ async function enterApp(){
       console.warn('批次載入失敗，改用本機備份:', e);
       try{
         var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+        // ★ 只接受帶學號的 formKey;裸 id 一律忽略,避免污染
         Object.keys(drafts).forEach(function(fkey){
+          if(fkey.indexOf('_')<0) return;
           if(!APP.formData[fkey])APP.formData[fkey]={};
           Object.assign(APP.formData[fkey],drafts[fkey]);
         });
         var hlogs=JSON.parse(localStorage.getItem('history_logs')||'{}');
-        Object.assign(APP.historyLog, hlogs);
+        Object.keys(hlogs).forEach(function(fkey){
+          if(fkey.indexOf('_')<0) return;
+          APP.historyLog[fkey]=hlogs[fkey];
+        });
       }catch(e2){}
     }
   } else {
     // 管理員、未選學生的老師：照原本載入草稿
     try{
       var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      // ★ 只接受帶學號的 formKey
       Object.keys(drafts).forEach(function(fkey){
+        if(fkey.indexOf('_')<0) return;
         if(!APP.formData[fkey])APP.formData[fkey]={};
         Object.assign(APP.formData[fkey],drafts[fkey]);
       });
@@ -3848,17 +3858,17 @@ function migrateBareKeysToFormKey(){
     if(!bare || Object.keys(bare).length===0) return;
     var formKey=fid+'_'+sid;
     if(!APP.formData[formKey]) APP.formData[formKey]={};
-    // 用「非空值優先」的方式合併，不讓裸 id 內的空字串覆蓋已存在的有效值
+    // ★ 改用「非空值補空」:formKey 已有的有效值優先保留,絕不被裸 id 覆蓋。
+    //   理由:裸 id 是「跨學生共用」的危險空間,內容可能來自上一位被檢視的學生,
+    //   若強行覆蓋當前學生 formKey,會導致跨學生污染(例如把別人的簽名套到當前學生)。
     Object.keys(bare).forEach(function(k){
       var v=bare[k];
       if(v==='' || v===null || v===undefined) return;
-      // 若 formKey 已經有值，且裸 id 是空的，保留 formKey 的
-      if(APP.formData[formKey][k]==='' || APP.formData[formKey][k]===null || APP.formData[formKey][k]===undefined){
-        APP.formData[formKey][k]=v;
-      } else {
-        // 兩邊都有值 → 採用裸 id（可能是最新的 inline 寫入）
+      var tv=APP.formData[formKey][k];
+      if(tv===''||tv===null||tv===undefined||tv===false){
         APP.formData[formKey][k]=v;
       }
+      // 兩邊都有值 → 保留 formKey 已有值(不覆蓋)
     });
     // 搬完後刪除裸 id 版本
     delete APP.formData[fid];
@@ -5918,9 +5928,18 @@ function saveForm(id){
   const formKey = getFormKey(id);
   // Collect all inputs (only editable fields for current role)
   if(!APP.formData[formKey])APP.formData[formKey]={};
-  // 合併所有 key 的資料到 formKey
+  // ★ 若裸 id 有資料(舊版殘留或 f01Click 寫入),「只在 formKey 沒值時補上」,
+  //   絕對不可 Object.assign 強覆蓋——裸 id 可能含有「上一位學生」的污染資料,
+  //   會把當前學生的 s_sign / s_name 等改成別人的名字。
   if(id!==formKey && APP.formData[id]){
-    Object.assign(APP.formData[formKey], APP.formData[id]);
+    Object.keys(APP.formData[id]).forEach(function(k){
+      var v=APP.formData[id][k];
+      if(v===''||v===null||v===undefined||v===false) return;
+      var tv=APP.formData[formKey][k];
+      if(tv===''||tv===null||tv===undefined||tv===false){
+        APP.formData[formKey][k]=v;
+      }
+    });
   }
   // 也從草稿合併
   try{
@@ -5987,10 +6006,20 @@ function saveForm(id){
   // Also collect ALL data stored via setRating/setDOPS/setEPA clicks (already in APP.formData[formKey])
   // These are stored directly, no need to re-collect from DOM
   // But ensure formKey data is synced
-  // 合併 id key 和 formKey 的資料（解決 f01Click 存到 id 而不是 formKey 的問題）
+  // ★ 若裸 id 還有殘留(例如 f01Click 寫入過舊版),用「非空值補空」方式合併,
+  //   不強覆蓋當前學生 formKey 的資料,避免別人的資料倒灌進來。
   if(APP.formData[id] && Object.keys(APP.formData[id]).length>0){
     if(!APP.formData[formKey])APP.formData[formKey]={};
-    Object.assign(APP.formData[formKey], APP.formData[id]);
+    Object.keys(APP.formData[id]).forEach(function(k){
+      var v=APP.formData[id][k];
+      if(v===''||v===null||v===undefined||v===false) return;
+      var tv=APP.formData[formKey][k];
+      if(tv===''||tv===null||tv===undefined||tv===false){
+        APP.formData[formKey][k]=v;
+      }
+    });
+    // ★ 整理完後乾脆清掉裸 id,避免後續再次被掃進來
+    if(id!==formKey) delete APP.formData[id];
   }
 
   // ★★★ 老師端必填欄位檢查:儲存前若有缺漏,跳出警示讓老師選擇 ★★★
@@ -6098,10 +6127,10 @@ async function saveFormToSheets(id){
   // id 可能是裸 formId 或 formKey，統一處理
   // saveForm 呼叫時傳的是 formKey（含學號）
   const formKey=id; // saveForm已傳formKey
-  const bareId=id.split('_')[0]; // 取裸 formId
-  // 合併兩個來源的資料
-  const mergedData=Object.assign({},APP.formData[bareId]||{},APP.formData[formKey]||{});
-  const mergedLog=(APP.historyLog[formKey]||[]).concat(APP.historyLog[bareId]||[]);
+  // ★ 只用 formKey 的資料上雲;不再 merge 裸 id(裸 id 是跨學生共用空間,
+  //   可能含上一位被檢視學生的污染殘留,merge 進來會把錯誤資料推到雲端)
+  const mergedData=Object.assign({},APP.formData[formKey]||{});
+  const mergedLog=(APP.historyLog[formKey]||[]).slice();
   // 去重複 log
   const logMap={};mergedLog.forEach(function(l){if(!logMap[l.ts])logMap[l.ts]=l;});
   const deduped=Object.values(logMap).sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
@@ -6156,17 +6185,18 @@ async function loadFormFromSheets(id){
     if(data.formData){
       try{
         const loaded=JSON.parse(data.formData);
-        // ★★★ 跨裝置同步：遠端資料完全取代本地（遠端優先） ★★★
+        // ★★★ 跨裝置同步：遠端資料完全取代本地(formKey 為主) ★★★
+        // ★ 不再寫入裸 id,避免跨學生污染:當老師輪流查看 A、B 兩位學生的同一份表單時,
+        //   裸 id 會被後載入的學生資料覆蓋,而後續 saveForm / mergeAllKeys 又會把
+        //   裸 id 的內容 assign 回 formKey,造成「A 看到 B 的簽名」等錯誤。
         APP.formData[formKey] = loaded;
-        APP.formData[id] = Object.assign({}, APP.formData[id]||{}, loaded);
       }catch(e2){console.warn('formData parse:',e2);}
     }
     if(data.history){
       try{
         const remoteLog=JSON.parse(data.history);
-        // ★★★ 跨裝置同步：遠端歷史紀錄優先 ★★★
+        // ★★★ 跨裝置同步：遠端歷史紀錄優先(formKey 為主) ★★★
         APP.historyLog[formKey] = remoteLog;
-        APP.historyLog[id] = remoteLog;
       }catch(e2){}
     }
   }catch(e){
@@ -6180,6 +6210,57 @@ async function loadFormFromSheets(id){
       if(cid==='F15') calcF15Score(getFormKey(cid));
     },200);
   }
+}
+
+/* ─── 清理輔助:過濾掉「裸 id」key(不含底線+學號),只保留 formKey ───
+   裸 id key 不該存在於 APP.formData 或 localStorage 內,因為它是「跨學生共用」的
+   危險空間,容易讓 A 學生看到 B 學生的資料。所有同步、備份、寫入都應只寫 formKey。
+   這個 helper 用於寫入 localStorage 之前先過濾,避免污染重新登入後又被回灌。 */
+function _sanitizeStoreForBackup(store){
+  if(!store) return {};
+  var out={};
+  // 用所有 FORMS 的 id 做黑名單,並排除任何「不含底線」的 key(裸 id 一律有此特徵)
+  var formIds=(typeof FORMS!=='undefined'&&FORMS)?FORMS.map(function(f){return f.id;}):[];
+  var bareSet={}; formIds.forEach(function(x){ bareSet[x]=true; });
+  Object.keys(store).forEach(function(k){
+    if(bareSet[k]) return;          // 命中黑名單 → 跳過
+    if(k.indexOf('_')<0) return;    // 沒有底線 → 視為裸 id 跳過
+    out[k]=store[k];
+  });
+  return out;
+}
+
+/* ─── 一次性深度清理:把記憶體與 localStorage 中所有「裸 id」條目都清掉 ───
+   登入時呼叫一次,確保使用者不會被舊污染影響。 */
+function purgeBareIdContamination(){
+  try{
+    // 清記憶體
+    if(APP.formData){
+      _sanitizeBareIds(APP.formData);
+    }
+    if(APP.historyLog){
+      _sanitizeBareIds(APP.historyLog);
+    }
+    // 清 localStorage
+    ['form_drafts','history_logs'].forEach(function(lsKey){
+      try{
+        var obj=JSON.parse(localStorage.getItem(lsKey)||'{}');
+        var changed=_sanitizeBareIds(obj);
+        if(changed) localStorage.setItem(lsKey, JSON.stringify(obj));
+      }catch(e){}
+    });
+  }catch(e){console.warn('purgeBareIdContamination failed:',e);}
+}
+function _sanitizeBareIds(obj){
+  if(!obj) return false;
+  var formIds=(typeof FORMS!=='undefined'&&FORMS)?FORMS.map(function(f){return f.id;}):[];
+  var bareSet={}; formIds.forEach(function(x){ bareSet[x]=true; });
+  var changed=false;
+  Object.keys(obj).forEach(function(k){
+    if(bareSet[k]){ delete obj[k]; changed=true; return; }
+    if(k.indexOf('_')<0){ delete obj[k]; changed=true; }
+  });
+  return changed;
 }
 
 /* ── 登入時批次從 GAS 拉取該使用者所有表單（跨裝置同步用）── */
@@ -6209,27 +6290,24 @@ async function loadAllFormsFromSheets(){
         // 後端支援新 API → 一次寫入所有表單
         Object.keys(data.forms).forEach(function(fkey){
           var item = data.forms[fkey] || {};
-          // formKey 格式: "F01A_P145001" → baseId = "F01A"
-          var baseId = fkey.split('_')[0];
+          // ★ 只寫 formKey,不寫裸 baseId(避免跨學生污染)
           if(item.formData){
             try{
               var loaded = JSON.parse(item.formData);
               APP.formData[fkey] = loaded;
-              APP.formData[baseId] = Object.assign({}, APP.formData[baseId]||{}, loaded);
             }catch(e){}
           }
           if(item.history){
             try{
               var remoteLog = JSON.parse(item.history);
               APP.historyLog[fkey] = remoteLog;
-              APP.historyLog[baseId] = remoteLog;
             }catch(e){}
           }
         });
-        // 寫回 localStorage 備份
+        // 寫回 localStorage 備份(★ 過濾裸 id,只存帶學號的 formKey)
         try{
-          localStorage.setItem('form_drafts', JSON.stringify(APP.formData));
-          localStorage.setItem('history_logs', JSON.stringify(APP.historyLog));
+          localStorage.setItem('form_drafts', JSON.stringify(_sanitizeStoreForBackup(APP.formData)));
+          localStorage.setItem('history_logs', JSON.stringify(_sanitizeStoreForBackup(APP.historyLog)));
         }catch(e){}
         console.log('[loadAllForms] 一次載入 ' + Object.keys(data.forms).length + ' 份表單');
         return;
@@ -6260,15 +6338,14 @@ async function loadAllFormsFromSheets(){
           if(data.formData){
             try{
               var loaded = JSON.parse(data.formData);
+              // ★ 只寫 formKey,不寫裸 baseId(避免跨學生污染)
               APP.formData[fk] = loaded;
-              APP.formData[baseId] = Object.assign({}, APP.formData[baseId]||{}, loaded);
             }catch(e){}
           }
           if(data.history){
             try{
               var remoteLog = JSON.parse(data.history);
               APP.historyLog[fk] = remoteLog;
-              APP.historyLog[baseId] = remoteLog;
             }catch(e){}
           }
         }catch(e){}
@@ -6279,8 +6356,9 @@ async function loadAllFormsFromSheets(){
   await Promise.all(loadPromises);
 
   try{
-    localStorage.setItem('form_drafts', JSON.stringify(APP.formData));
-    localStorage.setItem('history_logs', JSON.stringify(APP.historyLog));
+    // ★ 寫回 localStorage 時過濾掉裸 id,只保留帶學號的 formKey,避免污染
+    localStorage.setItem('form_drafts', JSON.stringify(_sanitizeStoreForBackup(APP.formData)));
+    localStorage.setItem('history_logs', JSON.stringify(_sanitizeStoreForBackup(APP.historyLog)));
   }catch(e){}
 }
 
@@ -8681,10 +8759,14 @@ function signRow(fid,sKey,tKey,canT,tLabel){
   var d=APP.formData[fid]||{};
   var sDateKey=sKey+'_date';
   var tDateKey=tKey+'_date';
-  // 學生自動帶入
-  if(APP.currentRole==='student'&&APP.currentUser&&!d[sKey]){
+  // 學生自動帶入(★ 強制:若值不是本人姓名一律覆蓋,避免舊污染殘留)
+  if(APP.currentRole==='student'&&APP.currentUser){
+    var myName=APP.currentUser.name;
     if(!APP.formData[fid])APP.formData[fid]={};
-    APP.formData[fid][sKey]=APP.currentUser.name;
+    if(d[sKey]!==myName){
+      APP.formData[fid][sKey]=myName;
+      d[sKey]=myName;
+    }
   }
   var sStudents=getStudentList();
   var sTeachers=getTeacherList();
@@ -8706,10 +8788,14 @@ function studentSignRow(fid, sKey){
   var canKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
   var d=APP.formData[canKey]||{};
   var sDateKey=sKey+'_date';
-  // 學生自動帶入
-  if(APP.currentRole==='student'&&APP.currentUser&&!d[sKey]){
+  // 學生自動帶入(★ 強制:若值不是本人姓名,一律改為本人,避免舊污染殘留顯示成別人)
+  if(APP.currentRole==='student'&&APP.currentUser){
+    var myName=APP.currentUser.name;
     if(!APP.formData[canKey])APP.formData[canKey]={};
-    APP.formData[canKey][sKey]=APP.currentUser.name;
+    if(d[sKey]!==myName){
+      APP.formData[canKey][sKey]=myName;
+      d[sKey]=myName;
+    }
   }
   var sStudents=getStudentList();
   var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
@@ -9052,12 +9138,15 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
     sn=APP.currentUser.name;
     if(!APP.formData[fid])APP.formData[fid]={};
     // 記憶體中帶入（讓 send/PDF 能讀到正確值）— 但「不」寫到草稿/雲端
-    if(!d['s_name']){
+    // ★ 強制覆蓋:若 s_name / s_sign 不是當前學生本人(來自舊污染殘留),
+    //   一律改為本人姓名,避免顯示成別人的名字。
+    if(d['s_name']!==sn){
       APP.formData[fid]['s_name']=sn;
+      d['s_name']=sn;
     }
-    // 自動填入 s_sign（學生簽名與姓名相同；同樣不寫草稿）
-    if(!d['s_sign']){
+    if(d['s_sign']!==sn){
       APP.formData[fid]['s_sign']=sn;
+      d['s_sign']=sn;
     }
     // 學生若有預設學校，也僅帶入記憶體（不寫草稿）
     if(!d['school'] && APP.currentUser.school){
