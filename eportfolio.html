@@ -9226,17 +9226,26 @@ function f01Click(btn){
   var isTeacher=btn.getAttribute('data-teacher')==='1';
   var role=isTeacher?'t':'s';
 
-  // 先更新 inline style（F01A/F01B 按鈕用 inline style，不是 CSS class）
+  // ★ 偵測「再點同一值 = 清除」
+  //   F01B/F01A 用 inline style 染色,需要先從資料判斷「目前是不是這個值」,
+  //   不能只看 DOM(因為按鈕 DOM 同 rkey 有 4 個,要看資料才準)
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var targetKey = (typeof getCanonicalKey==='function') ? getCanonicalKey(bareId) : fid;
+  var curVal = (APP.formData[targetKey] && APP.formData[targetKey][key]) || '';
+  var isToggleOff = (curVal && curVal===val);
+
+  // 更新 inline style(F01A/F01B 按鈕用 inline style 不是 CSS class)
   var selBg=isTeacher?'#C0392B':'#2471A3';
   document.querySelectorAll('[data-rkey="'+key+'"]').forEach(function(b){
-    var isSel=(b.getAttribute('data-rval')===val);
-    b.style.background=isSel?selBg:'#fff';
-    b.style.color=isSel?'#fff':'#7A706A';
-    b.style.fontWeight=isSel?'700':'400';
-    b.style.borderColor=isSel?selBg:'#D4C9BB';
+    // 清除時所有按鈕都回到未選樣式;否則只有對應 val 的按鈕變色
+    var shouldSel = (!isToggleOff && b.getAttribute('data-rval')===val);
+    b.style.background=shouldSel?selBg:'#fff';
+    b.style.color=shouldSel?'#fff':'#7A706A';
+    b.style.fontWeight=shouldSel?'700':'400';
+    b.style.borderColor=shouldSel?selBg:'#D4C9BB';
   });
 
-  // 再存資料
+  // 再存資料(由 setRating 內部處理「再點清除」的資料層邏輯)
   setRating(fid,key,val,role,btn);
 }
 
