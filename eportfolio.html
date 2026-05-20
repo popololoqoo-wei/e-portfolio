@@ -6022,6 +6022,16 @@ function getTeacherMissingFields(formId){
     // DOPS 評核項目:D01_i1 → DOPS 評核項目 1
     var dm=k.match(/^(D\d+)_i(\d+)$/);
     if(dm) return 'DOPS 評核項目 '+dm[2];
+    // F14 個案報告 PPT 評分:f14_sc_0 → PPT 評分項目 1
+    if(k.indexOf('f14_sc_')===0) return 'PPT 評分項目 '+(parseInt(k.slice(7),10)+1);
+    // F01B 指導者評核:f01_p1_0 → 核心技能評核 1
+    if(k.indexOf('f01_p1_')===0) return '核心技能評核 '+(parseInt(k.slice(7),10)+1);
+    // F01A 學前評值:f01_pre_X → 學前自評項目 N+1
+    if(k.indexOf('f01_pre_')===0) return '學前自評項目 '+(parseInt(k.slice(8),10)+1);
+    // F01B 學生自評:f01_post_X → 學後自評項目 N+1
+    if(k.indexOf('f01_post_')===0) return '學後自評項目 '+(parseInt(k.slice(9),10)+1);
+    // EPA 臨床情境(老師勾選):e01_sc → EPA 臨床情境
+    if(k.indexOf('e01_sc')===0||k.indexOf('e02_sc')===0||k.indexOf('e03_sc')===0) return 'EPA 臨床情境';
     // F0X 系列:f04_0、f06_3、f07_5 → 評估項目 N+1
     var fm=k.match(/^f(\d+)_(\d+)$/);
     if(fm) return '評估項目 '+(parseInt(fm[2],10)+1);
@@ -6075,8 +6085,8 @@ function teacherConfirmLeaveIfIncomplete(formId){
   var msg='⚠ 老師必填欄位尚未完成\n\n'+
           '表單:'+fname+'\n'+
           '未填欄位('+missing.length+'):'+preview+'\n\n'+
-          '直接離開將不會儲存這些欄位。\n'+
-          '建議您回到表單填完後再按「儲存表單」。\n\n'+
+          '✅ 您剛剛填寫的內容會自動保留為草稿,下次回到此表單仍能繼續編輯。\n'+
+          '⚠ 但表單尚未完成,建議補齊未填欄位後按「儲存表單」正式送出。\n\n'+
           '是否仍要離開?';
   return confirm(msg);
 }
