@@ -12466,6 +12466,12 @@ function renderAdmin(){
           var failedHtml = '';
           if(r.failed && r.failedList && r.failedList.length){
             failedHtml = '<div style="margin-top:6px;font-size:11px;color:#7F1D1D;max-height:100px;overflow:auto;background:#fff;border:1px dashed #FCA5A5;border-radius:4px;padding:6px 8px;"><b>失敗清單：</b><br>'+r.failedList.map(esc).join('<br>')+'</div>';
+            // ★ 失敗時提供兩個救援按鈕,不必整批重清
+            failedHtml += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">'
+              + '<button onclick="retryFailedClearList()" style="padding:5px 12px;background:#DC2626;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">🔁 只重試這 '+r.failedList.length+' 筆</button>'
+              + '<button onclick="verifyFailedClearList()" style="padding:5px 12px;background:#0891B2;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">🔍 驗證雲端是否真的有殘留</button>'
+              + '<span style="font-size:10px;color:#7F1D1D;align-self:center;">(GAS 偶爾有延遲,常見「驗證後其實是空的」)</span>'
+              + '</div>';
           }
           return '<div id="last-clear-result" style="background:'+bg+';border:2px solid '+border+';border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">'
             + '<div style="font-size:20px;line-height:1;">'+icon+'</div>'
@@ -13171,6 +13177,183 @@ async function clearAllStudentForms(){
     alert('⚠ 學生「'+name+'」（'+sid+'）有 '+failed.length+' 份雲端資料對帳失敗，可能未清乾淨：\n\n'+failed.join('\n')+'\n\n建議：\n1. 檢查網路與 GAS_WRITE_SECRET 是否正確\n2. 直接打開 Google Sheets 手動清除這些列\n3. 或再次按下清除按鈕重試');
   }
   // 重新渲染管理頁,顯示最後清除結果面板
+  if(typeof renderAdmin==='function') setTimeout(renderAdmin, 300);
+}
+
+/* ─── 只重試上次清除失敗的那幾筆 ───
+ * 用途:大批清除後若有少數筆對帳失敗(常見原因是 GAS 那一瞬間有延遲),
+ *      使用者不必整批 160 筆重清,只要針對失敗清單再跑一輪即可。
+ * 每筆會用更多次重試(5 次,比原本 3 次更積極),且仍走並行批次處理。 */
+async function retryFailedClearList(){
+  var r = APP._lastClearResult;
+  if(!r || !r.failedList || r.failedList.length===0){
+    toast('沒有失敗清單可重試');
+    return;
+  }
+  if(!confirm('將重試 '+r.failedList.length+' 筆失敗的清除動作。\n\n每筆會嘗試最多 5 次清除+對帳,通常 10-30 秒內完成。\n\n確定要重試?')) return;
+
+  var list = r.failedList.slice();
+  var stillFailed = [];
+  // 用更積極的重試(maxRetries=5)
+  showClearProgressPanel('重試失敗清單', list.length);
+  updateClearProgressPanel(0, list.length, 0, 0);
+  var done = 0, startTs = Date.now();
+  for(var i=0; i<list.length; i+=4){
+    var batch = list.slice(i, i+4); // 失敗清單通常很少筆,每批 4 筆即可
+    var results = await Promise.all(batch.map(function(fk){
+      return clearCloudFormDataVerified(fk, 5).then(function(r2){
+        return {fk:fk, ok:r2.ok};
+      }).catch(function(){
+        return {fk:fk, ok:false};
+      });
+    }));
+    results.forEach(function(res){
+      done++;
+      if(!res.ok) stillFailed.push(res.fk);
+    });
+    var elapsed = Math.round((Date.now()-startTs)/1000);
+    var remain = Math.max(0, Math.round(elapsed/Math.max(1,done)*(list.length-done)));
+    updateClearProgressPanel(done, list.length, stillFailed.length, remain);
+  }
+  hideClearProgressPanel();
+
+  // 同步清除本機殘留(如果有的話)
+  list.forEach(function(k){
+    if(stillFailed.indexOf(k)<0){
+      delete APP.formData[k];
+      delete APP.historyLog[k];
+    }
+  });
+  try{
+    var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    var hLogs = JSON.parse(localStorage.getItem('history_logs')||'{}');
+    list.forEach(function(k){
+      if(stillFailed.indexOf(k)<0){
+        delete drafts[k];
+        delete hLogs[k];
+      }
+    });
+    localStorage.setItem('form_drafts', JSON.stringify(drafts));
+    localStorage.setItem('history_logs', JSON.stringify(hLogs));
+  }catch(e){}
+
+  // 更新結果面板
+  if(stillFailed.length===0){
+    APP._lastClearResult = {
+      ok: true,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '重試後全部成功 (原本範圍:'+(r.type||'未知')+')',
+      total: r.total,
+      success: r.total,
+      failed: 0,
+      failedList: []
+    };
+    alert('✅ 重試成功\n\n'+list.length+' 筆全部已清除並通過對帳。');
+  } else {
+    APP._lastClearResult = {
+      ok: false,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '重試後仍有失敗 (原本範圍:'+(r.type||'未知')+')',
+      total: r.total,
+      success: r.total - stillFailed.length,
+      failed: stillFailed.length,
+      failedList: stillFailed
+    };
+    alert('⚠ 重試後仍有 '+stillFailed.length+' 筆失敗:\n\n'+stillFailed.join('\n')+'\n\n建議:\n1. 用「🔍 驗證雲端是否真的有殘留」確認是否雲端其實已空(常見 GAS 延遲)\n2. 或直接到 Google Sheets 手動清除這幾列');
+  }
+  if(typeof renderAdmin==='function') setTimeout(renderAdmin, 300);
+}
+
+/* ─── 只驗證失敗清單在雲端是否真的還有資料 ───
+ * 不做寫入,只讀取對帳。常見情境:GAS 寫入成功了但 verify 那一瞬間還沒落地,
+ * 隔幾秒重讀一次發現其實已經空了。這個按鈕讓使用者不必再清一次就能知道實況。 */
+async function verifyFailedClearList(){
+  var r = APP._lastClearResult;
+  if(!r || !r.failedList || r.failedList.length===0){
+    toast('沒有失敗清單可驗證');
+    return;
+  }
+  showClearProgressPanel('驗證雲端狀態', r.failedList.length);
+  updateClearProgressPanel(0, r.failedList.length, 0, 0);
+
+  var actuallyEmpty = []; // 雲端實際已空的
+  var stillHasData = []; // 雲端確實還有資料的
+  var done = 0, startTs = Date.now();
+  var list = r.failedList.slice();
+  for(var i=0; i<list.length; i+=4){
+    var batch = list.slice(i, i+4);
+    var results = await Promise.all(batch.map(function(fk){
+      return verifyCloudFormCleared(fk).then(function(isEmpty){
+        return {fk:fk, isEmpty:isEmpty};
+      }).catch(function(){
+        return {fk:fk, isEmpty:false};
+      });
+    }));
+    results.forEach(function(res){
+      done++;
+      if(res.isEmpty) actuallyEmpty.push(res.fk);
+      else stillHasData.push(res.fk);
+    });
+    var elapsed = Math.round((Date.now()-startTs)/1000);
+    var remain = Math.max(0, Math.round(elapsed/Math.max(1,done)*(list.length-done)));
+    updateClearProgressPanel(done, list.length, stillHasData.length, remain);
+  }
+  hideClearProgressPanel();
+
+  // 如果雲端其實已空,自動清掉本機殘留並更新結果面板
+  if(actuallyEmpty.length>0){
+    actuallyEmpty.forEach(function(k){
+      delete APP.formData[k];
+      delete APP.historyLog[k];
+    });
+    try{
+      var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      var hLogs = JSON.parse(localStorage.getItem('history_logs')||'{}');
+      actuallyEmpty.forEach(function(k){
+        delete drafts[k];
+        delete hLogs[k];
+      });
+      localStorage.setItem('form_drafts', JSON.stringify(drafts));
+      localStorage.setItem('history_logs', JSON.stringify(hLogs));
+    }catch(e){}
+  }
+
+  var msg = '🔍 驗證結果\n\n';
+  msg += '檢查 '+list.length+' 筆失敗紀錄,雲端實際狀態:\n';
+  msg += '  ✅ 已空(誤報): '+actuallyEmpty.length+' 筆\n';
+  msg += '  ⚠ 仍有資料: '+stillHasData.length+' 筆\n\n';
+  if(actuallyEmpty.length>0){
+    msg += '已空的這 '+actuallyEmpty.length+' 筆是 GAS 延遲造成的假失敗,雲端其實清乾淨了,已自動從本機草稿移除。\n\n';
+  }
+  if(stillHasData.length>0){
+    msg += '⚠ 雲端確實還有殘留的:\n'+stillHasData.join('\n')+'\n\n建議按「🔁 重試」再清一次,或直接到 Google Sheets 手動處理。';
+  } else {
+    msg += '✅ 所有失敗紀錄都是假警報,實際雲端是乾淨的。可以放心進行下一步測試。';
+  }
+  alert(msg);
+
+  // 更新面板:若全部驗證為空,標為成功
+  if(stillHasData.length===0){
+    APP._lastClearResult = {
+      ok: true,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '驗證後確認已清乾淨 (原本範圍:'+(r.type||'未知')+')',
+      total: r.total,
+      success: r.total,
+      failed: 0,
+      failedList: []
+    };
+  } else {
+    APP._lastClearResult = {
+      ok: false,
+      ts: new Date().toLocaleString('zh-TW'),
+      type: '驗證後仍有殘留 (原本範圍:'+(r.type||'未知')+')',
+      total: r.total,
+      success: r.total - stillHasData.length,
+      failed: stillHasData.length,
+      failedList: stillHasData
+    };
+  }
   if(typeof renderAdmin==='function') setTimeout(renderAdmin, 300);
 }
 
