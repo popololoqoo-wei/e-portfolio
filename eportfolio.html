@@ -5822,7 +5822,12 @@ function _studentFieldGuardHandler(ev){
   ev.stopPropagation();
   // click 還會跑 — 也要阻止後續同事件繼續觸發
   if(typeof ev.stopImmediatePropagation==='function') ev.stopImmediatePropagation();
+  // 取得具體欄位名稱(從 data-key 對應 FIELD_LABELS,找不到時用 key 原文)
+  var _key = el.getAttribute('data-key') || '';
+  var _fieldName = (typeof FIELD_LABELS!=='undefined' && FIELD_LABELS[_key])
+    ? FIELD_LABELS[_key] : _key;
   var msg = '⚠ 修改學生欄位?\n\n' +
+            '您正要修改:' + (_fieldName||'學生欄位') + '\n\n' +
             '此欄位由學生填寫。如果您不是要協助補填,請按取消。\n\n' +
             '確定要修改嗎?';
   if(confirm(msg)){
@@ -6062,8 +6067,11 @@ function armStudentOnlyTeacherWarning(formId){
     if(!formEl) return; // 不是表單欄位 → 放行(例如:返回總覽、儲存、PDF、同步等按鈕)
     ev.preventDefault();
     ev.stopPropagation();
+    // 動態取得當前表單名稱(避免硬編碼導致表單與訊息不符)
+    var _f = (typeof findForm==='function') ? findForm(formId) : null;
+    var _fname = _f ? _f.name : formId;
     var msg='⚠ 提醒:這是學生填寫的表單\n\n'+
-            '此份表單(學習風格自我評估 / 筆試 / 課後測驗)應由學生本人填寫,\n'+
+            '「'+_fname+'」應由學生本人填寫,\n'+
             '老師通常只負責檢視結果,不應代為填寫。\n\n'+
             '若您確定要繼續(例如協助學生補填),請按「確定」;\n'+
             '若只是查看不要填寫,請按「取消」(下次點到學生欄位仍會再次提醒)。';
