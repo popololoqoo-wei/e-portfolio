@@ -4350,7 +4350,13 @@ function getStatus(id){
   const hasRecord=allLogs.length>0;
   function hasRealVal(v){
     if(v===undefined||v===null||v===false) return false;
-    return String(v).trim()!=='';
+    var s = String(v).trim();
+    if(s==='') return false;
+    // ★ 空 JSON 陣列 / 物件視為「沒填」
+    //   例如 F04 的 rt_ind / vent_type checkbox 取消勾選後會留下 "[]",
+    //   不該被誤判為「有實質資料」造成表單變成「草稿中」狀態。
+    if(s==='[]' || s==='{}' || s==='null') return false;
+    return true;
   }
 
   // 輔助：checkField 驗證單一必填欄位
@@ -5942,7 +5948,13 @@ function getTeacherMissingFields(formId){
     if(formKey!==formId) mergeReadOnly(d, allDrafts[formId]||{});
   }catch(e){}
 
-  function hasRealVal(v){ if(v===undefined||v===null||v===false) return false; return String(v).trim()!==''; }
+  function hasRealVal(v){
+    if(v===undefined||v===null||v===false) return false;
+    var s = String(v).trim();
+    if(s==='') return false;
+    if(s==='[]' || s==='{}' || s==='null') return false;
+    return true;
+  }
   function checkField(k){
     var v=d[k];
     if(!hasRealVal(v)) return false;
@@ -14856,7 +14868,7 @@ window.debugStatus=function(id){
   if(f&&f.roles==='both'&&req.indexOf('t_sign')<0) req.push('t_sign');
   // 直接使用 REQUIRED_STUDENT_FIELDS，不再硬寫 override（原本的硬寫已過時）
 
-  function hasRealVal(v){if(v===undefined||v===null||v===false)return false;return String(v).trim()!=='';}
+  function hasRealVal(v){if(v===undefined||v===null||v===false)return false;var s=String(v).trim();if(s==='')return false;if(s==='[]'||s==='{}'||s==='null')return false;return true;}
   function checkField(k){
     var v=d[k];if(!hasRealVal(v))return false;
     if(k==='s_date'){var sv=String(v).trim();if(sv.indexOf(' - ')>=0){var pts=sv.split(' - ');return pts.length===2&&pts[0].trim().length>=8&&pts[1].trim().length>=8;}return sv.length>=8;}
