@@ -5702,13 +5702,36 @@ function lockStudentFields(){
     // 跳過已經處理過的欄位(避免重複綁定)
     if(el.getAttribute('data-student-guarded')==='1') return;
     el.setAttribute('data-student-guarded','1');
-    // 加視覺提示:淡藍色左邊條,讓老師知道這是學生欄位
-    el.style.borderLeft = '3px solid #3B82F6';
-    el.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
-    // 攔截 focus/click — 第一次互動時跳 confirm,確認後才放行
-    el.addEventListener('mousedown', _studentFieldGuardHandler, true);
-    el.addEventListener('keydown', _studentFieldGuardKeyHandler, true);
-    el.addEventListener('focus', _studentFieldGuardFocusHandler, true);
+
+    // ★ radio / checkbox 需要特別處理:
+    //   (1) 視覺提示要套在外層 label(因為 radio 本身的 border-left 看不出來)
+    //   (2) 攔截要同時掛 mousedown + click,因為點 label 時可能繞過 mousedown
+    var isRadioOrCheckbox = (el.type==='radio' || el.type==='checkbox');
+    if(isRadioOrCheckbox){
+      // 視覺提示:給外層 label 加底色與左邊條
+      var parentLabel = el.closest('label');
+      if(parentLabel && !parentLabel.hasAttribute('data-student-label-styled')){
+        parentLabel.setAttribute('data-student-label-styled','1');
+        parentLabel.style.borderLeft = '3px solid #3B82F6';
+        parentLabel.style.background = 'rgba(59,130,246,0.08)';
+        parentLabel.style.paddingLeft = '6px';
+        parentLabel.style.borderRadius = '4px';
+        parentLabel.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
+      }
+      el.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
+      // radio/checkbox:三種事件都要監聽,確保「點 label 文字」也能攔到
+      el.addEventListener('mousedown', _studentFieldGuardHandler, true);
+      el.addEventListener('click', _studentFieldGuardHandler, true);
+      el.addEventListener('keydown', _studentFieldGuardKeyHandler, true);
+    } else {
+      // text/date/textarea/select:邊框視覺提示就夠了
+      el.style.borderLeft = '3px solid #3B82F6';
+      el.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
+      // 攔截 focus/click — 第一次互動時跳 confirm,確認後才放行
+      el.addEventListener('mousedown', _studentFieldGuardHandler, true);
+      el.addEventListener('keydown', _studentFieldGuardKeyHandler, true);
+      el.addEventListener('focus', _studentFieldGuardFocusHandler, true);
+    }
   });
 
   // 對學生欄位的 button(評分按鈕等)也加守護
@@ -5721,30 +5744,45 @@ function lockStudentFields(){
   });
 }
 
-/* mousedown 守護:阻止互動 → 跳 confirm → 確認後解除該元素守護 */
+/* mousedown / click 守護:阻止互動 → 跳 confirm → 確認後解除該元素守護 */
 function _studentFieldGuardHandler(ev){
   var el = ev.currentTarget;
-  // 已確認過 → 放行
+  // 已確認過 → 直接放行(讓 click 走完原本流程)
   if(el.getAttribute('data-student-confirmed')==='1') return;
   // 未確認 → 阻止 + 跳 confirm
   ev.preventDefault();
   ev.stopPropagation();
+  // click 還會跑 — 也要阻止後續同事件繼續觸發
+  if(typeof ev.stopImmediatePropagation==='function') ev.stopImmediatePropagation();
   var msg = '⚠ 修改學生欄位?\n\n' +
             '此欄位由學生填寫。如果您不是要協助補填,請按取消。\n\n' +
             '確定要修改嗎?';
   if(confirm(msg)){
-    // 確認 → 標記此元素已通過,移除攔截
+    // 確認 → 標記此元素已通過,移除所有攔截 handler
     el.setAttribute('data-student-confirmed','1');
     el.removeEventListener('mousedown', _studentFieldGuardHandler, true);
+    el.removeEventListener('click', _studentFieldGuardHandler, true);
     el.removeEventListener('keydown', _studentFieldGuardKeyHandler, true);
     el.removeEventListener('focus', _studentFieldGuardFocusHandler, true);
     // 視覺提示:邊條變橘色(表示已解除守護,正在編輯)
     el.style.borderLeft = '3px solid #F59E0B';
     el.title = '⚠ 已解除守護;您正在修改學生欄位';
-    // 立即聚焦讓使用者開始編輯
-    setTimeout(function(){ try{ el.focus(); }catch(e){} }, 0);
+    // 同步把外層 label 的視覺也改色(radio/checkbox 用)
+    var pl = el.closest('label');
+    if(pl && pl.hasAttribute('data-student-label-styled')){
+      pl.style.borderLeft = '3px solid #F59E0B';
+      pl.style.background = 'rgba(245,158,11,0.08)';
+    }
+    // radio/checkbox:確認後使用者通常還要再點一次才會選中(因為當下這次點擊已被攔)
+    //   給個 toast 提醒,避免使用者以為點了沒反應
+    if(el.type==='radio' || el.type==='checkbox'){
+      try{ toast('✓ 已解除守護,請再點一次以選中'); }catch(e){}
+    } else {
+      // 立即聚焦讓使用者開始編輯(text/textarea/select)
+      setTimeout(function(){ try{ el.focus(); }catch(e){} }, 0);
+    }
   }
-  // 取消 → 不做任何事,保留守護
+  // 取消 → 不做任何事,保留守護(下次點到還會跳)
 }
 
 /* keydown 守護:防止 tab 鍵盤聚焦後直接打字 */
