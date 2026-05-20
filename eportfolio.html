@@ -187,13 +187,30 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   .rating-table th,.rating-table td{padding:4px 3px;font-size:10px;}
   .r-btn{width:24px;height:24px;font-size:9px;}
 
-  /* ─── 手機版 topbar:左區自動縮、右區可換行 ─── */
-  .topbar{padding:6px 10px;height:auto;min-height:52px;gap:8px;}
-  .topbar-left{flex:1;min-width:0;gap:6px;}
+  /* ─── 手機版 topbar:兩排式佈局,避免右區擠壓標題 ───
+   * 桌機版單排:[標題+副標題......][用戶][角色][首頁][同步][登出]
+   * 手機版兩排:
+   *   第一排:[標題 + 副標題]                                  (橫跨整列)
+   *   第二排:[用戶徽章][角色徽章][🏠首頁][🔄同步][登出]      (橫跨整列,右對齊)
+   *
+   * 實作方式:topbar 用 flex-wrap:wrap + 兩個子區各設 width:100%,
+   *          強制兩個子區換行到不同列。
+   *          用 !important 是因為桌機版的 height:56px 會跟手機版的 height:auto 衝突,
+   *          沒 !important 時部分手機瀏覽器(尤其 iOS Safari)的 CSS 解析優先級行為
+   *          可能讓 height:56px 殘留,壓迫兩排式佈局。 */
+  .topbar{
+    padding:6px 10px !important;
+    height:auto !important;
+    min-height:52px !important;
+    gap:4px !important;
+    flex-wrap:wrap !important;
+    align-items:center !important;
+  }
+  .topbar-left{flex:1 1 100% !important;min-width:0;gap:6px;width:100%;}
   .topbar-title{font-size:13px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar-sub{font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .topbar-right{flex-shrink:0;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
-  .user-badge{font-size:10px;padding:3px 8px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .topbar-right{flex:1 1 100% !important;gap:6px;flex-wrap:wrap;justify-content:flex-end;width:100%;}
+  .user-badge{font-size:10px;padding:3px 8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .role-chip{font-size:9px;padding:2px 7px;}
   .logout-btn{padding:4px 10px;font-size:10px;}
 
@@ -794,7 +811,7 @@ input[type="date"]{
     </div>
   </div>
   <!-- 快捷導覽列 -->
-  <div id="quick-nav" style="display:none;background:linear-gradient(180deg,#F8FAFE 0%,#EFF4FB 100%);border-bottom:1px solid var(--border);padding:8px 1rem;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:56px;z-index:150;box-shadow:0 1px 3px rgba(15,23,42,.04);">
+  <div id="quick-nav" style="display:none;background:linear-gradient(180deg,#F8FAFE 0%,#EFF4FB 100%);border-bottom:1px solid var(--border);padding:8px 1rem;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:var(--topbar-h,56px);z-index:150;box-shadow:0 1px 3px rgba(15,23,42,.04);">
     <button onclick="renderFormList()" class="qnav-btn qnav-overview">📋 總覽</button>
     <button onclick="renderStatusSection('new')" class="qnav-btn qnav-new">⭕ 未填 <b id="qnav-new-cnt">-</b> 份</button>
     <button onclick="renderStatusSection('draft')" class="qnav-btn qnav-draft" title="尚未完成的表單（包含未儲存的、以及已儲存但必填欄位還沒填齊的）">✏️ 草稿中(未完成) <b id="qnav-draft-cnt">-</b> 份</button>
