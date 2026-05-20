@@ -5361,6 +5361,9 @@ async function openForm(id){
   // 自動為每張 card 套上學生藍／老師紅／混合色
   try{ applyCardColors(); }catch(e){console.warn('applyCardColors failed:',e);}
 
+  // ★ 為所有 radio 啟用「再點同一值就清除」功能
+  try{ enableRadioToggleClear(); }catch(e){console.warn('enableRadioToggleClear failed:',e);}
+
   // 360度評估表：初始化自動計算
   if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
   setTimeout(function(){
@@ -5667,6 +5670,71 @@ function lockTeacherFields(){
       hdr.parentNode.insertBefore(newLb,hdr.nextSibling);
     }
   }
+}
+
+/* ═══════════ Radio 「再點同一值就清除」工具 ═══════════
+ * 設計目的:radio 按鈕原生不能取消選擇,只能改選別的。這對「填錯想清空」很不便。
+ * 行為:
+ *  - 第一次點 radio → 正常選中(原本的 change 事件照走)
+ *  - 第二次再點同一個 radio → 取消選中,清除資料,所有同 name 的 radio 都 unchecked
+ * 觸發時機:在 openForm 完成後呼叫(每個表單渲染後都要套用一次)
+ * 範圍:含 data-key 屬性的 radio(避免動到非表單用的 radio,例如 PIN 解鎖區的) */
+function enableRadioToggleClear(){
+  var mc = document.getElementById('main-content');
+  if(!mc) return;
+  mc.querySelectorAll('input[type="radio"][data-key]').forEach(function(r){
+    if(r.getAttribute('data-toggle-clear-armed')==='1') return;
+    r.setAttribute('data-toggle-clear-armed','1');
+    // mousedown 觸發時記住「點之前是否已 checked」,因為 click handler 跑時 radio 已被選中,
+    // 無法分辨「原本就選中還是這次點才選中」
+    r.addEventListener('mousedown', function(){
+      r.setAttribute('data-was-checked', r.checked?'1':'0');
+    }, true);
+    // click 觸發時若「點之前已 checked」 → 視為使用者要取消,unchecked 並清除資料
+    r.addEventListener('click', function(ev){
+      if(r.getAttribute('data-was-checked')!=='1') return;
+      // 取消選中
+      r.checked = false;
+      // 取消所有同 name 的 radio(理論上其他本來就沒選,但保險)
+      var name = r.getAttribute('name');
+      if(name){
+        document.getElementsByName(name).forEach(function(other){
+          if(other.type==='radio') other.checked = false;
+        });
+      }
+      // 清除資料:從 APP.formData 與 localStorage 草稿刪掉這個 key
+      var key = r.getAttribute('data-key');
+      var fid = r.getAttribute('data-fid') || (APP.currentFormId||'');
+      if(key && fid){
+        var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+        var targetKey = (typeof getCanonicalKey==='function')
+          ? getCanonicalKey(bareId)
+          : (APP.currentStudentId ? bareId+'_'+APP.currentStudentId : bareId);
+        if(APP.formData[targetKey]) delete APP.formData[targetKey][key];
+        // 順便清掉裸 id 殘留
+        if(APP.formData[bareId]) delete APP.formData[bareId][key];
+        try{
+          var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+          if(drafts[targetKey]) delete drafts[targetKey][key];
+          if(drafts[bareId]) delete drafts[bareId][key];
+          localStorage.setItem('form_drafts', JSON.stringify(drafts));
+        }catch(e){}
+        // 觸發自動儲存,讓「清除」也能同步到雲端
+        if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
+        // ★ 若有對應的「即時重算」函式,清除後也要重算(F16 分數、360 度分數等)
+        try{
+          if(key.indexOf('f16_q_')===0 && typeof calcF16AndRender==='function'){
+            calcF16AndRender(fid);
+          }
+          if(key.indexOf('f07_')===0 && typeof calc360Score==='function'){
+            calc360Score(fid);
+          }
+        }catch(e){ console.warn('post-clear recalc failed:', e); }
+      }
+      // toast 提示
+      try{ toast('✓ 已清除此選擇'); }catch(e){}
+    }, true);
+  });
 }
 
 /* ═══════════ 老師端:防誤改學生欄位(B 方案 — 點擊提醒)═══════════
@@ -9070,21 +9138,37 @@ function setRating(fid,key,val,role,btn){
   var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
   var targetKey = getCanonicalKey(bareId);
   if(!APP.formData[targetKey])APP.formData[targetKey]={};
-  APP.formData[targetKey][key]=val;
+  // ★ 「再點同一值 = 清除」:若目前已選中就是這個 val,點下去視為取消
+  var curVal = APP.formData[targetKey][key];
+  var isToggleOff = (curVal!==undefined && curVal!==null && curVal!=='' && (curVal==val || curVal===String(val)));
+  if(isToggleOff){
+    delete APP.formData[targetKey][key];
+  } else {
+    APP.formData[targetKey][key]=val;
+  }
   // localStorage
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(!drafts[targetKey])drafts[targetKey]={};
-    drafts[targetKey][key]=val;
+    if(isToggleOff){
+      delete drafts[targetKey][key];
+    } else {
+      drafts[targetKey][key]=val;
+    }
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
   // Update button visuals
   document.querySelectorAll('[data-rkey="'+key+'"]').forEach(function(b){
     b.classList.remove('sel-s','sel-t','sel-a');
-    if(b.dataset.rval==val||b.dataset.rval===String(val)){
+    // 清除後所有按鈕都不選中;否則只有對應 val 的按鈕選中
+    if(!isToggleOff && (b.dataset.rval==val||b.dataset.rval===String(val))){
       b.classList.add(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s');
     }
   });
+  // 清除時跳 toast 提示
+  if(isToggleOff){
+    try{ toast('✓ 已清除此項評分'); }catch(e){}
+  }
   // ★ 觸發自動儲存
   if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
@@ -10658,8 +10742,20 @@ function buildDOPS(f,d,canT,fkey,canS){
   return h;
 }
 function setDOPS(fid,key,val,btn){
-  // 防呆：點選 1-4分顯示警示
-  if(typeof val==='number'&&val<=4){
+  // ★ 統一寫入 canonical formKey
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var targetKey = getCanonicalKey(bareId);
+  if(!APP.formData[targetKey])APP.formData[targetKey]={};
+  // ★ 「再點同一值 = 清除」
+  var curVal = APP.formData[targetKey][key];
+  var isToggleOff = (curVal!==undefined && curVal!==null && curVal!=='' && (curVal==val || curVal===String(val)));
+  if(isToggleOff){
+    delete APP.formData[targetKey][key];
+  } else {
+    APP.formData[targetKey][key]=val;
+  }
+  // 防呆：點選 1-4分顯示警示(只在實際選了 1-4 才提醒,清除時不提醒)
+  if(!isToggleOff && typeof val==='number' && val<=4){
     var existing=document.getElementById('dops-warn-toast');
     if(!existing){
       existing=document.createElement('div');
@@ -10671,25 +10767,31 @@ function setDOPS(fid,key,val,btn){
     existing.style.display='block';
     setTimeout(function(){if(existing)existing.style.display='none';},4000);
   }
-  // ★ 統一寫入 canonical formKey
-  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
-  var targetKey = getCanonicalKey(bareId);
-  if(!APP.formData[targetKey])APP.formData[targetKey]={};
-  APP.formData[targetKey][key]=val;
   // localStorage 同步
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(!drafts[targetKey])drafts[targetKey]={};
-    drafts[targetKey][key]=val;
+    if(isToggleOff){
+      delete drafts[targetKey][key];
+    } else {
+      drafts[targetKey][key]=val;
+    }
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
+  // 更新按鈕視覺
   const row=btn.closest('tr');
-  row.querySelectorAll('.d-btn').forEach(b=>{
-    const v=b.dataset.rval;
-    const match=(v==val||v===String(val));
-    b.classList.toggle('sel',match);
-    b.textContent=match?'●':'';
-  });
+  if(row){
+    row.querySelectorAll('.d-btn').forEach(b=>{
+      const v=b.dataset.rval;
+      const match=(!isToggleOff && (v==val||v===String(val)));
+      b.classList.toggle('sel',match);
+      b.textContent=match?'●':'';
+    });
+  }
+  // 清除時跳 toast 提示
+  if(isToggleOff){
+    try{ toast('✓ 已清除此項評核'); }catch(e){}
+  }
   // ★ 觸發自動儲存
   if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
@@ -10788,18 +10890,33 @@ function setEPA(fid,lv,fid2){
   var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
   var targetKey = getCanonicalKey(bareId);
   if(!APP.formData[targetKey])APP.formData[targetKey]={};
-  APP.formData[targetKey]['epa_level']=lv;
+  // ★ 「再點同一 Level = 清除」— EPA 是正式評核,清除需要確認
+  var curLv = APP.formData[targetKey]['epa_level'];
+  var isToggleOff = (curLv!==undefined && curLv!==null && curLv!=='' && (curLv==lv || curLv===String(lv)));
+  if(isToggleOff){
+    if(!confirm('⚠ 確認清除此份 EPA 的可信賴等級評定?\n\n目前已選:Level '+curLv+'\n\n清除後評等會回到「未選」狀態,可以重新選擇。\n是否確定清除?')){
+      return; // 使用者取消,不做任何事
+    }
+    delete APP.formData[targetKey]['epa_level'];
+  } else {
+    APP.formData[targetKey]['epa_level']=lv;
+  }
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(!drafts[targetKey])drafts[targetKey]={};
-    drafts[targetKey]['epa_level']=lv;
+    if(isToggleOff){
+      delete drafts[targetKey]['epa_level'];
+    } else {
+      drafts[targetKey]['epa_level']=lv;
+    }
     localStorage.setItem('form_drafts',JSON.stringify(drafts));
   }catch(e){}
   // 更新所有 epa-level div 的視覺狀態
   document.querySelectorAll('[id*="_lv"]').forEach(function(el){
     if(!el.id.startsWith(fid+'_lv')) return;
     var thisLv=el.id.replace(fid+'_lv','');
-    var isSel=thisLv===String(lv);
+    // 清除後所有 Level 都不選中;否則只有對應 lv 的 Level 選中
+    var isSel = (!isToggleOff && thisLv===String(lv));
     // 更新外框樣式
     el.style.borderColor=isSel?'var(--blue)':'var(--border)';
     el.style.background=isSel?'#EBF5FB':'';
@@ -10816,6 +10933,10 @@ function setEPA(fid,lv,fid2){
     // 更新 class
     el.classList.toggle('sel',isSel);
   });
+  // 清除時跳 toast 提示
+  if(isToggleOff){
+    try{ toast('✓ 已清除 EPA 評定等級'); }catch(e){}
+  }
   // ★ 觸發自動儲存
   if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
@@ -11461,13 +11582,28 @@ function examPick(fid, qnum, opt){
   var d=APP.formData[fid]||{};
   // 若已送出（submitted）則禁止再修改
   if(d.submitted){ toast('表單已送出，無法再修改答案'); return; }
-  saveDraftField(fid, 'q'+qnum, opt);
+  // ★ 再點同一選項就清除答案
+  var curAns = d['q'+qnum];
+  var isToggleOff = (curAns && curAns===opt);
+  if(isToggleOff){
+    if(APP.formData[fid]) delete APP.formData[fid]['q'+qnum];
+    try{
+      var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      if(drafts[fid]) delete drafts[fid]['q'+qnum];
+      localStorage.setItem('form_drafts', JSON.stringify(drafts));
+    }catch(e){}
+    var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+    if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
+    toast('✓ 已清除第 '+qnum+' 題答案');
+  } else {
+    saveDraftField(fid, 'q'+qnum, opt);
+  }
   // 重繪該題的選項按鈕外觀（避免整張表重繪造成捲動跳位）
   for(var i=0;i<4;i++){
     var L=['A','B','C','D'][i];
     var btn=document.querySelector('button[data-exam-q="'+fid+'-'+qnum+'-'+L+'"]');
     if(btn){
-      if(L===opt){
+      if(!isToggleOff && L===opt){
         btn.style.background='#2563EB';
         btn.style.color='#fff';
         btn.style.borderColor='#1E40AF';
@@ -11481,8 +11617,9 @@ function examPick(fid, qnum, opt){
   // 更新進度提示
   var prog=document.getElementById('exam-progress-'+fid);
   if(prog){
+    var d2 = APP.formData[fid] || {};
     var cnt=0;
-    for(var k=1;k<=EXAM_QUESTIONS.length;k++){ if(d['q'+k]) cnt++; }
+    for(var k=1;k<=EXAM_QUESTIONS.length;k++){ if(d2['q'+k]) cnt++; }
     prog.textContent='已作答 '+cnt+' / '+EXAM_QUESTIONS.length+' 題';
   }
 }
@@ -11912,13 +12049,31 @@ function courseTestPick(fid, qnum, opt){
     toast('表單已送出，無法再修改答案');
     return;
   }
-  saveDraftField(fid, 'q'+qnum, opt);
+  // ★ 再點同一選項就清除答案
+  var curAns = d['q'+qnum];
+  var isToggleOff = (curAns && curAns===opt);
+  if(isToggleOff){
+    // 從 formData 與 localStorage 草稿都刪掉
+    if(APP.formData[fid]) delete APP.formData[fid]['q'+qnum];
+    try{
+      var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      if(drafts[fid]) delete drafts[fid]['q'+qnum];
+      localStorage.setItem('form_drafts', JSON.stringify(drafts));
+    }catch(e){}
+    // 觸發自動儲存
+    var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+    if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
+    toast('✓ 已清除第 '+qnum+' 題答案');
+  } else {
+    saveDraftField(fid, 'q'+qnum, opt);
+  }
   // 重繪該題的選項按鈕
   for(var i=0; i<4; i++){
     var L = ['A','B','C','D'][i];
     var btn = document.querySelector('button[data-coursetest-q="'+fid+'-'+qnum+'-'+L+'"]');
     if(btn){
-      if(L === opt){
+      // 清除後所有選項回到未選狀態;否則只有 opt 變藍
+      if(!isToggleOff && L === opt){
         btn.style.background = '#2563EB';
         btn.style.color = '#fff';
         btn.style.borderColor = '#1E40AF';
@@ -11934,9 +12089,10 @@ function courseTestPick(fid, qnum, opt){
   if(prog){
     var bank = getCourseTestBank(fid);
     if(bank){
+      var d2 = APP.formData[fid] || {};
       var cnt = 0;
       for(var k=1; k<=bank.questions.length; k++){
-        if(d['q'+k]) cnt++;
+        if(d2['q'+k]) cnt++;
       }
       prog.textContent = '已作答 ' + cnt + ' / ' + bank.questions.length + ' 題';
     }
