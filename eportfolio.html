@@ -4990,12 +4990,13 @@ async function openForm(id){
   // 合併所有可能 key 的資料到 formKey
   function mergeAllKeys(){
     if(!APP.formData[formKey])APP.formData[formKey]={};
-    // 合併目標：永遠是 formKey
-    // 來源 keys（除 formKey 自己外）：裸 id、其他可能殘留的 key
+    // ★★★ 修正:絕對不可以把「其他學生」的同表單資料合併進來 ★★★
+    // 合併來源「只允許」：
+    //   (1) 裸 id（舊版未含學號的殘留資料,由 migration 搬入當前學生）
+    //   (2) 當前 formKey 本身
+    // 嚴禁使用 k.startsWith(id+'_') 之類的廣域匹配——這會把 D01_<其他學號>
+    // 的資料也掃進來,造成切換學生時看到別人的資料(本表單跨學生外洩 bug)。
     var keysToMerge=[id, formKey];
-    Object.keys(APP.formData).forEach(function(k){
-      if(k===id||k.startsWith(id+'_')||k===formKey) keysToMerge.push(k);
-    });
     keysToMerge=keysToMerge.filter(function(v,i,a){return a.indexOf(v)===i;});
 
     // ★ 改用「非空值優先」合併：來源的空字串/null/undefined 不能覆蓋 formKey 已有的有效值
@@ -13808,7 +13809,7 @@ window.debugStatus=function(id){
   try{
     var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     Object.keys(allDrafts).forEach(function(k){
-      if(k===id||k===formKey||k.startsWith(id+'_')) Object.assign(dFromDraft,allDrafts[k]);
+      if(k===id||k===formKey) Object.assign(dFromDraft,allDrafts[k]);
     });
   }catch(e){}
   var d=Object.assign({},dFromDraft,dById,dByKey);
