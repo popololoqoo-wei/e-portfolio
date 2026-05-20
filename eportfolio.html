@@ -145,8 +145,12 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 /* ─── F16 表頭:用 fixed 浮動表頭(不用 sticky,因為 sticky 在 <th> 上會被 <table> 困住) ─── */
 /* 原始表頭:正常 thead,沒有 sticky */
 .sticky-th{background:#1A3A5C !important;background-clip:padding-box;color:#fff;padding:5px 6px !important;border:1px solid #DDD;border-bottom:3px solid #B8860B;}
-/* 浮動表頭:fixed 在 topbar 下方,JS 控制顯示/隱藏與寬度 */
-.f16-floating-thead{position:fixed;left:0;right:0;top:var(--topbar-h);z-index:90;background:#1A3A5C;color:#fff;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);display:none;pointer-events:none;}
+/* 浮動表頭:fixed 在 topbar + quick-nav 下方,JS 控制顯示/隱藏與寬度
+   ★ top 用 CSS 變數 --f16-fh-top,由 JS 動態量測 (topbar + quick-nav) 後設定,
+     避免硬寫像素造成手機版換行時遮住狀態列。
+   ★ z-index 145 — 比 quick-nav (150) 低,確保 quick-nav 永遠在浮動表頭上方;
+     比一般內容高,確保浮動表頭不被內容遮住。 */
+.f16-floating-thead{position:fixed;left:0;right:0;top:var(--f16-fh-top,calc(var(--topbar-h) + 44px));z-index:145;background:#1A3A5C;color:#fff;border-bottom:3px solid #B8860B;box-shadow:0 6px 8px -2px rgba(0,0,0,.25);display:none;pointer-events:none;}
 .f16-floating-thead.show{display:block;}
 .f16-floating-thead table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed;}
 .f16-floating-thead th{background:#1A3A5C;color:#fff;padding:5px 6px;border:1px solid rgba(255,255,255,.1);text-align:center;font-weight:600;}
@@ -11724,17 +11728,27 @@ function initF16FloatingHeader(){
   function onScroll(){
     var rect = origThead.getBoundingClientRect();
     var topbarH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))||56;
-    // 原表頭被 topbar 蓋到時,顯示浮動表頭
-    if(rect.top < topbarH && rect.bottom > topbarH){
-      // 原表頭剛好被 topbar 覆蓋一部分,還是顯示
+    // ★ 動態量測 quick-nav(未填/草稿/已完成 狀態列)的實際高度,
+    //   避免硬寫像素導致手機版換行時遮住狀態列。
+    //   只計算「實際可見」的高度(display:none 時為 0)。
+    var qnav = document.getElementById('quick-nav');
+    var qnavH = 0;
+    if(qnav && qnav.offsetParent !== null){  // offsetParent 為 null 代表 display:none
+      qnavH = qnav.getBoundingClientRect().height || 0;
+    }
+    var stickyH = topbarH + qnavH;  // 頂部黏住區的總高度
+    // 把 --f16-fh-top 寫到 root,讓 CSS 浮動表頭定位正確
+    document.documentElement.style.setProperty('--f16-fh-top', stickyH + 'px');
+    // 原表頭被 sticky 區蓋到時,顯示浮動表頭(改用 stickyH 而非 topbarH)
+    if(rect.top < stickyH && rect.bottom > stickyH){
       floating.classList.add('show');
       syncWidths();
-    } else if(rect.bottom <= topbarH){
-      // 原表頭完全滾到 topbar 上方,繼續顯示浮動表頭
+    } else if(rect.bottom <= stickyH){
+      // 原表頭完全滾到 sticky 區上方,繼續顯示浮動表頭
       floating.classList.add('show');
       syncWidths();
     } else {
-      // 原表頭還在 topbar 下方,不顯示浮動表頭(避免重複)
+      // 原表頭還在 sticky 區下方,不顯示浮動表頭(避免重複)
       floating.classList.remove('show');
     }
   }
