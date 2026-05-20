@@ -5760,20 +5760,33 @@ function armStudentOnlyTeacherWarning(formId){
   mc.setAttribute('data-student-only-warn-form', formId);
   mc.setAttribute('data-student-only-warn-shown', '0');
 
-  // 攔截整個 main-content 的 mousedown(capture 階段) — 任何 input/select/textarea/button 第一次互動都先跳警示
+  /* 判斷:此元素是否為「真的會修改表單資料」的學生欄位元素
+   * 必須同時符合:
+   *  (1) 是 input / textarea / select / button
+   *  (2) 帶有 data-key / data-rkey(代表它是表單欄位,不是頁面導覽按鈕)
+   *  (3) 不是「返回總覽」、「儲存表單」、PDF、同步等「動作按鈕」
+   *      → 沒 data-key/data-rkey 一律當動作按鈕看待,放行
+   * 這樣可以避免老師按「返回總覽」也被攔截。 */
+  function isFormFieldElement(el){
+    if(!el) return false;
+    var tag=(el.tagName||'').toLowerCase();
+    if(tag!=='input'&&tag!=='textarea'&&tag!=='select'&&tag!=='button') return false;
+    // 必須帶有 data-key 或 data-rkey,代表它是表單欄位(非動作按鈕/導覽連結)
+    var hasKey=el.hasAttribute('data-key')||el.hasAttribute('data-rkey');
+    return hasKey;
+  }
+
+  // 攔截整個 main-content 的 mousedown(capture 階段) — 任何「表單欄位元素」第一次互動才跳警示
   function handler(ev){
     // 若已通過警示 → 直接放行
     if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
     var target=ev.target;
     if(!target) return;
-    // 只有點到「可互動」元素才攔截;點到一般文字、容器、表頭等不攔
-    var tag=(target.tagName||'').toLowerCase();
-    var isInteractive=(tag==='input'||tag==='textarea'||tag==='select'||tag==='button');
-    // 也檢查父層(例如按鈕內的 <span>)
-    if(!isInteractive){
-      var p=target.closest&&target.closest('input,textarea,select,button');
-      if(!p) return;
-    }
+    // 找最近的「表單欄位元素」;若點到的是按鈕內 <span> 等,往上找
+    var formEl=isFormFieldElement(target)
+      ? target
+      : (target.closest&&target.closest('input[data-key],textarea[data-key],select[data-key],button[data-key],button[data-rkey]'));
+    if(!formEl) return; // 不是表單欄位 → 放行(例如:返回總覽、儲存、PDF、同步等按鈕)
     ev.preventDefault();
     ev.stopPropagation();
     var msg='⚠ 提醒:這是學生填寫的表單\n\n'+
@@ -5791,8 +5804,7 @@ function armStudentOnlyTeacherWarning(formId){
     if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
     var target=ev.target;
     if(!target) return;
-    var tag=(target.tagName||'').toLowerCase();
-    if(tag!=='input'&&tag!=='textarea'&&tag!=='select') return;
+    if(!isFormFieldElement(target)) return; // 非表單欄位 → 放行
     // 允許 Tab 鍵跳轉
     if(ev.key==='Tab') return;
     ev.preventDefault();
