@@ -4196,76 +4196,105 @@ const REQUIRED_STUDENT_FIELDS = {
 };
 const TEACHER_FIELDS_KEY = ['t_fb','t_sign','t_comment','t_good','t_improve','epa_level','result','score','director_fb'];
 
-/* 學生欄位 key 列表(老師端開表單時,只對「學生個人專屬」欄位加警示守護)
+/* ═══════════════════════════════════════════════════════════════════
+ *  欄位分類:老師欄位 vs 學生欄位
+ * ═══════════════════════════════════════════════════════════════════
+ * 設計策略:
+ *   1. 列出「明確的老師欄位 key 前綴/完全相符」白名單
+ *   2. 任何不在白名單的有效表單欄位 → 一律視為學生欄位(老師點到要警示)
+ *   3. 這樣只要白名單列齊,就不會誤分類
  *
- * ─── 設計原則(重新分類) ───
- * 「學生個人專屬」= 只有學生本人才該寫的東西,老師代填可能違反評核精神:
- *   - 簽名與簽名日期(電子簽章意義)
- *   - 個人心得、自評、反思、感想(主觀內容)
- *   - 個案報告中由學生撰寫的段落
- *
- * 「中性/臨床基本資料」= 由學生紀錄但實務上老師也常協助填(例如老師先告知床號、診斷):
- *   - s_name、school、intern_cat、s_date、s_date_start/end 等基本欄位
- *   - diagnosis、case_dx、complexity、bed、pt_name、pt_age、pt_dx 等臨床資料
- *   ↑ 這些不放在守護清單,老師可自由編輯不跳警示
- *
- * 任何 data-key 等於下列值,或以這些前綴開頭(例如 's_sign_xxx'),才視為「學生個人專屬欄位」 */
-const STUDENT_FIELDS_KEY = [
-  // ── 簽名類(電子簽章性質,絕對不該由老師代簽) ──
-  's_sign','s_sign_date',
-  // ── 個人主觀內容(心得、自評、反思、感想) ──
-  's_fb','s_note','s_feeling','s_comment','s_self','s_progress','s_detail',
-  // F17/F15 個人反思
-  'reflect_learn','reflect_challenge','reflect_improve','reflect_goal',
-  // 個案報告/書面個案 學生個人撰寫段落
-  'cb_present','cb_history','cb_ph','cb_dx','cb_plan','cb_outcome','cb_reflect',
+ * 為什麼用「老師白名單」而不是「學生黑名單」:
+ *   - 老師欄位數量少且模式固定(t_*、q_*、評分項目等),容易列齊
+ *   - 學生欄位含大量基本資料、臨床資料、各表單客製欄位,難以窮舉
+ *   - 漏列老師欄位 → 老師被誤警示(可發現可修)
+ *     漏列學生欄位 → 老師代填學生欄位卻沒警示(嚴重,等於沒有保護機制)
+ *   - 寧可漏列老師欄位讓老師回報,也不能漏列學生欄位讓老師不察覺
+ */
+
+// 老師欄位:完全相符的 key(直接列舉) — 老師可自由編輯,絕不跳警示
+const TEACHER_EXACT_FIELDS = new Set([
+  // ── 老師簽名類 ──
+  't_sign','t_sign_date','t_sign2','t_sign2_date',
+  // ── 老師回饋/評語類 ──
+  't_fb','t_good','t_improve','t_comment','t_note','t_title','t_date',
+  // ── 指導教師回饋 ──
+  'director_fb',
+  // ── 主持人簽名(roles='both' 表單中常見) ──
+  'host_sign','host_sign_date','host_date','host_note',
+  // ── 其他團隊人員(F08/F09 區段) ──
+  'peer_good','peer_suggest','peer_sign',
+  'team_good','team_suggest','team_sign','team_title',
+  // ── 評核結果/等級 ──
+  'result','score','score_grade','epa_level',
+  // ── 追蹤(F11) ──
+  'follow_date',
+  // ── F10A/B 老師查核題 ──
+  'q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+  // ── F15 加分 ──
+  'bonus',
+  // ── F13 書面個案分項評分(由老師評) ──
+  's1','s2a','s2b','s2c','s2d','s2e','s2f','s2g','s2h',
+]);
+
+// 老師欄位:以這些前綴開頭的 key 都是老師欄位(用於各表單評分項目編號)
+// 例如 f01_p1_0、f01_p1_27、f06_0、f15_att_0 等
+const TEACHER_PREFIX_FIELDS = [
+  // F01B 指導者評核(28 項):f01_p1_0 ~ f01_p1_27
+  'f01_p1_',
+  // F02 臨床表現評估(10 項):f02_0 ~ f02_9
+  'f02_',
+  // F06 CbD 評估項目:f06_0 ~ f06_6
+  'f06_',
+  // F07 360 度評核項目:f07_0 ~ f07_13
+  'f07_',
+  // F13 個案分項評分前綴 s1/s2x(已在 EXACT 列了,但 s2 開頭也是)— 不用前綴免誤中
+  // F14 PPT 評分項目:f14_sc_0 ~ f14_sc_11
+  'f14_sc_',
+  // F15 細項評核
+  'f15_att_','f15_skl_','f15_com_',
+  // EPA 臨床情境(老師勾選):e01_sc、e02_sc、e03_sc(也含 _others、_check)
+  'e01_sc','e02_sc','e03_sc',
+  // DOPS 評核項目:D01_i1 ~ D04_i34
+  'D01_i','D02_i','D03_i','D04_i',
 ];
 
-/* ⚠ 注意:s_name / s_date / school / intern_cat / diagnosis / case_dx / complexity / bed /
- *        pt_name / pt_age / pt_dx 等「中性基本資料/臨床資料」刻意「不放」在上面的清單,
- *  因為實務上老師常需要協助學生補填這些欄位,跳警示反而妨礙正常工作流。
- *  老師若真的不該動,可在 UI 上加「學生」標籤提示即可(現有 t-badge 已能標示)。 */
+/* 判斷某 data-key 是否為「老師欄位」(老師可自由編輯,不跳警示) */
+function isTeacherFieldKey(key){
+  if(!key) return false;
+  if(TEACHER_EXACT_FIELDS.has(key)) return true;
+  return TEACHER_PREFIX_FIELDS.some(function(p){ return key.indexOf(p)===0; });
+}
 
-/* 判斷某 data-key 是否為「學生欄位」(用於守護:只攔截學生「個人專屬」欄位) */
+/* 學生欄位 = 不是老師欄位的「實質表單欄位」
+ * (排除一些純系統用欄位 'order'/'submitted' — 它們不是 UI 上的學生欄位)
+ * 老師點到這些欄位時要跳警示 */
+const SYSTEM_FIELDS = new Set(['order','submitted']);
 function isStudentFieldKey(key){
   if(!key) return false;
-  return STUDENT_FIELDS_KEY.some(function(p){
-    return key===p || key.indexOf(p+'_')===0;  // 完全相符 或 以 p_ 開頭
-  });
+  if(SYSTEM_FIELDS.has(key)) return false;
+  return !isTeacherFieldKey(key);
 }
 
-/* ─── 完整「學生填寫」欄位清單,用於「老師必填」判斷(扣除這些 = 老師必填) ───
- * 這個清單比 STUDENT_FIELDS_KEY 大,還包含中性/臨床基本資料,因為這些欄位通常是
- * 由學生負責填寫(老師可能協助但「不算老師必填」)。
- * 用途:getTeacherMissingFields 要判斷「老師必填欄位是否填妥」時,要把這些
- *      也排除,不能算進老師必填名單(否則會誤報 s_name、school 沒填)。 */
-const STUDENT_OR_NEUTRAL_FIELDS_KEY = [
-  // 個人專屬(同 STUDENT_FIELDS_KEY)
+/* 「學生或中性」欄位:用於「老師必填」判斷的扣除清單
+ * 任何「不是老師欄位」的都算進來(扣掉系統欄位與虛擬欄位後) */
+function isStudentOrNeutralFieldKey(key){
+  if(!key) return false;
+  if(key.indexOf('__')===0) return false; // 虛擬欄位
+  return !isTeacherFieldKey(key);
+}
+
+/* 舊清單保留(以免其他地方還在用) */
+const STUDENT_FIELDS_KEY = [
   's_sign','s_sign_date',
   's_fb','s_note','s_feeling','s_comment','s_self','s_progress','s_detail',
   'reflect_learn','reflect_challenge','reflect_improve','reflect_goal',
   'cb_present','cb_history','cb_ph','cb_dx','cb_plan','cb_outcome','cb_reflect',
-  // 中性/基本資料(學生主責,老師也可協助;但都不算「老師必填」)
-  's_name','s_date','s_date_start','s_date_end',
-  'school','intern_cat',
-  'diagnosis','case_dx','complexity','bed','pt_name','pt_age','pt_dx',
-  'gender','birth_date','pt_dob',
-  // F04 床邊教學的臨床資料(學生紀錄當天個案)
-  'rt_ind','rt_ind_others','vent_type','vent_drager_note','vent_servo_note',
-  // F08 全人照護的 cat 欄位(個案分類)
-  'cat',
-  // F10A/F10B 學生填寫題(s_q2~s_q6 — Q2~Q6 為學生回答)
-  's_q2','s_q3','s_q4','s_q5','s_q6',
-  // F-CT 課後測驗 q1~q10 都是學生作答
-  'q1','q2','q3','q4','q5','q6','q7','q8','q9','q10',
-  'submitted','order',
 ];
-function isStudentOrNeutralFieldKey(key){
-  if(!key) return false;
-  return STUDENT_OR_NEUTRAL_FIELDS_KEY.some(function(p){
-    return key===p || key.indexOf(p+'_')===0;
-  });
-}
+const STUDENT_OR_NEUTRAL_FIELDS_KEY = [];  // 已改用 isStudentOrNeutralFieldKey 函式,清單不再使用
+
+// (isStudentFieldKey / isStudentOrNeutralFieldKey 已在上方以「老師欄位白名單」反向設計重寫,
+//  此處不再重複定義,以免遮蓋上方的版本。)
 
 function hasValue(v){ return v!==undefined&&v!==''&&v!==false&&v!==null; }
 
@@ -5900,13 +5929,19 @@ function armStudentOnlyTeacherWarning(formId){
     var msg='⚠ 提醒:這是學生填寫的表單\n\n'+
             '此份表單(學習風格自我評估 / 筆試 / 課後測驗)應由學生本人填寫,\n'+
             '老師通常只負責檢視結果,不應代為填寫。\n\n'+
-            '若您確定要繼續(例如協助學生補填),請按「確定」。';
-    if(confirm(msg)){
-      mc.setAttribute('data-student-only-warn-shown','1');
-      // 卸下監聽,後續操作完全放行
-      mc.removeEventListener('mousedown', handler, true);
-      mc.removeEventListener('keydown', keyHandler, true);
-    }
+            '若您確定要繼續(例如協助學生補填),請按「確定」;\n'+
+            '若只是查看不要填寫,請按「取消」。';
+    var ok = confirm(msg);
+    // ★ 不論按確定或取消,都標記「警示已顯示過」並解除監聽,
+    //   避免老師按取消後又點到別的欄位再次跳警示(造成「要按很多次取消」的困擾)。
+    //   按確定 → 後續操作放行
+    //   按取消 → 此次互動被擋下(因為 preventDefault 已執行),但後續不再跳警示
+    mc.setAttribute('data-student-only-warn-shown','1');
+    mc.removeEventListener('mousedown', handler, true);
+    mc.removeEventListener('keydown', keyHandler, true);
+    // 若按取消,當下這次互動仍然被擋下;若按確定,系統允許下次互動(此次仍因 preventDefault 失效),
+    // 老師再點一次就生效。
+    if(!ok) return;
   }
   function keyHandler(ev){
     if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
@@ -12109,7 +12144,7 @@ function buildCourseTest(f, d, canT, fkey, canS){
 
       var disabled = submitted ? 'disabled' : '';
       var cur = 'cursor:'+(submitted?'not-allowed':'pointer')+';';
-      h += '<button '+disabled+' data-coursetest-q="'+fid+'-'+qnum+'-'+L+'" onclick="courseTestPick(\''+fid+'\','+qnum+',\''+L+'\')" '+
+      h += '<button '+disabled+' data-fid="'+fid+'" data-key="q'+qnum+'" data-coursetest-q="'+fid+'-'+qnum+'-'+L+'" onclick="courseTestPick(\''+fid+'\','+qnum+',\''+L+'\')" '+
         'style="text-align:left;padding:8px 12px;border:1.5px solid '+btnBorder+';border-radius:6px;background:'+btnBg+';color:'+btnColor+';font-size:13px;'+cur+'transition:all .15s;">';
       h += '<b>('+L+')</b> '+escapeExamHtml(optText)+marker;
       h += '</button>';
