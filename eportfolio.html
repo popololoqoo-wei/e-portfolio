@@ -4480,6 +4480,11 @@ function renderSidebar(){
 /* ── 老師在表單內切換學生 ── */
 async function switchStudent(sid, formId){
   if(!sid) return;
+  // ★ 跳轉前檢查:若老師已動筆當前表單但必填未完成,先警示
+  if(APP.currentRole==='teacher' && APP.currentFormId
+     && typeof teacherConfirmLeaveIfIncomplete==='function'){
+    if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
   APP.currentStudentId = sid;
   APP.teacherUnlocked = true;
   // ★ 切換學生後執行 migration：把裸 id 的資料併到 formKey
@@ -4491,6 +4496,11 @@ async function switchStudent(sid, formId){
 
 /* ── 老師選擇學生（從側邊欄）── */
 function selectStudent(sid){
+  // ★ 跳轉前檢查:離開當前表單前若老師必填未完成,先警示
+  if(APP.currentRole==='teacher' && APP.currentFormId
+     && typeof teacherConfirmLeaveIfIncomplete==='function'){
+    if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
   APP.currentStudentId = sid;
   APP.currentFormId = null;
   APP.teacherUnlocked = true;
@@ -4830,6 +4840,11 @@ function _collGrpRenderToolbar(viewKey, sm){
 
 /* ═══════════ FORM LIST ═══════════ */
 function renderFormList(){
+  // ★ 跳轉前檢查:離開當前表單前若老師必填未完成,先警示
+  if(APP.currentRole==='teacher' && APP.currentFormId
+     && typeof teacherConfirmLeaveIfIncomplete==='function'){
+    if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
   APP.currentFormId=null;
   // 離開表單時清除 F16 浮動表頭與相關監聽
   var fh = document.getElementById('f16-floating-thead');
@@ -4909,6 +4924,13 @@ function renderFormList(){
 
 /* ═══════════ OPEN FORM ═══════════ */
 async function openForm(id){
+  // ★ 跳轉前檢查:老師在離開「不同的」舊表單前,若必填未完成,先警示
+  // 只有「切到不同表單」才檢查;同表單 re-render(例如 switchStudent 內部呼叫)不檢查
+  if(APP.currentRole==='teacher' && APP.currentFormId
+     && APP.currentFormId !== id
+     && typeof teacherConfirmLeaveIfIncomplete==='function'){
+    if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
   // ★ 切換表單前：強制觸發目前表單的待儲存草稿（若有未完成的 debounce 計時）
   if(APP.currentFormId && APP.currentFormId !== id && !APP.currentFormId.startsWith('__')){
     const oldBare = APP.currentFormId.indexOf('_')>=0 ? APP.currentFormId.split('_')[0] : APP.currentFormId;
@@ -5209,6 +5231,12 @@ async function openForm(id){
     var isStudentOnlyForm=(f&&f.roles==='student');
     if(!isStudentOnlyForm){
       lockStudentFields();
+    } else {
+      // ★ student-only 表單(F16 學習風格、F-PRE/POST 筆試、F-CT01~12 課後測驗):
+      //   老師不應該替學生填,但仍要能進來查看內容。
+      //   為了避免老師「不小心點到」,在「第一次」互動任一可編輯元素時跳一次全表警示;
+      //   確認後該表單在當前進入週期內不再跳(避免騷擾)。
+      armStudentOnlyTeacherWarning(id);
     }
   }
 
@@ -5562,6 +5590,185 @@ function _studentFieldGuardFocusHandler(ev){
   // 這個 handler 只是預留,目前不做事
 }
 
+/* ═══════════ 老師端必填檢查工具 ═══════════
+ * 回傳：當前表單(指定 formId)裡,「老師應填」但「尚未填」的欄位 label 陣列
+ *  - 老師應填欄位 = REQUIRED_STUDENT_FIELDS[formId] 扣掉 STUDENT_FIELDS_KEY 之後的剩餘
+ *  - 兩個虛擬必填(__sc_any、__prof_any、__team_first)不在此檢查範圍(由 getStatus 另外處理)
+ *  - 簽名、簽名日期等也包含在內(這些通常是 t_sign / t_sign_date)
+ *  - 資料來源:APP.formData[formKey] 與 localStorage 草稿合併取非空值 */
+function getTeacherMissingFields(formId){
+  var req=(typeof REQUIRED_STUDENT_FIELDS!=='undefined'&&REQUIRED_STUDENT_FIELDS[formId])
+    ? REQUIRED_STUDENT_FIELDS[formId].slice() : [];
+  var f=findForm(formId);
+  // roles='both' 的表單若 req 沒列 t_sign,額外要求
+  if(f&&f.roles==='both'&&req.indexOf('t_sign')<0) req.push('t_sign');
+
+  // 過濾出「不屬於學生欄位」的必填項;同時排除虛擬欄位(__ 開頭)
+  var teacherReq=req.filter(function(k){
+    if(!k) return false;
+    if(k.indexOf('__')===0) return false; // 虛擬必填
+    return !isStudentFieldKey(k);
+  });
+  if(teacherReq.length===0) return [];
+
+  // 讀取當前學生 formKey 的合併資料(formData + localStorage 草稿)
+  var formKey=getFormKey(formId);
+  var d={};
+  function mergeReadOnly(dest, src){
+    if(!src) return;
+    Object.keys(src).forEach(function(k){
+      var v=src[k];
+      if(v===''||v===null||v===undefined||v===false) return;
+      if(dest[k]===''||dest[k]===null||dest[k]===undefined||dest[k]===false){
+        dest[k]=v;
+      }
+    });
+  }
+  mergeReadOnly(d, APP.formData[formKey]||{});
+  if(formKey!==formId) mergeReadOnly(d, APP.formData[formId]||{});
+  try{
+    var allDrafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
+    mergeReadOnly(d, allDrafts[formKey]||{});
+    if(formKey!==formId) mergeReadOnly(d, allDrafts[formId]||{});
+  }catch(e){}
+
+  function hasRealVal(v){ if(v===undefined||v===null||v===false) return false; return String(v).trim()!==''; }
+  function checkField(k){
+    var v=d[k];
+    if(!hasRealVal(v)) return false;
+    // 簽名:不可為佔位文字
+    if(k==='t_sign'||k==='t_sign2'||k==='host_sign'){
+      var sv=String(v).trim();
+      return sv!==''&&sv!=='請選擇老師'&&sv!=='請選擇臨床老師'
+        &&sv!=='請選擇實習總指導教師'&&sv!=='請選擇指導老師'&&sv!=='請選擇主持人';
+    }
+    if(k==='t_sign_date'||k==='t_sign2_date'||k==='host_sign_date'||k==='host_date'||k==='follow_date'){
+      return String(v).trim().length>=8;
+    }
+    return true;
+  }
+
+  // 友善欄位名稱
+  function labelOf(k){
+    if(typeof FIELD_LABELS!=='undefined'&&FIELD_LABELS[k]) return FIELD_LABELS[k];
+    // DOPS 評核項目:D01_i1 → DOPS 評核項目 1
+    var dm=k.match(/^(D\d+)_i(\d+)$/);
+    if(dm) return 'DOPS 評核項目 '+dm[2];
+    // F0X 系列:f04_0、f06_3、f07_5 → 評估項目 N+1
+    var fm=k.match(/^f(\d+)_(\d+)$/);
+    if(fm) return '評估項目 '+(parseInt(fm[2],10)+1);
+    // F15 細項
+    if(k.indexOf('f15_att_')===0) return '態度評核 '+(parseInt(k.slice(8),10)+1);
+    if(k.indexOf('f15_skl_')===0) return '技能評核 '+(parseInt(k.slice(8),10)+1);
+    if(k.indexOf('f15_com_')===0) return '溝通評核 '+(parseInt(k.slice(8),10)+1);
+    return k;
+  }
+
+  var missing=[];
+  teacherReq.forEach(function(k){
+    if(!checkField(k)) missing.push(labelOf(k));
+  });
+  // 去重(label 可能重複,例如 D01_i1 都會回傳「DOPS 評核項目 1」)
+  var seen={};
+  return missing.filter(function(x){ if(seen[x]) return false; seen[x]=true; return true; });
+}
+
+/* 判斷:老師此刻是否「已動筆」當前表單(即至少填了某個老師欄位)
+ * 用途:跳轉/返回總覽時,只有「已動筆但未填完」才警示;完全空白(只是點進來看)就放行 */
+function teacherHasStartedForm(formId){
+  if(APP.currentRole!=='teacher') return false;
+  var formKey=getFormKey(formId);
+  var d=Object.assign({}, APP.formData[formId]||{}, APP.formData[formKey]||{});
+  // 任何「非學生欄位」且有實質值 → 視為已動筆
+  return Object.keys(d).some(function(k){
+    if(isStudentFieldKey(k)) return false;
+    if(k.indexOf('__')===0) return false;
+    if(k==='intern_cat'||k==='order') return false; // 系統自動帶入,不算動筆
+    var v=d[k];
+    return v!==undefined&&v!==null&&v!==false&&String(v).trim()!=='';
+  });
+}
+
+/* 在跳轉前檢查老師必填:若有缺漏,跳 confirm 詢問是否仍要離開
+ * 回傳 true 表示「可繼續跳轉」,false 表示「使用者選擇留下」 */
+function teacherConfirmLeaveIfIncomplete(formId){
+  if(APP.currentRole!=='teacher') return true;
+  if(!formId) return true;
+  // 沒動筆 → 不用煩使用者
+  if(!teacherHasStartedForm(formId)) return true;
+  var missing=getTeacherMissingFields(formId);
+  if(missing.length===0) return true;
+  var f=findForm(formId);
+  var fname=f?(f.name||formId):formId;
+  var preview=missing.slice(0,8).join('、');
+  if(missing.length>8) preview+=' ...等 '+missing.length+' 項';
+  var msg='⚠ 老師必填欄位尚未完成\n\n'+
+          '表單:'+fname+'\n'+
+          '未填欄位:'+preview+'\n\n'+
+          '直接離開將不會自動儲存這些欄位的當前內容。\n'+
+          '建議您回到表單填完後再按「儲存表單」。\n\n'+
+          '是否仍要離開?';
+  return confirm(msg);
+}
+
+/* ═══════════ 老師端:student-only 表單(F16 等)整表警示 ═══════════
+ * 設計理念:
+ *  - F16 學習風格、F-PRE/POST 筆試、F-CT01~12 課後測驗:整張都是學生欄位
+ *  - 對每個欄位都跳 confirm 會非常擾人(F16 有 70 題、課後測驗 10 題)
+ *  - 所以改成「整張表第一次互動時跳一次提醒」,確認後就放行
+ *  - 不放行則所有編輯動作都被吃掉
+ *  - 標記放在 mc 上,離開表單(重新 openForm)會自動失效,符合「一個訪問週期一次」 */
+function armStudentOnlyTeacherWarning(formId){
+  if(APP.currentRole!=='teacher') return;
+  var mc=document.getElementById('main-content');
+  if(!mc) return;
+  // 同一個表單的同一次訪問內,只跳一次
+  mc.setAttribute('data-student-only-warn-form', formId);
+  mc.setAttribute('data-student-only-warn-shown', '0');
+
+  // 攔截整個 main-content 的 mousedown(capture 階段) — 任何 input/select/textarea/button 第一次互動都先跳警示
+  function handler(ev){
+    // 若已通過警示 → 直接放行
+    if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
+    var target=ev.target;
+    if(!target) return;
+    // 只有點到「可互動」元素才攔截;點到一般文字、容器、表頭等不攔
+    var tag=(target.tagName||'').toLowerCase();
+    var isInteractive=(tag==='input'||tag==='textarea'||tag==='select'||tag==='button');
+    // 也檢查父層(例如按鈕內的 <span>)
+    if(!isInteractive){
+      var p=target.closest&&target.closest('input,textarea,select,button');
+      if(!p) return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    var msg='⚠ 提醒:這是學生填寫的表單\n\n'+
+            '此份表單(學習風格自我評估 / 筆試 / 課後測驗)應由學生本人填寫,\n'+
+            '老師通常只負責檢視結果,不應代為填寫。\n\n'+
+            '若您確定要繼續(例如協助學生補填),請按「確定」。';
+    if(confirm(msg)){
+      mc.setAttribute('data-student-only-warn-shown','1');
+      // 卸下監聽,後續操作完全放行
+      mc.removeEventListener('mousedown', handler, true);
+      mc.removeEventListener('keydown', keyHandler, true);
+    }
+  }
+  function keyHandler(ev){
+    if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
+    var target=ev.target;
+    if(!target) return;
+    var tag=(target.tagName||'').toLowerCase();
+    if(tag!=='input'&&tag!=='textarea'&&tag!=='select') return;
+    // 允許 Tab 鍵跳轉
+    if(ev.key==='Tab') return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    handler({target:target, preventDefault:function(){}, stopPropagation:function(){}});
+  }
+  mc.addEventListener('mousedown', handler, true);
+  mc.addEventListener('keydown', keyHandler, true);
+}
+
 function unlockTeacherFieldsInDOM(){
   var mc=document.getElementById('main-content');
   if(!mc)return;
@@ -5784,6 +5991,29 @@ function saveForm(id){
   if(APP.formData[id] && Object.keys(APP.formData[id]).length>0){
     if(!APP.formData[formKey])APP.formData[formKey]={};
     Object.assign(APP.formData[formKey], APP.formData[id]);
+  }
+
+  // ★★★ 老師端必填欄位檢查:儲存前若有缺漏,跳出警示讓老師選擇 ★★★
+  // - 只針對「老師應填但未填」的欄位;學生欄位由學生自己負責
+  // - 老師可選擇「仍要儲存」(例如分多次填) 或「取消儲存先回去補」
+  // - 純學生表單(F16/F-PRE/F-POST/F-CT*)老師通常不會儲存,此檢查不適用
+  if(APP.currentRole==='teacher'){
+    var _form=findForm(id);
+    var _isStudentOnly=(_form&&_form.roles==='student');
+    if(!_isStudentOnly){
+      var _missing=getTeacherMissingFields(id);
+      if(_missing.length>0){
+        var _preview=_missing.slice(0,10).join('、');
+        if(_missing.length>10) _preview+=' ...等 '+_missing.length+' 項';
+        var _msg='⚠ 老師必填欄位尚未完成\n\n'+
+                 '表單:'+(_form?_form.name:id)+'\n'+
+                 '未填欄位('+_missing.length+'):'+_preview+'\n\n'+
+                 '建議您回到表單填完再儲存,以確保評核資料完整。\n\n'+
+                 '按「確定」 → 仍儲存目前的部分內容(可日後再回來補)\n'+
+                 '按「取消」 → 不儲存,回到表單繼續填寫';
+        if(!confirm(_msg)) return;
+      }
+    }
   }
 
   // Record history - 判斷實際儲存角色
@@ -13505,6 +13735,10 @@ function closeNotify() {
 }
 
 function renderTeacherHome(){
+  // ★ 跳轉前檢查:離開當前表單前若老師必填未完成,先警示
+  if(APP.currentFormId && typeof teacherConfirmLeaveIfIncomplete==='function'){
+    if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
   APP.currentFormId=null;
   APP.currentStudentId=null;
   renderSidebar();
@@ -13711,6 +13945,13 @@ function batchDownloadPDF(){
 }
 
 function renderStatusSection(filterStatus){
+  // ★ 跳轉前檢查:離開當前正在填的表單前若老師必填未完成,先警示
+  // (從表單頁面跳到狀態分類頁時觸發;__status_* 是分類頁本身,不算「填表」)
+  if(APP.currentRole==='teacher' && APP.currentFormId
+     && !APP.currentFormId.startsWith('__')
+     && typeof teacherConfirmLeaveIfIncomplete==='function'){
+    if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
+  }
   APP.currentFormId='__status_'+filterStatus;
   renderSidebar();
   const mc=document.getElementById('main-content');
