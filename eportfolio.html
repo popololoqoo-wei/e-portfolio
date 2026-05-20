@@ -3841,6 +3841,65 @@ function getCanonicalKey(id){
   return id;
 }
 
+/* ═══════════ 「已刪除欄位」追蹤機制 ═══════════
+ * 問題:當使用者「再點清除」某欄位後,本機已刪掉該欄位,但雲端可能還保留舊值。
+ *      下次「同步」或「跨裝置開啟」時,從雲端拉回的資料會把已刪除的欄位「復活」。
+ * 解法:在本機 localStorage 維護一份「最近 24 小時內被刪除的 formKey + key」清單,
+ *      loadFormFromSheets 從雲端拉資料後,根據此清單過濾掉這些 key。
+ *      超過 24 小時的記錄會自動過期清除。
+ *
+ * 注意:當使用者主動把該欄位重新填寫時,要記得從清單裡移除,否則下次同步又會被清掉。 */
+function _getRecentlyDeleted(){
+  try{
+    var raw = localStorage.getItem('recently_deleted_fields') || '{}';
+    var obj = JSON.parse(raw);
+    // 清掉超過 24 小時的過期項目
+    var now = Date.now();
+    var changed = false;
+    Object.keys(obj).forEach(function(formKey){
+      var byKey = obj[formKey] || {};
+      Object.keys(byKey).forEach(function(k){
+        var ts = byKey[k];
+        if(typeof ts!=='number' || now - ts > 24*3600*1000){
+          delete byKey[k]; changed = true;
+        }
+      });
+      if(Object.keys(byKey).length===0){ delete obj[formKey]; changed = true; }
+    });
+    if(changed){
+      try{ localStorage.setItem('recently_deleted_fields', JSON.stringify(obj)); }catch(e){}
+    }
+    return obj;
+  }catch(e){ return {}; }
+}
+function markFieldDeleted(formKey, key){
+  if(!formKey || !key) return;
+  try{
+    var obj = _getRecentlyDeleted();
+    if(!obj[formKey]) obj[formKey] = {};
+    obj[formKey][key] = Date.now();
+    localStorage.setItem('recently_deleted_fields', JSON.stringify(obj));
+  }catch(e){}
+}
+function unmarkFieldDeleted(formKey, key){
+  // 使用者主動重新填寫,要從「已刪除清單」移除
+  if(!formKey || !key) return;
+  try{
+    var obj = _getRecentlyDeleted();
+    if(obj[formKey] && obj[formKey][key]){
+      delete obj[formKey][key];
+      if(Object.keys(obj[formKey]).length===0) delete obj[formKey];
+      localStorage.setItem('recently_deleted_fields', JSON.stringify(obj));
+    }
+  }catch(e){}
+}
+function getDeletedKeysFor(formKey){
+  // 回傳該 formKey 「已刪除」的 key 陣列
+  var obj = _getRecentlyDeleted();
+  if(!obj[formKey]) return [];
+  return Object.keys(obj[formKey]);
+}
+
 /* ── 一次性 migration：把所有「裸 id」key 的資料搬到對應的「formKey」key ──
    避免後續 getStatus / openForm 在多個 key 之間來回 merge 造成不穩定
 */
@@ -5373,14 +5432,17 @@ async function openForm(id){
   // ★★★ 終極保險:對所有「明確的老師元素」主動標記 data-student-confirmed='1' ★★★
   //   即使有任何 handler 意外掛上去,守護函式入口會檢查此標記直接放行,
   //   100% 確保老師欄位絕對不會跳「修改學生欄位?」警示。
+  //   ★ 效能優化:單次掃描,複合條件判斷,避免兩次全文件 querySelectorAll
   try{
     var _mc = document.getElementById('main-content');
     if(_mc){
-      _mc.querySelectorAll('[data-teacher="1"]').forEach(function(el){
-        el.setAttribute('data-student-confirmed','1');
-      });
-      // 也對 data-key 或 data-rkey 在老師白名單的元素標記
-      _mc.querySelectorAll('[data-key],[data-rkey]').forEach(function(el){
+      _mc.querySelectorAll('[data-teacher="1"],[data-key],[data-rkey]').forEach(function(el){
+        // 條件 1:有 data-teacher="1" 直接標記
+        if(el.getAttribute('data-teacher')==='1'){
+          el.setAttribute('data-student-confirmed','1');
+          return;
+        }
+        // 條件 2:data-key 或 data-rkey 在老師白名單
         var k = el.getAttribute('data-key') || el.getAttribute('data-rkey') || '';
         if(k && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(k)){
           el.setAttribute('data-student-confirmed','1');
@@ -5744,6 +5806,8 @@ function enableRadioToggleClear(){
           if(drafts[bareId]) delete drafts[bareId][key];
           localStorage.setItem('form_drafts', JSON.stringify(drafts));
         }catch(e){}
+        // ★ 標記為「已刪除」,避免下次從雲端拉回時復活
+        if(typeof markFieldDeleted==='function') markFieldDeleted(targetKey, key);
         // 觸發自動儲存,讓「清除」也能同步到雲端
         if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
         // ★ 若有對應的「即時重算」函式,清除後也要重算(F16 分數、360 度分數等)
@@ -6572,7 +6636,21 @@ async function loadFormFromSheets(id){
     if(data.formData){
       try{
         const loaded=JSON.parse(data.formData);
-        // ★★★ 跨裝置同步：遠端資料完全取代本地(formKey 為主) ★★★
+        // ★★★ 跨裝置同步:過濾掉「已刪除」的 keys ★★★
+        //   使用者在本機按「再點清除」刪了某欄位,雲端可能還有舊值。
+        //   從雲端拉回時要把這些已刪除的 key 從 loaded 過濾掉,避免「已刪除欄位復活」。
+        if(typeof getDeletedKeysFor==='function'){
+          var deletedKeys = getDeletedKeysFor(formKey);
+          if(deletedKeys.length > 0){
+            deletedKeys.forEach(function(k){
+              if(loaded.hasOwnProperty(k)){
+                delete loaded[k];
+                console.log('[loadFormFromSheets] 過濾已刪除欄位:'+formKey+'/'+k);
+              }
+            });
+          }
+        }
+        // ★★★ 跨裝置同步:遠端資料完全取代本地(formKey 為主) ★★★
         // ★ 不再寫入裸 id,避免跨學生污染:當老師輪流查看 A、B 兩位學生的同一份表單時,
         //   裸 id 會被後載入的學生資料覆蓋,而後續 saveForm / mergeAllKeys 又會把
         //   裸 id 的內容 assign 回 formKey,造成「A 看到 B 的簽名」等錯誤。
@@ -9219,8 +9297,12 @@ function setRating(fid,key,val,role,btn){
   var isToggleOff = (curVal!==undefined && curVal!==null && curVal!=='' && (curVal==val || curVal===String(val)));
   if(isToggleOff){
     delete APP.formData[targetKey][key];
+    // ★ 標記為「已刪除」,避免下次從雲端拉回時復活
+    if(typeof markFieldDeleted==='function') markFieldDeleted(targetKey, key);
   } else {
     APP.formData[targetKey][key]=val;
+    // ★ 使用者主動填值 → 從「已刪除清單」移除
+    if(typeof unmarkFieldDeleted==='function') unmarkFieldDeleted(targetKey, key);
   }
   // localStorage
   try{
@@ -10836,8 +10918,10 @@ function setDOPS(fid,key,val,btn){
   var isToggleOff = (curVal!==undefined && curVal!==null && curVal!=='' && (curVal==val || curVal===String(val)));
   if(isToggleOff){
     delete APP.formData[targetKey][key];
+    if(typeof markFieldDeleted==='function') markFieldDeleted(targetKey, key);
   } else {
     APP.formData[targetKey][key]=val;
+    if(typeof unmarkFieldDeleted==='function') unmarkFieldDeleted(targetKey, key);
   }
   // 防呆：點選 1-4分顯示警示(只在實際選了 1-4 才提醒,清除時不提醒)
   if(!isToggleOff && typeof val==='number' && val<=4){
@@ -10983,8 +11067,12 @@ function setEPA(fid,lv,fid2){
       return; // 使用者取消,不做任何事
     }
     delete APP.formData[targetKey]['epa_level'];
+    // ★ 標記為「已刪除」,避免下次從雲端拉回時復活
+    if(typeof markFieldDeleted==='function') markFieldDeleted(targetKey, 'epa_level');
   } else {
     APP.formData[targetKey]['epa_level']=lv;
+    // ★ 使用者主動填值 → 從「已刪除清單」移除(避免下次同步又被誤刪)
+    if(typeof unmarkFieldDeleted==='function') unmarkFieldDeleted(targetKey, 'epa_level');
   }
   try{
     var drafts=JSON.parse(localStorage.getItem('form_drafts')||'{}');
@@ -11678,11 +11766,14 @@ function examPick(fid, qnum, opt){
       if(drafts[fid]) delete drafts[fid]['q'+qnum];
       localStorage.setItem('form_drafts', JSON.stringify(drafts));
     }catch(e){}
+    // ★ 標記為「已刪除」,避免下次從雲端拉回時復活
+    if(typeof markFieldDeleted==='function') markFieldDeleted(fid, 'q'+qnum);
     var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
     if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
     toast('✓ 已清除第 '+qnum+' 題答案');
   } else {
     saveDraftField(fid, 'q'+qnum, opt);
+    if(typeof unmarkFieldDeleted==='function') unmarkFieldDeleted(fid, 'q'+qnum);
   }
   // 重繪該題的選項按鈕外觀（避免整張表重繪造成捲動跳位）
   for(var i=0;i<4;i++){
@@ -12146,12 +12237,15 @@ function courseTestPick(fid, qnum, opt){
       if(drafts[fid]) delete drafts[fid]['q'+qnum];
       localStorage.setItem('form_drafts', JSON.stringify(drafts));
     }catch(e){}
+    // ★ 標記為「已刪除」,避免下次從雲端拉回時復活
+    if(typeof markFieldDeleted==='function') markFieldDeleted(fid, 'q'+qnum);
     // 觸發自動儲存
     var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
     if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
     toast('✓ 已清除第 '+qnum+' 題答案');
   } else {
     saveDraftField(fid, 'q'+qnum, opt);
+    if(typeof unmarkFieldDeleted==='function') unmarkFieldDeleted(fid, 'q'+qnum);
   }
   // 重繪該題的選項按鈕
   for(var i=0; i<4; i++){
