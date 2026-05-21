@@ -859,7 +859,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5.4 · 2026.05</span></div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5.5 · 2026.05</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -3908,8 +3908,32 @@ function _courseTestCalcScore(fid){
 }
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
+/* ── 把可能已帶學號的 id 還原成 baseId（例如 F01B_P145023 → F01B） ──
+   原因：switchStudent / openForm 之間，有時會把 formKey 當作 formId 又傳一次，
+   若不剝掉學號，getFormKey 會再加一次 → 變成 F01B_P145023_P145023，
+   這個 key 雲端不存在，loadFormFromSheets 拉到空 → refreshFormUI 把畫面清空。 */
+function _stripSidFromId(id){
+  if(!id || typeof id!=='string') return id;
+  if(id.indexOf('_')<0) return id;
+  // 收集所有可能的學號（自己的 + 老師看的學生）
+  var sids = [];
+  if(APP.currentUser && APP.currentUser.sid) sids.push(APP.currentUser.sid);
+  if(APP.currentStudentId) sids.push(APP.currentStudentId);
+  if(APP.students){ Object.keys(APP.students).forEach(function(s){ sids.push(s); }); }
+  for(var i=0;i<sids.length;i++){
+    var suffix = '_' + sids[i];
+    if(id.length > suffix.length && id.slice(-suffix.length) === suffix){
+      return id.slice(0, id.length - suffix.length);
+    }
+  }
+  // 沒有任何已知學號尾巴 → 視為純 baseId（避免誤砍像 F07M 這種本身有底線的 id）
+  return id;
+}
+
 function getFormKey(id){
   // 每位學生有獨立的表單資料
+  // ★ 先把可能已帶學號的 id 還原成 baseId,避免重複加學號
+  id = _stripSidFromId(id);
   if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid){
     return id+'_'+APP.currentUser.sid;
   }
@@ -3921,6 +3945,8 @@ function getFormKey(id){
 
 /* ── 取得「應寫入的正規 key」── 寫入點統一呼叫此函式，永不寫入裸 id（除非真的沒有學生 context） */
 function getCanonicalKey(id){
+  // ★ 同 getFormKey:先剝掉已帶的學號,避免雙重附加
+  id = _stripSidFromId(id);
   // 若有任一學生 context，永遠回傳 formKey（含學號）
   if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid){
     return id+'_'+APP.currentUser.sid;
@@ -6868,14 +6894,19 @@ async function saveFormToSheets(id){
 async function loadFormFromSheets(id){
   // 使用 formKey（含學號）確保資料存到正確的 key
   const formKey=getFormKey(id);
+  // ★★★ 旗標:只有「真的從雲端拿到資料」才執行後續 refreshFormUI ★★★
+  //   修補 bug:逾時/網路錯誤時,refreshFormUI 會用「空的記憶體」把畫面上 224 個按鈕
+  //   全部清回未選,使用者看到「先有資料、3 秒後消失」。
+  var cloudOk = false;
   try{
     const controller=new AbortController();
-    const tid=setTimeout(function(){controller.abort();},8000); // 增加到8秒
+    const tid=setTimeout(function(){controller.abort();},15000); // 從 8 秒拉到 15 秒,給慢的 GAS 多點時間
     const url=GAS_URL+'?action=loadForm&formId='+encodeURIComponent(formKey)+'&t='+Date.now();
     const resp=await fetch(url,{cache:'no-cache',signal:controller.signal});
     clearTimeout(tid);
     if(!resp.ok)return;
     const data=await resp.json();
+    cloudOk = true; // 走到這裡才算雲端 OK
     if(data.formData){
       try{
         const loaded=JSON.parse(data.formData);
@@ -6970,8 +7001,11 @@ async function loadFormFromSheets(id){
   // ★★★ 跨帳號同步修復:雲端載入完後,強制根據最新 formData 重畫按鈕視覺狀態 ★★★
   //   修補 bug:學生取消選項雲端已刪 key,但老師端打開時按鈕仍維持舊「佳」選中狀態。
   //   buildXxx 在開表單當下渲染了一次,雲端非同步回來後若不重畫,舊按鈕樣式不會更新。
-  if(typeof refreshFormUI==='function'){
-    // ★★★【v1.5.5 修正:增加重繪次數】★★★
+  //
+  // ★★★【關鍵修正】只有「真的從雲端拿到資料」才重畫,否則保留畫面原本顯示。★★★
+  //   原本逾時 / AbortError / 網路錯誤時還是會跑 refreshFormUI,
+  //   但此時 APP.formData[formKey] 是空的 → 按鈕全部被清回未選 → 使用者看到資料消失。
+  if(cloudOk && typeof refreshFormUI==='function'){
     // 多次重繪確保資料/畫面完全同步。場景:loadFormFromSheets merge 完成後,
     // 若 buildXxx 還在執行(例如 F01B 有 28 行 × 8 按鈕 = 224 個按鈕,渲染需要一點時間),
     // 第一次 refreshFormUI 可能找不到按鈕。多跑幾次保險,避免使用者看到「資料有但按鈕未選」。
@@ -6979,6 +7013,8 @@ async function loadFormFromSheets(id){
     setTimeout(function(){ refreshFormUI(formKey); }, 100);
     setTimeout(function(){ refreshFormUI(formKey); }, 400);
     setTimeout(function(){ refreshFormUI(formKey); }, 1000);
+  } else if(!cloudOk){
+    console.warn('[loadFormFromSheets] 雲端未成功取得 '+formKey+' → 跳過 refreshFormUI,保留畫面原樣');
   }
 }
 
