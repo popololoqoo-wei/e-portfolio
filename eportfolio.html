@@ -1152,6 +1152,12 @@ function isDevMode(){
   try{ return localStorage.getItem('__dev_mode')==='1'; }catch(e){ return false; }
 }
 
+/* ═══════════ 【v1.5.5】最近上傳時間戳(寫入/讀取防 race condition) ═══════════
+ * 用途:openForm 拉雲端前先看這個,若 formKey 在 SAVE_FRESHNESS_MS 內剛上傳過,
+ *      就跳過 loadFormFromSheets,避免「剛存好的資料」被「還沒同步的雲端舊版」蓋掉。 */
+var _lastSavedAt = {};   // { formKey: timestamp_ms }
+var SAVE_FRESHNESS_MS = 5000; // 5 秒內視為「剛存過,本機就是最新」
+
 let APP={
   currentRole:null,       // 'student'|'teacher'|'admin'
   currentUser:null,
@@ -4174,26 +4180,32 @@ function scheduleAutoSave(bareId){
 }
 
 function runAutoSave(bareId){
-  if(_autoSaveInFlight[bareId]) return;
+  if(_autoSaveInFlight[bareId]) return Promise.resolve();
   _autoSaveInFlight[bareId] = true;
   // 停止倒數刷新
   if(_autoSaveCountdownInterval){ clearInterval(_autoSaveCountdownInterval); _autoSaveCountdownInterval=null; }
   showAutoSaveIndicator('saving');
-  try{
-    // 直接呼叫 saveForm，與「按儲存按鈕」效果完全相同
-    // 這會建立 historyLog 紀錄，讓狀態判定能正確運作
-    // ★ silent=true:autoSave 是背景觸發,不該跳「老師必填未完成」對話框
-    //   (那個對話框只在使用者主動按「儲存表單」按鈕時跳)
-    if(typeof saveForm === 'function'){
-      saveForm(bareId, true);
-      showAutoSaveIndicator('saved');
+  // ★★★【v1.5.5 修正】回傳 Promise,讓「切表單時 flush」能 await 等真正上傳完,
+  //      避免上傳還沒完就被 loadFormFromSheets 拉舊版蓋掉。
+  return new Promise(function(resolve){
+    try{
+      // saveForm 內部會呼叫 saveFormToSheets(formKey)(現已回傳 Promise);
+      // 但 saveForm 本身仍是同步函式,所以這邊用「給雲端 1.5 秒寫入時間」的保險作為等候上限,
+      // 確保大多數情況下 _lastSavedAt[formKey] 已被設好,後續 openForm 才能正確跳過 loadFormFromSheets。
+      if(typeof saveForm === 'function'){
+        saveForm(bareId, true);
+        showAutoSaveIndicator('saved');
+      }
+    }catch(e){
+      console.warn('autoSave failed:', e);
+      showAutoSaveIndicator('error');
     }
-  }catch(e){
-    console.warn('autoSave failed:', e);
-    showAutoSaveIndicator('error');
-  }finally{
-    setTimeout(function(){ _autoSaveInFlight[bareId] = false; }, 1000);
-  }
+    // 等 1.5 秒讓 fetch 走完(實測 GAS 寫入 ~0.5-1.5 秒);超過視為已存,放行
+    setTimeout(function(){
+      _autoSaveInFlight[bareId] = false;
+      resolve();
+    }, 1500);
+  });
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -5361,13 +5373,16 @@ async function openForm(id){
     if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
   }
   // ★ 切換表單前：強制觸發目前表單的待儲存草稿（若有未完成的 debounce 計時）
+  //   ★★★【v1.5.5 修正】改 await:等舊表單真的上傳完才繼續,
+  //        避免「上傳還在路上時,新表單流程已開始 loadFormFromSheets,
+  //        瞬間切回舊表單時雲端還沒收到上傳,把記憶體新值蓋掉」的 race condition。
   if(APP.currentFormId && APP.currentFormId !== id && !APP.currentFormId.startsWith('__')){
     const oldBare = APP.currentFormId.indexOf('_')>=0 ? APP.currentFormId.split('_')[0] : APP.currentFormId;
     if(_autoSaveTimers[oldBare]){
       clearTimeout(_autoSaveTimers[oldBare]);
       delete _autoSaveTimers[oldBare];
-      // 立即儲存而非等 5 秒
-      try{ runAutoSave(oldBare); }catch(e){console.warn('flush autoSave failed:',e);}
+      // 立即儲存而非等 8 秒,並 await 真正完成
+      try{ await runAutoSave(oldBare); }catch(e){console.warn('flush autoSave failed:',e);}
     }
   }
   // 自動暫存目前表單（如果有未儲存的資料）
@@ -5718,20 +5733,36 @@ async function openForm(id){
     // _recently_deleted 機制由 loadFormFromSheets 統一處理,不需要在前端做激進清除。
     //
     // 因此這段強制清空已移除。loadFormFromSheets 內部的 merge + deletedKeys 過濾足夠了。
-    loadFormFromSheets(formKey).then(function(){
-      mergeAllKeys();
-      // 若目前還在同一個表單，靜默更新 history 顯示
-      if(APP.currentFormId===id){
-        var hw=document.getElementById('history-wrap');
-        if(hw) hw.innerHTML=buildHistoryItems(formKey);
-      }
-      // ★★★【v1.5.5 新增】雲端 merge 完成後,重新觸發畫面重繪,確保新拉回的資料能顯示 ★★★
-      // 因為 buildXxx 在 openForm 早期已執行,當時記憶體可能還沒有完整資料。
-      // 雲端非同步到達後,用 refreshFormUI 把按鈕視覺狀態更新到最新值。
+    //
+    // ★★★【v1.5.5 修正:剛存過就別拉雲端】★★★
+    //   問題:學生填了第 24 題 → 切到別張表單(觸發 autoSave 上傳,但 fetch 還在路上) →
+    //         立刻切回 → 這裡呼叫 loadFormFromSheets → 雲端回的是「沒第 24 題」的舊版 →
+    //         merge 把本機剛填的第 24 題蓋掉 → 畫面上第 24 題又消失。
+    //   修法:檢查 _lastSavedAt[formKey],若 5 秒內剛存成功過,
+    //         本機就是最新狀態,直接略過 loadFormFromSheets,避免雲端舊版蓋掉本機新版。
+    var _justSavedAgo = _lastSavedAt[formKey] ? (Date.now() - _lastSavedAt[formKey]) : Infinity;
+    if(_justSavedAgo < SAVE_FRESHNESS_MS){
+      console.log('[openForm] '+formKey+' 在 '+_justSavedAgo+'ms 前剛存過,跳過 loadFormFromSheets (避免被舊雲端蓋掉)');
+      // 仍要刷一次 UI,確保按鈕視覺對得上記憶體
       if(typeof refreshFormUI === 'function'){
         try{ refreshFormUI(formKey); }catch(e){}
       }
-    }).catch(function(){});
+    } else {
+      loadFormFromSheets(formKey).then(function(){
+        mergeAllKeys();
+        // 若目前還在同一個表單，靜默更新 history 顯示
+        if(APP.currentFormId===id){
+          var hw=document.getElementById('history-wrap');
+          if(hw) hw.innerHTML=buildHistoryItems(formKey);
+        }
+        // ★★★【v1.5.5 新增】雲端 merge 完成後,重新觸發畫面重繪,確保新拉回的資料能顯示 ★★★
+        // 因為 buildXxx 在 openForm 早期已執行,當時記憶體可能還沒有完整資料。
+        // 雲端非同步到達後,用 refreshFormUI 把按鈕視覺狀態更新到最新值。
+        if(typeof refreshFormUI === 'function'){
+          try{ refreshFormUI(formKey); }catch(e){}
+        }
+      }).catch(function(){});
+    }
   }
 
   // ★ F10A / F10B 殘留值清理：若先前因 saveForm 的 bug 把 radio 寫成 'on'，
@@ -6832,6 +6863,14 @@ function saveForm(id, silent){
 }
 
 /* ── 將表單資料存到 GAS（共享給所有人） ── */
+/* ═══════════ 【v1.5.5】最近上傳時間戳 ═══════════
+ * 用途:openForm 拉雲端前先看這個,若 formKey 在 5 秒內剛上傳過,
+ *      就跳過 loadFormFromSheets,避免「剛存好的資料」被「還沒同步的雲端舊版」蓋掉。
+ * 場景:學生在 F16 填了第 24 題 → 切到別張表單(觸發 autoSave 上傳) →
+ *      立刻切回 F16 → openForm 呼叫 loadFormFromSheets →
+ *      上傳的 fetch 還在路上,雲端回的是「沒有第 24 題」的舊版 →
+ *      merge 把記憶體的第 24 題蓋掉 → 畫面上第 24 題消失。 */
+
 async function saveFormToSheets(id){
   // id 可能是裸 formId 或 formKey，統一處理
   // saveForm 呼叫時傳的是 formKey（含學號）
@@ -6873,21 +6912,26 @@ async function saveFormToSheets(id){
   }
   // 【改用 fetch + text/plain 避免 CORS preflight】
   // 舊版用 iframe form submit 的問題：無法接收後端回應、無法判斷成功失敗
+  // ★★★【v1.5.5 修正】回傳 Promise,讓呼叫端可選擇 await,
+  //      確保「跳走前 flush」真的存完才放行,避免後續 loadFormFromSheets 讀到舊版。
   try{
-    fetch(GAS_URL, {
+    return fetch(GAS_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
       body: JSON.stringify(payload),
       mode:'cors'
-    }).then(r=>r.ok?r.json():null).then(data=>{
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(data){
       if(data && data.error){
         console.warn('[Backend] saveForm rejected:', data.error);
         if(data.error.indexOf('token')>=0 || data.error.indexOf('expired')>=0){
           toast('⚠ 登入逾時，請重新登入', false);
           clearSession();
         }
+        return; // 失敗就不更新時間戳
       }
-    }).catch(e=>console.warn('saveFormToSheets error:',e));
+      // ★ 成功:標記「剛存過」,5 秒內 openForm 會略過 loadFormFromSheets
+      _lastSavedAt[formKey] = Date.now();
+    }).catch(function(e){ console.warn('saveFormToSheets error:',e); });
   }catch(e){console.warn('saveFormToSheets error:',e);}
 }
 
