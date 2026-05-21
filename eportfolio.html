@@ -9411,18 +9411,21 @@ function signRow(fid,sKey,tKey,canT,tLabel){
   var d=APP.formData[fid]||{};
   var sDateKey=sKey+'_date';
   var tDateKey=tKey+'_date';
-  // 學生自動帶入(★ 強制:若值不是本人姓名一律覆蓋,避免舊污染殘留)
+  // 學生簽名統一規則(學生登入 / 老師查看 都自動帶入,且強制覆蓋舊污染)
+  var _srNm='';
   if(APP.currentRole==='student'&&APP.currentUser){
-    var myName=APP.currentUser.name;
-    if(!APP.formData[fid])APP.formData[fid]={};
-    if(d[sKey]!==myName){
-      APP.formData[fid][sKey]=myName;
-      d[sKey]=myName;
-    }
+    _srNm=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    var _stuSR=APP.students&&APP.students[APP.currentStudentId];
+    if(_stuSR&&_stuSR.name) _srNm=_stuSR.name;
   }
-  var sStudents=getStudentList();
+  if(_srNm){
+    if(!APP.formData[fid])APP.formData[fid]={};
+    if(d[sKey]!==_srNm){APP.formData[fid][sKey]=_srNm;d[sKey]=_srNm;}
+  }
+  var _sVal=d[sKey]||'';
+  var sField='<input type="text" value="'+_sVal+'" data-fid="'+fid+'" data-key="'+sKey+'" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">';
   var sTeachers=getTeacherList();
-  var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
   var tField=makeDropdown(fid,tKey,sTeachers,!canT,tLabel?'請選擇'+tLabel.replace(/簽名$/,''):'請選擇老師',true);
   // 簽名日期（含時間戳）
   var sDate=signDateWithTimestamp(fid,sDateKey,false);
@@ -9440,17 +9443,20 @@ function studentSignRow(fid, sKey){
   var canKey = (fid && fid.indexOf('_')<0 && typeof getCanonicalKey==='function') ? getCanonicalKey(fid) : fid;
   var d=APP.formData[canKey]||{};
   var sDateKey=sKey+'_date';
-  // 學生自動帶入(★ 強制:若值不是本人姓名,一律改為本人,避免舊污染殘留顯示成別人)
+  // 學生簽名統一規則(學生登入 / 老師查看 都自動帶入,且強制覆蓋舊污染)
+  var _ssrNm='';
   if(APP.currentRole==='student'&&APP.currentUser){
-    var myName=APP.currentUser.name;
-    if(!APP.formData[canKey])APP.formData[canKey]={};
-    if(d[sKey]!==myName){
-      APP.formData[canKey][sKey]=myName;
-      d[sKey]=myName;
-    }
+    _ssrNm=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    var _stuSSR=APP.students&&APP.students[APP.currentStudentId];
+    if(_stuSSR&&_stuSSR.name) _ssrNm=_stuSSR.name;
   }
-  var sStudents=getStudentList();
-  var sField=makeDropdown(fid,sKey,sStudents,false,'請選擇學生');
+  if(_ssrNm){
+    if(!APP.formData[canKey])APP.formData[canKey]={};
+    if(d[sKey]!==_ssrNm){APP.formData[canKey][sKey]=_ssrNm;d[sKey]=_ssrNm;}
+  }
+  var _ssrVal=d[sKey]||'';
+  var sField='<input type="text" value="'+_ssrVal+'" data-fid="'+fid+'" data-key="'+sKey+'" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">';
   var sDate=signDateWithTimestamp(fid,sDateKey,false);
   return '<div class="g2"><div class="field"><label>學生簽名</label>'+sField+'</div><div class="field"><label>學生簽名日期</label>'+sDate+'</div></div>';
 }
@@ -9810,16 +9816,24 @@ function saveDraftField(fid, key, val){
 }
 
 function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
-  // 學生姓名：學生登入時自動填入（唯讀），老師/管理員可手動輸入
+  // 學生姓名統一規則:
+  //   - 學生登入   → 強制覆蓋為本人姓名(避免舊污染殘留),唯讀
+  //   - 老師/管理員 → 跟著左側 sidebar 選的學生(APP.currentStudentId)自動帶入,唯讀
   // ⚠ 注意：自動帶入的姓名/學校只放在記憶體中（APP.formData），「不寫入草稿」，
   // 否則「只是點開表單看一眼」就會被誤判為「草稿中」狀態。
   // 真正的草稿寫入會在使用者「實際填寫其他欄位」或「按下儲存按鈕」時才發生。
   var sn=d['s_name']||'';
+  var autoFillName='';
   if(APP.currentRole==='student'&&APP.currentUser){
-    sn=APP.currentUser.name;
+    autoFillName=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    var _stuBI=APP.students&&APP.students[APP.currentStudentId];
+    if(_stuBI&&_stuBI.name) autoFillName=_stuBI.name;
+  }
+  if(autoFillName){
+    sn=autoFillName;
     if(!APP.formData[fid])APP.formData[fid]={};
-    // 記憶體中帶入（讓 send/PDF 能讀到正確值）— 但「不」寫到草稿/雲端
-    // ★ 強制覆蓋:若 s_name / s_sign 不是當前學生本人(來自舊污染殘留),
+    // ★ 強制覆蓋:若 s_name / s_sign 不是當前對象本人(來自舊污染殘留),
     //   一律改為本人姓名,避免顯示成別人的名字。
     if(d['s_name']!==sn){
       APP.formData[fid]['s_name']=sn;
@@ -9829,15 +9843,13 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
       APP.formData[fid]['s_sign']=sn;
       d['s_sign']=sn;
     }
-    // 學生若有預設學校，也僅帶入記憶體（不寫草稿）
-    if(!d['school'] && APP.currentUser.school){
+    // 學生登入時若 user 有預設學校,也僅帶入記憶體(不寫草稿)
+    if(APP.currentRole==='student'&&APP.currentUser&&!d['school']&&APP.currentUser.school){
       APP.formData[fid]['school']=APP.currentUser.school;
     }
   }
-  var snOpts=getStudentList();
-  var snField=APP.currentRole==='student'&&APP.currentUser
-    ?'<input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">'
-    :makeDropdown(fid,'s_name',snOpts,false,'請選擇學生');
+  // 學生姓名一律唯讀文字框(學生登入 / 老師登入皆同)
+  var snField='<input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">';
 
   // 實習學校：下拉選單
   var sc=d['school']||'';
@@ -9913,7 +9925,8 @@ function buildF01A(f,d,canT,fkey,canS){
   var f01a_sd=d['s_sign_date']||'';
   h+='<div class="card"><div class="card-head"><div class="card-head-title">簽名區</div></div><div class="card-body">';
   h+='<div class="g2">';
-  h+='<div class="field"><label>學生簽名</label>'+makeDropdown(fid,'s_sign',getStudentList(),false,'請選擇學生')+'</div>';
+  // 學生簽名(basicInfoCard 已自動帶入 s_sign,這裡只要呈現為唯讀)
+  h+='<div class="field"><label>學生簽名</label><input type="text" value="'+(d['s_sign']||'')+'" data-fid="'+fid+'" data-key="s_sign" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;"></div>';
   var f01a_oc="APP.formData['" +fid+ "']=(APP.formData['" +fid+ "']||{});APP.formData['" +fid+ "']['s_sign_date']=this.value";
   h+='<div class="field"><label>學生簽名日期</label><input type="date" value="'+f01a_sd+'" data-fid="'+fid+'" data-key="s_sign_date" onchange="'+f01a_oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
   h+='</div></div></div>';
@@ -10008,6 +10021,22 @@ function buildF02(f,d,canT,fkey,canS){
 function buildF03(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
+  // 學生姓名 / 簽名統一規則(學生登入或老師查看都自動帶入,唯讀)
+  var _autoNm='';
+  if(APP.currentRole==='student'&&APP.currentUser){
+    _autoNm=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    var _stuF03=APP.students&&APP.students[APP.currentStudentId];
+    if(_stuF03&&_stuF03.name) _autoNm=_stuF03.name;
+  }
+  if(_autoNm){
+    if(!APP.formData[fid])APP.formData[fid]={};
+    if(d['s_name']!==_autoNm){APP.formData[fid]['s_name']=_autoNm;d['s_name']=_autoNm;}
+    if(d['s_sign']!==_autoNm){APP.formData[fid]['s_sign']=_autoNm;d['s_sign']=_autoNm;}
+  }
+  var _f03snVal=d['s_name']||'';
+  var _f03ssVal=d['s_sign']||'';
+  var _f03ro='width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;';
   // Dropdown for topic and speaker (admin-managed)
   const topicOpts=APP.courseTopics.map(t=>`<option value="${t}" ${d['topic']===t?'selected':''}>${t}</option>`).join('');
   const speakerOpts=APP.courseSpeakers.map(s=>`<option value="${s}" ${d['speaker']===s?'selected':''}>${s}</option>`).join('');
@@ -10035,9 +10064,9 @@ function buildF03(f,d,canT,fkey,canS){
     <div class="field"><label>對授課教師的建議</label>${ta(f.id,'teacher_suggest',2,false)}</div>
     <div class="field"><label>對課程內容的建議</label>${ta(f.id,'content_suggest',2,false)}</div>
     <div class="field"><label>整體分數（滿分60）</label>${fi(f.id,'overall','number',false,'0-60')}</div>
-    <div class="field"><label>學生姓名</label>${fi(f.id,'s_name','text',false)}</div>
+    <div class="field"><label>學生姓名</label><input type="text" value="${_f03snVal}" data-fid="${fid}" data-key="s_name" readonly style="${_f03ro}"></div>
     <div class="g2">
-      <div class="field"><label>學生簽名</label>${fi(f.id,'s_sign','text',false)}</div>
+      <div class="field"><label>學生簽名</label><input type="text" value="${_f03ssVal}" data-fid="${fid}" data-key="s_sign" readonly style="${_f03ro}"></div>
       <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${fid}" data-key="s_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>
     </div>
   </div></div>`;
@@ -10169,28 +10198,22 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   // 基本資料（學生）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">學生資料</div></div><div class="card-body">';
   h+='<div class="g2">';
-  // 學生姓名（學生登入 → currentUser；老師/管理員查看 → currentStudentId）
+  // 學生姓名 / 簽名統一規則(學生登入 / 老師查看 都自動帶入,唯讀,且強制覆蓋舊污染)
   var sn=d['s_name']||'';
+  var _f04Nm='';
   if(APP.currentRole==='student'&&APP.currentUser){
-    sn=APP.currentUser.name;
-    // 自動填入 s_sign（學生簽名與姓名相同）
-    if(!d['s_sign']){
-      if(!APP.formData[fid])APP.formData[fid]={};
-      APP.formData[fid]['s_sign']=sn;
-    }
+    _f04Nm=APP.currentUser.name;
   } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
-    var _stuF04=APP.students[APP.currentStudentId];
-    if(_stuF04&&_stuF04.name){
-      // 沒填過才覆寫，避免蓋掉手動編輯
-      if(!sn){
-        sn=_stuF04.name;
-        if(!APP.formData[fid])APP.formData[fid]={};
-        APP.formData[fid]['s_name']=sn;
-        d['s_name']=sn;
-      }
-    }
+    var _stuF04=APP.students&&APP.students[APP.currentStudentId];
+    if(_stuF04&&_stuF04.name) _f04Nm=_stuF04.name;
   }
-  h+='<div class="field"><label>學生姓名</label><input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name"'+(APP.currentRole==='student'&&APP.currentUser?' readonly':'')+' style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(APP.currentRole==='student'?'var(--cream)':'#fff')+';font-size:13px;"></div>';
+  if(_f04Nm){
+    sn=_f04Nm;
+    if(!APP.formData[fid])APP.formData[fid]={};
+    if(d['s_name']!==sn){APP.formData[fid]['s_name']=sn;d['s_name']=sn;}
+    if(d['s_sign']!==sn){APP.formData[fid]['s_sign']=sn;d['s_sign']=sn;}
+  }
+  h+='<div class="field"><label>學生姓名</label><input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;"></div>';
   // 實習學校下拉
   var sc=d['school']||'';
   var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
@@ -10306,6 +10329,20 @@ function buildF04Bedside(f,d,canT,fkey,canS){
 function buildF05(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
+  // 學生簽名統一規則(F05 雖然是「評老師」的表,但底部仍有「學生簽名」欄,一律自動帶入唯讀)
+  var _f05Nm='';
+  if(APP.currentRole==='student'&&APP.currentUser){
+    _f05Nm=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    var _stuF05=APP.students&&APP.students[APP.currentStudentId];
+    if(_stuF05&&_stuF05.name) _f05Nm=_stuF05.name;
+  }
+  if(_f05Nm){
+    if(!APP.formData[fid])APP.formData[fid]={};
+    if(d['s_sign']!==_f05Nm){APP.formData[fid]['s_sign']=_f05Nm;d['s_sign']=_f05Nm;}
+  }
+  var _f05ss=d['s_sign']||'';
+  var _f05ro='width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;';
   const items=['具備專業知識及臨床工作能力','創造生動活潑的教學環境與學習氣氛','教學時態度熱心、誠懇、積極、詳盡指導學員','教學內容考量學員需要，充實合宜','事實刺激學員主動學習與發問','引導學員思考問題與解答問題','重視學員感受與反應、有技巧的糾正學員的缺失','對於學員的學習情況能及時給予回饋','能與學員互相討論，有達到教學相長的成效','讓學員了解跨領域團隊合作的溝通與協調'];
   let h=`<div class="card"><div class="card-head"><div class="card-head-title">評核（優5 良4 普3 差2 劣1 不適任0）</div></div><div class="card-body">
     <div class="g2"><div class="field"><label>臨床實習老師姓名</label>${fi(f.id,'teacher_name','text',false)}</div><div class="field"><label>教學期間</label>${fi(f.id,'period','text',false,'yyyy/mm/dd ~ yyyy/mm/dd')}</div></div>
@@ -10320,7 +10357,7 @@ function buildF05(f,d,canT,fkey,canS){
   h+=`</table></div>
     <div class="field" style="margin-top:10px;"><label>綜合評語及建議</label>${ta(f.id,'comment',3,false)}</div>
     <div class="field"><label>成績分數（0-100）</label>${fi(f.id,'score','number',false)}</div>
-    <div class="g2"><div class="field"><label>學生簽名</label>${fi(f.id,'s_sign','text',false)}</div>
+    <div class="g2"><div class="field"><label>學生簽名</label><input type="text" value="${_f05ss}" data-fid="${fid}" data-key="s_sign" readonly style="${_f05ro}"></div>
     <div class="field"><label>學生簽名日期</label><input type="date" value="${d['s_sign_date']||''}" data-fid="${fid}" data-key="s_sign_date" onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['s_sign_date']=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div></div>
   </div></div>`;
   return h;
@@ -10564,14 +10601,8 @@ function buildF09(f,d,canT,fkey,canS){
 function buildF10(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
-  // 自動帶入學生姓名(學生登入時)
-  if(APP.currentRole==='student'&&APP.currentUser&&!d['s_name']){
-    if(!APP.formData[fid])APP.formData[fid]={};
-    APP.formData[fid]['s_name']=APP.currentUser.name;
-    d['s_name']=APP.currentUser.name;
-  }
-  // ★ 改用通用 basicInfoCard:老師端會有「學生姓名下拉選單」、實習學校/類別下拉
-  //   並另外把「輔導日期」放在 extraFields 內
+  // 學生姓名 / 簽名自動帶入由 basicInfoCard 統一處理(學生登入 + 老師查看皆涵蓋)
+  // ★ 改用通用 basicInfoCard:把「輔導日期」放在 extraFields 內
   var dateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['date']=this.value;saveDraftField('"+fid+"','date',this.value)";
   var dateExtra='<div class="field" style="margin-top:8px;"><label>輔導日期</label>'+
     '<input type="date" value="'+(d['date']||'')+'" data-fid="'+fid+'" data-key="date" onchange="'+dateOC+'" '+
@@ -11690,18 +11721,18 @@ function calcF16AndRender(fid){
 function buildF16(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined) canS=true;
-  // 自動帶入學生姓名（學生登入時用 currentUser；老師/管理員查看時用 currentStudentId）
-  if(APP.currentRole==='student'&&APP.currentUser&&!d['s_name']){
+  // 學生姓名統一規則(學生登入 / 老師查看 都自動帶入,且強制覆蓋舊污染)
+  // F16 沒有 s_sign 欄位(學習風格自評不需簽名),所以只處理 s_name
+  var _f16Nm='';
+  if(APP.currentRole==='student'&&APP.currentUser){
+    _f16Nm=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    const _stu=APP.students&&APP.students[APP.currentStudentId];
+    if(_stu&&_stu.name) _f16Nm=_stu.name;
+  }
+  if(_f16Nm){
     if(!APP.formData[fid])APP.formData[fid]={};
-    APP.formData[fid]['s_name']=APP.currentUser.name;
-    d['s_name']=APP.currentUser.name;
-  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId&&!d['s_name']){
-    const _stu=APP.students[APP.currentStudentId];
-    if(_stu&&_stu.name){
-      if(!APP.formData[fid])APP.formData[fid]={};
-      APP.formData[fid]['s_name']=_stu.name;
-      d['s_name']=_stu.name;
-    }
+    if(d['s_name']!==_f16Nm){APP.formData[fid]['s_name']=_f16Nm;d['s_name']=_f16Nm;}
   }
   const cats=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
   const schools=['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
