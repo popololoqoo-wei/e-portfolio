@@ -866,7 +866,7 @@ input[type="date"]{
       <span id="topbar-user" class="user-badge"></span>
       <span id="topbar-role" class="role-chip"></span>
       <button id="btn-home" onclick="APP.currentRole==='teacher'?renderTeacherHome():renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
-      <button id="btn-sync" onclick="manualSync()" style="padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="從雲端重新載入最新資料">🔄 同步</button>
+      <button id="btn-sync" onclick="manualSync()" style="padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="從雲端拉取其他裝置的最新進度（換裝置時請按此）">🔄 同步</button>
       <button id="btn-diag" onclick="runDiagnostic()" style="display:none;padding:5px 12px;background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.6);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="診斷">🔍 診斷</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
@@ -5568,6 +5568,12 @@ async function openForm(id){
   <h1>${f.name}</h1>
   <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
   </div>`;
+  // ★ 跨裝置同步小提示
+  html+=`<div style="background:#E8F4FD;border-left:3px solid #2471A3;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#1A5276;line-height:1.6;">
+    💡 <strong>跨裝置使用提醒：</strong>
+    填完後請按下方「<strong>儲存表單</strong>」按鈕，即可在其他裝置同步看到內容。
+    換到另一台裝置時，記得先按右上角「<strong>🔄 同步</strong>」按鈕拉取最新進度。
+  </div>`;
   html+=studentBanner;
 
   // Lock bar for student viewing teacher-only form
@@ -5594,7 +5600,7 @@ async function openForm(id){
   <div class="form-footer-right">
     <span class="saved-msg" id="saved-msg">✓ 已儲存</span>
 
-    <button class="btn-save" onclick="saveForm('${id}')">儲存表單</button>
+    <button class="btn-save" onclick="saveForm('${id}')" title="儲存後即可在其他裝置同步看到">儲存表單</button>
   </div>
   </div>`;
 
