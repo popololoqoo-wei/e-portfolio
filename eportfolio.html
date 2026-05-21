@@ -12443,6 +12443,20 @@ function calcF16AndRender(fid){
 function buildF16(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined) canS=true;
+  // ★★★ DEBUG: 印出渲染時 d 裡面有多少 f16 答案 ★★★
+  try{
+    var _f16Count = Object.keys(d).filter(function(k){return k.indexOf('f16_q_')===0;}).length;
+    var _dRef = APP.formData[fid] || {};
+    var _refCount = Object.keys(_dRef).filter(function(k){return k.indexOf('f16_q_')===0;}).length;
+    console.log('[buildF16] fid='+fid+' 傳入的 d 有 '+_f16Count+' 個 f16_q_*, APP.formData['+fid+'] 有 '+_refCount+' 個');
+    if(_f16Count===0 && _refCount>0){
+      console.warn('[buildF16] ⚠ 警告:傳入的 d 是空的,但 APP.formData['+fid+'] 有 '+_refCount+' 個答案!! d 跟 formData 不同步');
+    }
+    // 把 d 裡的關鍵答案印出來方便比對(只印前 5 個)
+    var _sample = {};
+    Object.keys(d).filter(function(k){return k.indexOf('f16_q_')===0;}).slice(0,5).forEach(function(k){_sample[k]=d[k];});
+    if(Object.keys(_sample).length>0) console.log('[buildF16] d 前 5 個答案範例:', _sample);
+  }catch(e){}
   // 學生姓名統一規則(學生登入 / 老師查看 都自動帶入,且強制覆蓋舊污染)
   // F16 沒有 s_sign 欄位(學習風格自評不需簽名),所以只處理 s_name
   var _f16Nm='';
