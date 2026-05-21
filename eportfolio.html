@@ -5580,6 +5580,38 @@ async function openForm(id){
   }
 
   if(GAS_URL && GAS_URL !== 'YOUR_GAS_URL_HERE'){
+    // ★★★ 跨帳號同步修復:老師/管理員打開表單前,先清掉本機評分類草稿 ★★★
+    //   原因:老師端的 localStorage 可能殘留先前查看時的舊評分草稿,
+    //   會在 buildXxx 渲染時被讀回畫面,造成「學生已取消但老師端仍亮著」的視覺殘留。
+    //   評分類資料(f01_*, f02_*, ...)應該以雲端為唯一真相來源。
+    //   學生端不清(學生正在編輯中的草稿要保留)。
+    if(APP.currentRole==='teacher' || APP.currentRole==='admin'){
+      try{
+        var _drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+        var _changed = false;
+        [id, formKey].forEach(function(_k){
+          if(_drafts[_k]){
+            Object.keys(_drafts[_k]).forEach(function(_fk){
+              // 評分類 key:f 開頭含底線數字(f01_pre_0, f02_5 等)
+              if(/^f\d/.test(_fk)){
+                delete _drafts[_k][_fk]; _changed = true;
+              }
+            });
+          }
+        });
+        // 同步清記憶體中的對應 key(這樣 buildXxx 不會先畫出舊的)
+        [id, formKey].forEach(function(_k){
+          if(APP.formData && APP.formData[_k]){
+            Object.keys(APP.formData[_k]).forEach(function(_fk){
+              if(/^f\d/.test(_fk)){
+                delete APP.formData[_k][_fk];
+              }
+            });
+          }
+        });
+        if(_changed) localStorage.setItem('form_drafts', JSON.stringify(_drafts));
+      }catch(e){}
+    }
     loadFormFromSheets(formKey).then(function(){
       mergeAllKeys();
       // 若目前還在同一個表單，靜默更新 history 顯示
@@ -6788,6 +6820,14 @@ async function loadFormFromSheets(id){
       if(cid==='F07M'||cid==='F07S') calc360Score(getFormKey(cid));
       if(cid==='F15') calcF15Score(getFormKey(cid));
     },200);
+  }
+  // ★★★ 跨帳號同步修復:雲端載入完後,強制根據最新 formData 重畫按鈕視覺狀態 ★★★
+  //   修補 bug:學生取消選項雲端已刪 key,但老師端打開時按鈕仍維持舊「佳」選中狀態。
+  //   buildXxx 在開表單當下渲染了一次,雲端非同步回來後若不重畫,舊按鈕樣式不會更新。
+  if(typeof refreshFormUI==='function'){
+    // 兩次重繪:第一次立即(覆蓋同步草稿),第二次稍後(等 buildXxx 若有延遲渲染)
+    refreshFormUI(formKey);
+    setTimeout(function(){ refreshFormUI(formKey); }, 300);
   }
 }
 
@@ -9513,6 +9553,82 @@ function rBtn(fid,key,v,role,disabled){
   const vStr=JSON.stringify(v);
   return`<button class="r-btn ${selC}" ${dis} onclick="setRating('${fid}','${key}',${vStr},'${role}',this)">${v}</button>`;
 }
+/* ═══════════ refreshFormUI:跨帳號同步畫面修復 ═══════════
+ * 問題:學生端取消選項後雲端已經沒有那個 key,但老師端打開時:
+ *   1) 雲端正確資料 → APP.formData 已更新
+ *   2) 但畫面上的按鈕是 buildF01B 渲染時依據「當時的」資料畫的
+ *   3) 老師端從 localStorage / 記憶體殘留中讀到舊「佳」,所以按鈕還是選中
+ * 解法:雲端載入完成後,根據最新的 APP.formData,把所有評分按鈕的視覺狀態重畫一次。
+ *      凡是 APP.formData 沒有的 key,所有對應按鈕都回到未選樣式。 */
+function refreshFormUI(formKey){
+  if(!formKey) return;
+  try{
+    var d = (APP.formData && APP.formData[formKey]) || {};
+    // 1) 處理 F01A/F01B 風格按鈕(inline style 染色,onclick="f01Click")
+    var f01Btns = document.querySelectorAll('button[onclick="f01Click(this)"]');
+    var rkeySet = {};
+    f01Btns.forEach(function(b){
+      var k = b.getAttribute('data-rkey');
+      if(k) rkeySet[k] = true;
+    });
+    Object.keys(rkeySet).forEach(function(k){
+      var curVal = d[k];  // 雲端最新值(被刪掉就是 undefined)
+      var btns = document.querySelectorAll('button[data-rkey="'+k+'"][onclick="f01Click(this)"]');
+      btns.forEach(function(b){
+        var isTeacher = b.getAttribute('data-teacher')==='1';
+        var v = b.getAttribute('data-rval');
+        var isNA = v==='NA';
+        var selBg = isNA?'#7F8C8D':(isTeacher?'#C0392B':'#2471A3');
+        // 雲端有值且等於此按鈕的 rval 才選中;否則全部回到未選
+        var shouldSel = (curVal!==undefined && curVal!==null && curVal!=='' && curVal===v);
+        b.style.background = shouldSel?selBg:'#fff';
+        b.style.color = shouldSel?'#fff':'#7A706A';
+        b.style.fontWeight = shouldSel?'700':'400';
+        b.style.borderColor = shouldSel?selBg:'#D4C9BB';
+      });
+    });
+    // 2) 處理一般評分表格按鈕(class sel-s/sel-t/sel-a,onclick="setRating(...)")
+    var tbBtns = document.querySelectorAll('button.r-btn[data-rkey]');
+    var rkeySet2 = {};
+    tbBtns.forEach(function(b){
+      var k = b.getAttribute('data-rkey');
+      if(k) rkeySet2[k] = true;
+    });
+    Object.keys(rkeySet2).forEach(function(k){
+      var curVal = d[k];
+      var btns = document.querySelectorAll('button.r-btn[data-rkey="'+k+'"]');
+      btns.forEach(function(b){
+        b.classList.remove('sel-s','sel-t','sel-a');
+        if(curVal!==undefined && curVal!==null && curVal!=='' ){
+          var v = b.getAttribute('data-rval');
+          if(curVal==v || curVal===String(v)){
+            var isT = b.getAttribute('data-teacher')==='1';
+            b.classList.add(isT?'sel-t':'sel-s');
+          }
+        }
+      });
+    });
+    // 3) 同步 localStorage form_drafts:雲端沒有的 key 也從本機草稿清掉,避免下次又被回灌
+    try{
+      var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
+      if(drafts[formKey]){
+        var draftKeys = Object.keys(drafts[formKey]);
+        var changed = false;
+        draftKeys.forEach(function(k){
+          // 評分類 key(f01_/f02_/f03_/f04_ 等以 f 開頭含底線數字)如果雲端沒有,本機也清掉
+          if(/^f\d/.test(k) && !d.hasOwnProperty(k)){
+            delete drafts[formKey][k];
+            changed = true;
+          }
+        });
+        if(changed) localStorage.setItem('form_drafts', JSON.stringify(drafts));
+      }
+    }catch(e){}
+  }catch(e){
+    console.warn('[refreshFormUI] error:', e);
+  }
+}
+
 function setRating(fid,key,val,role,btn){
   // ★ 統一寫入 canonical formKey，不再雙寫
   var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
