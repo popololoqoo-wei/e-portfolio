@@ -1156,7 +1156,7 @@ function isDevMode(){
  * 用途:openForm 拉雲端前先看這個,若 formKey 在 SAVE_FRESHNESS_MS 內剛上傳過,
  *      就跳過 loadFormFromSheets,避免「剛存好的資料」被「還沒同步的雲端舊版」蓋掉。 */
 var _lastSavedAt = {};   // { formKey: timestamp_ms }
-var SAVE_FRESHNESS_MS = 5000; // 5 秒內視為「剛存過,本機就是最新」
+var SAVE_FRESHNESS_MS = 10000; // 10 秒內視為「剛存過,本機就是最新」(拉長以涵蓋 fetch 還在路上 + 3 秒後重拉的 race window)
 
 let APP={
   currentRole:null,       // 'student'|'teacher'|'admin'
@@ -6845,8 +6845,23 @@ function saveForm(id, silent){
   }
 
   // ★★★ 跨裝置同步：3 秒後從雲端重新拉取，確認資料已同步 ★★★
+  //   ★★★【v1.5.5 修正:剛存過就跳過這次拉取】★★★
+  //   原本這段會在 saveForm 後 3 秒強制 loadFormFromSheets,
+  //   問題:若雲端寫入比讀取慢(常見於並發或網路抖動),
+  //         讀回來的會是「未含剛上傳資料」的舊版,merge 把記憶體洗掉,
+  //         狀態從「已完成」自動跳回「草稿中」,且使用者再開表單看到答案少了。
+  //   修法:檢查 _lastSavedAt,若仍在 freshness 期間(剛存過),跳過這次拉取。
   setTimeout(async function(){
     try{
+      var _fkey = getFormKey(id);
+      var _ago = _lastSavedAt[_fkey] ? (Date.now() - _lastSavedAt[_fkey]) : Infinity;
+      if(_ago < SAVE_FRESHNESS_MS){
+        console.log('[saveForm 3 秒後拉取] '+_fkey+' 在 '+_ago+'ms 前剛存過,跳過 loadFormFromSheets');
+        // 仍要 refresh 一次以防萬一
+        renderSidebar();
+        updateQuickNav();
+        return;
+      }
       await loadFormFromSheets(id);
       var hw=document.getElementById('history-wrap');
       if(hw && APP.currentFormId===id){
@@ -12443,20 +12458,6 @@ function calcF16AndRender(fid){
 function buildF16(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined) canS=true;
-  // ★★★ DEBUG: 印出渲染時 d 裡面有多少 f16 答案 ★★★
-  try{
-    var _f16Count = Object.keys(d).filter(function(k){return k.indexOf('f16_q_')===0;}).length;
-    var _dRef = APP.formData[fid] || {};
-    var _refCount = Object.keys(_dRef).filter(function(k){return k.indexOf('f16_q_')===0;}).length;
-    console.log('[buildF16] fid='+fid+' 傳入的 d 有 '+_f16Count+' 個 f16_q_*, APP.formData['+fid+'] 有 '+_refCount+' 個');
-    if(_f16Count===0 && _refCount>0){
-      console.warn('[buildF16] ⚠ 警告:傳入的 d 是空的,但 APP.formData['+fid+'] 有 '+_refCount+' 個答案!! d 跟 formData 不同步');
-    }
-    // 把 d 裡的關鍵答案印出來方便比對(只印前 5 個)
-    var _sample = {};
-    Object.keys(d).filter(function(k){return k.indexOf('f16_q_')===0;}).slice(0,5).forEach(function(k){_sample[k]=d[k];});
-    if(Object.keys(_sample).length>0) console.log('[buildF16] d 前 5 個答案範例:', _sample);
-  }catch(e){}
   // 學生姓名統一規則(學生登入 / 老師查看 都自動帶入,且強制覆蓋舊污染)
   // F16 沒有 s_sign 欄位(學習風格自評不需簽名),所以只處理 s_name
   var _f16Nm='';
