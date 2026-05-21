@@ -7042,13 +7042,31 @@ async function loadAllFormsFromSheets(){
           if(item.formData){
             try{
               var loaded = JSON.parse(item.formData);
-              APP.formData[fkey] = loaded;
+              // ★★★【v1.5.5 修正】merge 而非整份覆蓋 ★★★
+              // 舊版 bug:`APP.formData[fkey] = loaded;` 在雲端是空物件時會洗掉本機未上傳的草稿。
+              // 修法:本機 + 雲端 merge,雲端有的優先(source of truth),雲端沒有的保留本機。
+              var _existing = APP.formData[fkey] || {};
+              var _merged = {};
+              Object.keys(_existing).forEach(function(k){ _merged[k] = _existing[k]; });
+              Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
+              // 已刪除清單裡的 key 從 merged 移除(雙保險)
+              if(typeof getDeletedKeysFor==='function'){
+                getDeletedKeysFor(fkey).forEach(function(k){ delete _merged[k]; });
+              }
+              APP.formData[fkey] = _merged;
             }catch(e){}
           }
           if(item.history){
             try{
               var remoteLog = JSON.parse(item.history);
-              APP.historyLog[fkey] = remoteLog;
+              // ★★★【v1.5.5 修正】historyLog 也改成 merge ★★★
+              var _localLog = APP.historyLog[fkey] || [];
+              var _logMap = {};
+              (remoteLog||[]).forEach(function(l){ if(l && l.ts) _logMap[l.ts] = l; });
+              _localLog.forEach(function(l){ if(l && l.ts && !_logMap[l.ts]) _logMap[l.ts] = l; });
+              APP.historyLog[fkey] = Object.values(_logMap).sort(function(a,b){
+                return new Date(b.ts) - new Date(a.ts);
+              });
             }catch(e){}
           }
         });
@@ -7086,14 +7104,28 @@ async function loadAllFormsFromSheets(){
           if(data.formData){
             try{
               var loaded = JSON.parse(data.formData);
-              // ★ 只寫 formKey,不寫裸 baseId(避免跨學生污染)
-              APP.formData[fk] = loaded;
+              // ★★★【v1.5.5 修正】同新 API 路徑:merge 而非整份覆蓋 ★★★
+              var _existing2 = APP.formData[fk] || {};
+              var _merged2 = {};
+              Object.keys(_existing2).forEach(function(k){ _merged2[k] = _existing2[k]; });
+              Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
+              if(typeof getDeletedKeysFor==='function'){
+                getDeletedKeysFor(fk).forEach(function(k){ delete _merged2[k]; });
+              }
+              APP.formData[fk] = _merged2;
             }catch(e){}
           }
           if(data.history){
             try{
               var remoteLog = JSON.parse(data.history);
-              APP.historyLog[fk] = remoteLog;
+              // ★★★【v1.5.5 修正】historyLog 也改成 merge ★★★
+              var _localLog2 = APP.historyLog[fk] || [];
+              var _logMap2 = {};
+              (remoteLog||[]).forEach(function(l){ if(l && l.ts) _logMap2[l.ts] = l; });
+              _localLog2.forEach(function(l){ if(l && l.ts && !_logMap2[l.ts]) _logMap2[l.ts] = l; });
+              APP.historyLog[fk] = Object.values(_logMap2).sort(function(a,b){
+                return new Date(b.ts) - new Date(a.ts);
+              });
             }catch(e){}
           }
         }catch(e){}
