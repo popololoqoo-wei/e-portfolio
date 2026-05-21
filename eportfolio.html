@@ -867,6 +867,7 @@ input[type="date"]{
       <span id="topbar-role" class="role-chip"></span>
       <button id="btn-home" onclick="APP.currentRole==='teacher'?renderTeacherHome():renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
       <button id="btn-sync" onclick="manualSync()" style="padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="從雲端重新載入最新資料">🔄 同步</button>
+      <button id="btn-diag" onclick="runDiagnostic()" style="padding:5px 12px;background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.6);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="診斷：檢查目前表單在雲端與本機的狀態">🔍 診斷</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -7141,6 +7142,192 @@ async function loadAllFormsFromSheets(){
     localStorage.setItem('history_logs', JSON.stringify(_sanitizeStoreForBackup(APP.historyLog)));
   }catch(e){}
 }
+
+/* ═══════════ 🔍 診斷模式（v1.5.5） ═══════════
+ * 功能:檢查目前表單在 本機 / 雲端 / 記憶體 三邊的狀態,以全螢幕對話框呈現,
+ *      讓非技術人員也能截圖回報問題。
+ * 觸發:點右上角「🔍 診斷」按鈕。
+ * 顯示:
+ *   - 你是誰(角色 + sid)
+ *   - 目前看的是哪份表單(formKey)
+ *   - 三邊各有幾個欄位、內容預覽
+ *   - 直接打雲端 API 看回應(原始 JSON)
+ */
+async function runDiagnostic(){
+  if(!APP.currentUser){ alert('請先登入再執行診斷'); return; }
+
+  // 建對話框骨架
+  var existing = document.getElementById('diag-modal');
+  if(existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'diag-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = ''
+    + '<div style="background:#fff;max-width:900px;width:100%;max-height:90vh;overflow:auto;border-radius:12px;padding:24px;font-family:system-ui,sans-serif;">'
+    + '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:2px solid #f59e0b;padding-bottom:12px;">'
+    + '    <h2 style="margin:0;font-size:18px;color:#0f172a;">🔍 診斷報告</h2>'
+    + '    <button onclick="document.getElementById(\'diag-modal\').remove()" style="background:#ef4444;color:#fff;border:0;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;">關閉 ✕</button>'
+    + '  </div>'
+    + '  <div id="diag-body" style="font-size:13px;line-height:1.7;color:#0f172a;">'
+    + '    <div style="text-align:center;padding:30px;color:#666;">⏳ 檢查中,請稍候約 5 秒...</div>'
+    + '  </div>'
+    + '  <div style="margin-top:16px;padding:12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;font-size:12px;color:#78350f;">'
+    + '    💡 <b>請整頁截圖</b>(或按 Print Screen)傳給工程師,協助找出問題。'
+    + '  </div>'
+    + '</div>';
+  document.body.appendChild(modal);
+
+  var body = document.getElementById('diag-body');
+  var lines = [];
+
+  function add(label, value, color){
+    color = color || '#0f172a';
+    var displayValue = value;
+    if(typeof value === 'object'){
+      try{ displayValue = JSON.stringify(value, null, 2); }catch(e){ displayValue = String(value); }
+    }
+    lines.push('<div style="margin-bottom:10px;padding:8px 12px;background:#f8fafc;border-left:3px solid '+color+';border-radius:4px;">'
+      + '<div style="font-weight:600;color:'+color+';margin-bottom:4px;">'+label+'</div>'
+      + '<div style="font-family:Menlo,Consolas,monospace;font-size:12px;color:#0f172a;word-break:break-all;white-space:pre-wrap;">'+displayValue+'</div>'
+      + '</div>');
+    body.innerHTML = lines.join('');
+  }
+
+  function section(title){
+    lines.push('<div style="margin:20px 0 8px;padding:6px 10px;background:#0f172a;color:#fff;border-radius:6px;font-weight:600;font-size:13px;">'+title+'</div>');
+    body.innerHTML = lines.join('');
+  }
+
+  lines = [];
+  body.innerHTML = '';
+
+  // ═══════ 1. 你是誰 ═══════
+  section('① 你是誰');
+  add('登入角色', APP.currentRole || '(未登入)', '#2563eb');
+  if(APP.currentRole === 'student'){
+    add('學生姓名', (APP.currentUser && APP.currentUser.name) || '(無)');
+    add('學生學號 sid', (APP.currentUser && APP.currentUser.sid) || '(無)', '#dc2626');
+  } else if(APP.currentRole === 'teacher'){
+    add('老師姓名', (APP.currentUser && APP.currentUser.name) || '(無)');
+    add('老師卡號', (APP.currentUser && APP.currentUser.card) || '(無)');
+    add('正在看哪位學生(currentStudentId)', APP.currentStudentId || '(尚未選定 ⚠ 老師沒選學生的話什麼都看不到)', APP.currentStudentId ? '#dc2626' : '#ef4444');
+    if(APP.currentStudentId && APP.students && APP.students[APP.currentStudentId]){
+      add('該學生姓名', APP.students[APP.currentStudentId].name || '(無)');
+    }
+  }
+
+  // ═══════ 2. 目前表單 ═══════
+  section('② 目前在看哪份表單');
+  var currentFormId = APP.currentFormId;
+  add('表單 ID (currentFormId)', currentFormId || '(沒有打開任何表單 ⚠ 請先打開一份表單再點診斷)', currentFormId ? '#0f172a' : '#ef4444');
+
+  if(!currentFormId || currentFormId.indexOf('__') === 0){
+    add('⚠ 提醒', '請先打開一份具體的表單(例如 F01B 核心課程學後評值表),然後再按診斷按鈕。\n\n目前你只在總覽頁,沒辦法檢查特定表單的狀態。', '#ef4444');
+    return;
+  }
+
+  var bareId = currentFormId.indexOf('_') >= 0 ? currentFormId.split('_')[0] : currentFormId;
+  var formKey = (typeof getFormKey === 'function') ? getFormKey(bareId) : bareId;
+  add('完整 formKey (含學號)', formKey, '#2563eb');
+
+  // ═══════ 3. 三邊資料比對 ═══════
+  section('③ 資料三邊比對');
+
+  // 3a 記憶體
+  var memData = (APP.formData && APP.formData[formKey]) || {};
+  var memKeys = Object.keys(memData);
+  add('🧠 記憶體中此表單有幾個欄位', memKeys.length + ' 個', memKeys.length > 0 ? '#16a34a' : '#ef4444');
+  if(memKeys.length > 0){
+    var memPreview = {};
+    memKeys.slice(0, 8).forEach(function(k){ memPreview[k] = memData[k]; });
+    if(memKeys.length > 8) memPreview['... 還有 ' + (memKeys.length - 8) + ' 個'] = '(略)';
+    add('🧠 記憶體內容預覽(前 8 個)', memPreview);
+  }
+
+  // 3b localStorage
+  var lsData = {};
+  try{
+    var drafts = JSON.parse(localStorage.getItem('form_drafts') || '{}');
+    lsData = drafts[formKey] || {};
+  }catch(e){}
+  var lsKeys = Object.keys(lsData);
+  add('💾 本機草稿中此表單有幾個欄位', lsKeys.length + ' 個', lsKeys.length > 0 ? '#16a34a' : '#ef4444');
+  if(lsKeys.length > 0){
+    var lsPreview = {};
+    lsKeys.slice(0, 8).forEach(function(k){ lsPreview[k] = lsData[k]; });
+    if(lsKeys.length > 8) lsPreview['... 還有 ' + (lsKeys.length - 8) + ' 個'] = '(略)';
+    add('💾 本機草稿內容預覽(前 8 個)', lsPreview);
+  }
+
+  // 3c 雲端(直接打 API)
+  section('④ 雲端實際存了什麼(直接打 GAS API)');
+  add('API 網址', GAS_URL || '(未設定)');
+  add('正在請求...', 'loadForm?formId=' + formKey, '#2563eb');
+
+  try{
+    var controller = new AbortController();
+    var tid = setTimeout(function(){ controller.abort(); }, 10000);
+    var url = GAS_URL + '?action=loadForm&formId=' + encodeURIComponent(formKey) + '&t=' + Date.now();
+    var resp = await fetch(url, { cache: 'no-cache', signal: controller.signal });
+    clearTimeout(tid);
+    add('☁ HTTP 狀態', resp.status + ' ' + resp.statusText, resp.ok ? '#16a34a' : '#ef4444');
+
+    if(resp.ok){
+      var raw = await resp.text();
+      var rawShort = raw.length > 500 ? raw.substring(0, 500) + '...(共 ' + raw.length + ' 字元)' : raw;
+      add('☁ 雲端原始回應(raw)', rawShort);
+
+      try{
+        var json = JSON.parse(raw);
+        if(json.formData){
+          try{
+            var cloudData = JSON.parse(json.formData);
+            var cloudKeys = Object.keys(cloudData);
+            add('☁ 雲端此表單有幾個欄位', cloudKeys.length + ' 個', cloudKeys.length > 0 ? '#16a34a' : '#ef4444');
+            if(cloudKeys.length > 0){
+              var cloudPreview = {};
+              cloudKeys.slice(0, 12).forEach(function(k){ cloudPreview[k] = cloudData[k]; });
+              if(cloudKeys.length > 12) cloudPreview['... 還有 ' + (cloudKeys.length - 12) + ' 個'] = '(略)';
+              add('☁ 雲端內容預覽(前 12 個)', cloudPreview);
+            } else {
+              add('⚠ 結論', '雲端裡這份表單是空的!\n\n意思是:之前的填寫資料 從來沒成功上傳到雲端(可能是學生沒按儲存、或者上傳被拒)。\n\n下一步:請學生重新填寫此表單 → 按「儲存表單」按鈕 → 等 5 秒 → 再點這個診斷按鈕看雲端是否真的有收到。', '#ef4444');
+            }
+          }catch(e){
+            add('☁ 解析雲端 formData 失敗', e.message, '#ef4444');
+          }
+        } else {
+          add('⚠ 雲端 response 沒有 formData 欄位', '雲端從未收到這份表單的資料。\n\n下一步:請學生重新填寫並按儲存,確認上傳成功。', '#ef4444');
+        }
+      }catch(e){
+        add('☁ JSON 解析失敗', e.message + '\n\n原始回應可能不是 JSON 格式。', '#ef4444');
+      }
+    }
+  }catch(e){
+    add('☁ 雲端請求失敗', (e.name || 'Error') + ': ' + (e.message || e), '#ef4444');
+  }
+
+  // ═══════ 5. Session token ═══════
+  section('⑤ 寫入權限(session token)');
+  var token = (typeof getSessionToken === 'function') ? getSessionToken() : null;
+  if(token){
+    add('🔑 你的 sessionToken', token.substring(0, 20) + '...(已隱藏後半段)', '#16a34a');
+    add('🔑 結論', '有 token → 寫入雲端權限正常', '#16a34a');
+  } else {
+    add('🔑 你的 sessionToken', '(沒有 ⚠⚠⚠ 嚴重)', '#ef4444');
+    add('⚠ 結論', '沒有 session token,任何寫入操作雲端都會拒絕!\n\n後果:你按「儲存表單」根本沒成功推上雲端,雲端永遠是空的。\n\n下一步:請完全登出 → 關閉瀏覽器 → 重新打開 → 重新登入,讓系統重發 token。', '#ef4444');
+  }
+
+  // ═══════ 6. 總結 ═══════
+  section('⑥ 快速總結(給工程師看的)');
+  add('比對結果',
+    '記憶體: ' + memKeys.length + ' 個欄位\n'
+    + '本機草稿: ' + lsKeys.length + ' 個欄位\n'
+    + '雲端: (見上方④) 個欄位\n'
+    + 'Session token: ' + (token ? '有' : '無')
+  );
+}
+/* ═══════════ END 🔍 診斷模式 ═══════════ */
 
 /* ── 手動同步按鈕 ── */
 async function manualSync(){
