@@ -1878,6 +1878,15 @@ async function changeTeacherPwd(){
   }
 }
 function doLogout(){
+  // 【v1.5.5】登出前先 flush 任何 pending 的自動儲存到雲端，
+  // 否則接下來 removeItem('form_drafts') 會把學生剛填的資料直接洗掉，
+  // 老師端永遠看不到。
+  try{
+    if(typeof flushAllPendingAutoSaves === 'function'){
+      flushAllPendingAutoSaves();
+    }
+  }catch(e){console.warn('logout flush failed:', e);}
+
   // 【安全】登出時清掉所有可能含他人帳號資料的 localStorage
   // 這樣下一位使用同一台電腦的人無法從 F12 看到上一位的草稿、密碼等
   try{
@@ -4088,8 +4097,8 @@ function writeField(fid, key, val){
    每次資料變動 → 等待 20 秒（debounce）→ 自動觸發儲存
    進入儲存前 10 秒切換為倒數提示 + 顏色閃爍，作為視覺緩衝
    ════════════════════════════════════════════════ */
-const AUTO_SAVE_DEBOUNCE_MS = 20000;            // 停止輸入 20 秒後自動存
-const AUTO_SAVE_COUNTDOWN_MS = 10000;           // 儲存前 10 秒進入倒數提示
+const AUTO_SAVE_DEBOUNCE_MS = 8000;             // 停止輸入 8 秒後自動存（v1.5.5：原 20 秒過長，老師端常看不到學生草稿）
+const AUTO_SAVE_COUNTDOWN_MS = 4000;            // 儲存前 4 秒進入倒數提示
 let _autoSaveTimers = {};            // 每張表單獨立計時器
 let _autoSaveCountdownTimers = {};   // 每張表單的倒數提示計時器
 let _autoSaveCountdownInterval = null; // 全域倒數刷新 interval
@@ -4159,6 +4168,75 @@ function runAutoSave(bareId){
     setTimeout(function(){ _autoSaveInFlight[bareId] = false; }, 1000);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────
+ * 【v1.5.5】離開前 flush 機制
+ * 問題：學生填一填直接關分頁/登出，原 20 秒 debounce 還沒到就走人，
+ *      雲端沒收到資料，老師端登入看到的就是空白。
+ * 解法：
+ *   1. flushAllPendingAutoSaves()：把所有 _autoSaveTimers 立即執行
+ *   2. beforeunload / pagehide / visibilitychange 三個事件都掛
+ *      （桌機靠 beforeunload，手機 Safari 必須靠 pagehide / visibilitychange）
+ *   3. doLogout 也呼叫此函式（在 removeItem('form_drafts') 之前）
+ * ──────────────────────────────────────────────────────────────── */
+function flushAllPendingAutoSaves(){
+  try{
+    var pendingIds = Object.keys(_autoSaveTimers||{});
+    if(pendingIds.length===0) return false;
+    pendingIds.forEach(function(bareId){
+      try{
+        clearTimeout(_autoSaveTimers[bareId]);
+        delete _autoSaveTimers[bareId];
+        if(_autoSaveCountdownTimers[bareId]){
+          clearTimeout(_autoSaveCountdownTimers[bareId]);
+          delete _autoSaveCountdownTimers[bareId];
+        }
+        // 同步呼叫 saveForm(silent=true)，內部會走 saveFormToSheets 推上 GAS
+        if(typeof saveForm === 'function') saveForm(bareId, true);
+      }catch(e){console.warn('flushAllPendingAutoSaves item failed:', bareId, e);}
+    });
+    if(_autoSaveCountdownInterval){
+      clearInterval(_autoSaveCountdownInterval);
+      _autoSaveCountdownInterval=null;
+    }
+    return true;
+  }catch(e){
+    console.warn('flushAllPendingAutoSaves failed:', e);
+    return false;
+  }
+}
+
+/* ── 掛載一次性的全域離開監聽 ── */
+(function attachUnloadFlushHandlers(){
+  if(window.__unloadFlushAttached) return;
+  window.__unloadFlushAttached = true;
+
+  // 桌機：關分頁、重新整理、關瀏覽器
+  window.addEventListener('beforeunload', function(ev){
+    var hasPending = Object.keys(_autoSaveTimers||{}).length > 0;
+    if(hasPending){
+      // 先 flush（fetch 在 unload 期間用 sendBeacon 更可靠，但目前 saveFormToSheets 用 fetch，
+      // 大多瀏覽器仍會送出 — 我們再加一道防線：顯示原生「離開確認」對話框）
+      flushAllPendingAutoSaves();
+      // 標準離開確認（現代瀏覽器多半只顯示通用訊息，但仍能阻止使用者意外關掉）
+      ev.preventDefault();
+      ev.returnValue = '尚有未儲存的草稿正在上傳，確定要離開嗎？';
+      return ev.returnValue;
+    }
+  });
+
+  // 手機 / 切到背景 / iOS Safari（beforeunload 在 iOS 不可靠）
+  window.addEventListener('pagehide', function(){
+    flushAllPendingAutoSaves();
+  });
+
+  // 切分頁、最小化、手機切 app：當頁面變不可見時也 flush 一次
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden'){
+      flushAllPendingAutoSaves();
+    }
+  });
+})();
 
 /* ── 自動儲存狀態指示器（右下角小提示） ── */
 function showAutoSaveIndicator(state, countdownSec){
