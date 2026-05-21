@@ -6874,18 +6874,45 @@ async function loadFormFromSheets(id){
             });
           }
         }
-        // ★★★ 跨裝置同步:遠端資料完全取代本地(formKey 為主) ★★★
-        // ★ 不再寫入裸 id,避免跨學生污染:當老師輪流查看 A、B 兩位學生的同一份表單時,
-        //   裸 id 會被後載入的學生資料覆蓋,而後續 saveForm / mergeAllKeys 又會把
-        //   裸 id 的內容 assign 回 formKey,造成「A 看到 B 的簽名」等錯誤。
-        APP.formData[formKey] = loaded;
+        // ★★★【v1.5.5 修正】跨裝置同步:雲端 + 本機 merge,而非直接覆蓋 ★★★
+        // 舊版 bug: `APP.formData[formKey] = loaded;` 整份覆蓋本機。
+        // 後果:老師端打開表單時,先看到本機 merge 後的完整資料,
+        //       1~3 秒後雲端回應(可能是空物件或只有部分欄位)→ 整份覆蓋 →
+        //       「畫面上原本有的學生填答 突然消失」。
+        //
+        // 修法策略:
+        //  (a) 已被 loaded 涵蓋的 key → 用雲端值(雲端是最終 source of truth)
+        //  (b) loaded 沒有的 key      → 保留本機(可能是尚未上傳的本地草稿,
+        //                              或被 deletedKeys 過濾掉的「真的該刪」的 key)
+        //  (c) 顯式刪除清單裡的 key   → 從本機也移除(已在上面處理 loaded)
+        // 注意:這不會讓「真的被刪掉」的欄位復活,因為已刪欄位被加入 _recently_deleted,
+        //      下次儲存時雲端也會被同步刪除。
+        var existing = APP.formData[formKey] || {};
+        var merged = {};
+        // 先放本機既有的(保底),再用雲端覆蓋
+        Object.keys(existing).forEach(function(k){ merged[k] = existing[k]; });
+        Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
+        // 已刪除清單裡的 key 從 merged 移除(雙保險)
+        if(typeof getDeletedKeysFor==='function'){
+          var dk2 = getDeletedKeysFor(formKey);
+          dk2.forEach(function(k){ delete merged[k]; });
+        }
+        APP.formData[formKey] = merged;
       }catch(e2){console.warn('formData parse:',e2);}
     }
     if(data.history){
       try{
         const remoteLog=JSON.parse(data.history);
-        // ★★★ 跨裝置同步：遠端歷史紀錄優先(formKey 為主) ★★★
-        APP.historyLog[formKey] = remoteLog;
+        // ★★★【v1.5.5 修正】historyLog 也改成 merge,而非直接覆蓋 ★★★
+        // 避免本機剛存的紀錄(尚未同步到雲端)被空陣列清掉。
+        var localLog = APP.historyLog[formKey] || [];
+        var logMap = {};
+        // 雲端為主(較新),本機補上雲端沒有的(以 ts 去重)
+        (remoteLog||[]).forEach(function(l){ if(l && l.ts) logMap[l.ts]=l; });
+        localLog.forEach(function(l){ if(l && l.ts && !logMap[l.ts]) logMap[l.ts]=l; });
+        APP.historyLog[formKey] = Object.values(logMap).sort(function(a,b){
+          return new Date(b.ts) - new Date(a.ts);
+        });
       }catch(e2){}
     }
   }catch(e){
