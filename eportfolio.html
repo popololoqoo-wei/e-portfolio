@@ -6912,6 +6912,28 @@ async function loadFormFromSheets(id){
           var dk2 = getDeletedKeysFor(formKey);
           dk2.forEach(function(k){ delete merged[k]; });
         }
+
+        // ★★★【v1.5.5 診斷】偵測「雲端用空字串/null 覆蓋本機有效值」★★★
+        // 如果偵測到雲端傳來的某個 key 值是空字串/null,但本機原本是有效值,
+        // 印出警告,並 fallback 保留本機原值(避免畫面上的選項突然消失)。
+        try{
+          var _suspicious = [];
+          Object.keys(loaded).forEach(function(k){
+            var loadedVal = loaded[k];
+            var existingVal = existing[k];
+            var loadedEmpty = (loadedVal === '' || loadedVal === null || loadedVal === undefined);
+            var existingHasValue = (existingVal !== '' && existingVal !== null && existingVal !== undefined);
+            if(loadedEmpty && existingHasValue){
+              _suspicious.push({key: k, was: existingVal, becameEmpty: loadedVal});
+              // ★ 關鍵 fallback:雲端是空但本機有效 → 保留本機值
+              merged[k] = existingVal;
+            }
+          });
+          if(_suspicious.length > 0){
+            console.warn('[loadFormFromSheets] ⚠ 雲端傳來 ' + _suspicious.length + ' 個欄位是「空」,但本機原本有值 → 已保留本機值:', _suspicious);
+          }
+        }catch(e){console.warn('suspicious check failed:', e);}
+
         APP.formData[formKey] = merged;
       }catch(e2){console.warn('formData parse:',e2);}
     }
@@ -6945,9 +6967,14 @@ async function loadFormFromSheets(id){
   //   修補 bug:學生取消選項雲端已刪 key,但老師端打開時按鈕仍維持舊「佳」選中狀態。
   //   buildXxx 在開表單當下渲染了一次,雲端非同步回來後若不重畫,舊按鈕樣式不會更新。
   if(typeof refreshFormUI==='function'){
-    // 兩次重繪:第一次立即(覆蓋同步草稿),第二次稍後(等 buildXxx 若有延遲渲染)
+    // ★★★【v1.5.5 修正:增加重繪次數】★★★
+    // 多次重繪確保資料/畫面完全同步。場景:loadFormFromSheets merge 完成後,
+    // 若 buildXxx 還在執行(例如 F01B 有 28 行 × 8 按鈕 = 224 個按鈕,渲染需要一點時間),
+    // 第一次 refreshFormUI 可能找不到按鈕。多跑幾次保險,避免使用者看到「資料有但按鈕未選」。
     refreshFormUI(formKey);
-    setTimeout(function(){ refreshFormUI(formKey); }, 300);
+    setTimeout(function(){ refreshFormUI(formKey); }, 100);
+    setTimeout(function(){ refreshFormUI(formKey); }, 400);
+    setTimeout(function(){ refreshFormUI(formKey); }, 1000);
   }
 }
 
@@ -7044,6 +7071,13 @@ async function loadAllFormsFromSheets(){
               if(typeof getDeletedKeysFor==='function'){
                 getDeletedKeysFor(fkey).forEach(function(k){ delete _merged[k]; });
               }
+              // ★★★【v1.5.5 fallback】雲端空字串/null 不可覆蓋本機有效值 ★★★
+              Object.keys(loaded).forEach(function(k){
+                var lv = loaded[k], ev = _existing[k];
+                var lEmpty = (lv==='' || lv===null || lv===undefined);
+                var eHas = (ev!=='' && ev!==null && ev!==undefined);
+                if(lEmpty && eHas){ _merged[k] = ev; }
+              });
               APP.formData[fkey] = _merged;
             }catch(e){}
           }
@@ -7103,6 +7137,13 @@ async function loadAllFormsFromSheets(){
               if(typeof getDeletedKeysFor==='function'){
                 getDeletedKeysFor(fk).forEach(function(k){ delete _merged2[k]; });
               }
+              // ★★★【v1.5.5 fallback】雲端空字串/null 不可覆蓋本機有效值 ★★★
+              Object.keys(loaded).forEach(function(k){
+                var lv = loaded[k], ev = _existing2[k];
+                var lEmpty = (lv==='' || lv===null || lv===undefined);
+                var eHas = (ev!=='' && ev!==null && ev!==undefined);
+                if(lEmpty && eHas){ _merged2[k] = ev; }
+              });
               APP.formData[fk] = _merged2;
             }catch(e){}
           }
@@ -9987,6 +10028,31 @@ function setRating(fid,key,val,role,btn){
   // ★ 「再點同一值 = 清除」:若目前已選中就是這個 val,點下去視為取消
   var curVal = APP.formData[targetKey][key];
   var isToggleOff = (curVal!==undefined && curVal!==null && curVal!=='' && (curVal==val || curVal===String(val)));
+
+  // ★★★【v1.5.5 修正:畫面/資料不同步保護】★★★
+  // 場景:loadFormFromSheets 把資料 merge 進記憶體後,refreshFormUI 因 race condition
+  //      或其他原因沒能把按鈕視覺更新成選中。此時使用者看到「按鈕未選」就去點,
+  //      程式卻判定「再點同一值=清除」,跳出「✓已清除」訊息 → 使用者很困惑。
+  // 修法:除了記憶體有值,還要確認「該按鈕視覺上真的是選中狀態」才算 toggle off。
+  //      若記憶體有值但按鈕看起來未選 → 視為「重新選擇此值」,把按鈕視覺也同步上來。
+  if(isToggleOff && btn){
+    var btnVisuallySelected = false;
+    // F01A/F01B inline-style 按鈕:檢查 background 是否為非白色
+    var bg = (btn.style && btn.style.background) || '';
+    if(bg && bg !== '' && bg.indexOf('#fff') !== 0 && bg !== 'rgb(255, 255, 255)' && bg !== 'white'){
+      btnVisuallySelected = true;
+    }
+    // 一般 r-btn:檢查是否有 sel-s/sel-t/sel-a class
+    if(btn.classList && (btn.classList.contains('sel-s') || btn.classList.contains('sel-t') || btn.classList.contains('sel-a'))){
+      btnVisuallySelected = true;
+    }
+    // 若按鈕視覺上其實沒被選中 → 取消 toggle off,改成「重新選擇」
+    if(!btnVisuallySelected){
+      isToggleOff = false;
+      console.warn('[setRating] 偵測到資料/畫面不同步:記憶體有值 '+curVal+' 但按鈕視覺未選中,改為重新選擇 '+val);
+    }
+  }
+
   if(isToggleOff){
     delete APP.formData[targetKey][key];
     // ★ 標記為「已刪除」,避免下次從雲端拉回時復活
@@ -10075,6 +10141,25 @@ function f01Click(btn){
   var targetKey = (typeof getCanonicalKey==='function') ? getCanonicalKey(bareId) : fid;
   var curVal = (APP.formData[targetKey] && APP.formData[targetKey][key]) || '';
   var isToggleOff = (curVal && curVal===val);
+
+  // ★★★【v1.5.5 修正:畫面/資料不同步保護】★★★
+  // 場景同 setRating:loadFormFromSheets 後 race 導致按鈕視覺與記憶體不同步。
+  // 若記憶體 curVal===val 但畫面上 **沒有任何按鈕視覺被選中**(整組都白底)→
+  // 表示畫面狀態落後於資料,這次點擊應該是「重新選擇此值」而非「清除」。
+  if(isToggleOff){
+    var anyVisuallySelected = false;
+    document.querySelectorAll('[data-rkey="'+key+'"]').forEach(function(b){
+      var bg = (b.style && b.style.background) || '';
+      // 只要不是白底就算被選中(F01A/F01B 選中時是藍/紅/灰底)
+      if(bg && bg !== '' && bg.indexOf('#fff') !== 0 && bg !== 'rgb(255, 255, 255)' && bg !== 'white'){
+        anyVisuallySelected = true;
+      }
+    });
+    if(!anyVisuallySelected){
+      isToggleOff = false;
+      console.warn('[f01Click] 偵測到資料/畫面不同步:記憶體有 '+curVal+' 但 4 個按鈕都未選中,改為重新選擇 '+val);
+    }
+  }
 
   // 更新 inline style(F01A/F01B 按鈕用 inline style 不是 CSS class)
   var selBg=isTeacher?'#C0392B':'#2471A3';
