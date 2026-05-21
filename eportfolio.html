@@ -5487,6 +5487,10 @@ async function openForm(id){
   const d=Object.assign({}, APP.formData[id]||{}, APP.formData[formKey]||{});
   APP.formData[formKey]=Object.assign({},d);
 
+  // ★★★【v1.5.5 診斷 log】記錄 buildXxx 渲染前的記憶體狀態 ★★★
+  var _initFCount = Object.keys(d).filter(function(k){return /^f\d/.test(k);}).length;
+  console.log('[openForm] '+id+' 開始渲染,傳給 buildXxx 的 d 中 f* key 共 '+_initFCount+' 個');
+
   let studentBanner='';
   if(APP.currentRole==='teacher'||APP.currentRole==='admin'){
   // 計算每位學生此表單的評核狀態
@@ -9943,6 +9947,12 @@ function refreshFormUI(formKey){
   if(!formKey) return;
   try{
     var d = (APP.formData && APP.formData[formKey]) || {};
+
+    // ★★★【v1.5.5 診斷 log】記錄此次 refreshFormUI 看到的記憶體值,
+    //    方便追「畫面消失」現場。只在開發者模式或 console 看得到。
+    var _fKeysCount = Object.keys(d).filter(function(k){return /^f\d/.test(k);}).length;
+    console.log('[refreshFormUI] '+formKey+' 啟動,記憶體中 f* key 共 '+_fKeysCount+' 個');
+
     // 1) 處理 F01A/F01B 風格按鈕(inline style 染色,onclick="f01Click")
     var f01Btns = document.querySelectorAll('button[onclick="f01Click(this)"]');
     var rkeySet = {};
@@ -9950,6 +9960,10 @@ function refreshFormUI(formKey){
       var k = b.getAttribute('data-rkey');
       if(k) rkeySet[k] = true;
     });
+
+    console.log('[refreshFormUI] 找到 '+f01Btns.length+' 個 f01Click 按鈕,'+Object.keys(rkeySet).length+' 個 rkey');
+
+    var _refreshedCount = 0;
     Object.keys(rkeySet).forEach(function(k){
       var curVal = d[k];  // 雲端最新值(被刪掉就是 undefined)
       var btns = document.querySelectorAll('button[data-rkey="'+k+'"][onclick="f01Click(this)"]');
@@ -9964,8 +9978,10 @@ function refreshFormUI(formKey){
         b.style.color = shouldSel?'#fff':'#7A706A';
         b.style.fontWeight = shouldSel?'700':'400';
         b.style.borderColor = shouldSel?selBg:'#D4C9BB';
+        if(shouldSel) _refreshedCount++;
       });
     });
+    console.log('[refreshFormUI] 完成,共標記選中 '+_refreshedCount+' 個按鈕為高亮');
     // 2) 處理一般評分表格按鈕(class sel-s/sel-t/sel-a,onclick="setRating(...)")
     var tbBtns = document.querySelectorAll('button.r-btn[data-rkey]');
     var rkeySet2 = {};
