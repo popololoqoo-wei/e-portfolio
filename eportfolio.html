@@ -6958,7 +6958,9 @@ async function saveFormToSheets(id){
 }
 
 /* ── 從 GAS 讀取表單資料（載入時呼叫） ── */
-async function loadFormFromSheets(id){
+async function loadFormFromSheets(id, forceCloud){
+  // forceCloud=true:強制雲端覆蓋本機(用於「同步」按鈕,跨裝置取得最新)
+  // forceCloud=false/undefined:本機優先(預設,避免「跳走再跳回」洗掉剛填的東西)
   // 使用 formKey（含學號）確保資料存到正確的 key
   const formKey=getFormKey(id);
   // ★★★ 旗標:只有「真的從雲端拿到資料」才執行後續 refreshFormUI ★★★
@@ -6991,34 +6993,30 @@ async function loadFormFromSheets(id){
             });
           }
         }
-        // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★
-        // 舊版策略:雲端值覆蓋本機(雲端為 source of truth)。
-        // 致命問題:使用者剛在本機填的答案,只要雲端有同一個 key 的舊值,就會被洗掉。
-        //          場景:學生填了第 24 題 = 2 → 跳走 → 跳回 → 雲端有「半小時前的 1」→
-        //                merge 把第 24 題改回 1 → 看起來「剛填的不見了」。
-        //
-        // 新策略:本機優先,雲端只補本機沒有的 key。
-        //  (a) 本機有的 key → 永遠用本機(它代表使用者「現在在做的事」,最權威)
-        //  (b) 本機沒有的 key → 用雲端(可能是跨裝置同步來的、或之前儲存的)
-        //  (c) 顯式刪除清單裡的 key → 從本機也移除(雙保險,下面處理)
-        //
-        // 為什麼這樣安全:
-        // - 跨裝置同步:你在 A 裝置填的東西會推上雲端,B 裝置開的時候本機沒這個 key →
-        //   會從雲端載入 → 正常。
-        // - 唯一被犧牲的場景:你在 A 跟 B 兩台裝置同時改同一個欄位,B 裝置會看到自己填的,
-        //   不會看到 A 的。對學生表單來說這是合理的(自己填的東西應該優先呈現)。
+        // ★★★【v1.5.5】雙模式 merge ★★★
+        // forceCloud=true(來自「同步」按鈕):強制雲端覆蓋本機,跨裝置同步用。
+        // forceCloud=false(預設,來自自動載入/openForm):本機優先,避免「跳走再跳回」洗掉剛填的東西。
         var existing = APP.formData[formKey] || {};
         var merged = {};
-        // 1) 先把雲端的全部放進去(當作底)
-        Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
-        // 2) 本機有值的 key 永遠覆蓋掉雲端(本機是最新)
-        Object.keys(existing).forEach(function(k){
-          var ev = existing[k];
-          // 本機是「真的有值」才覆蓋(空字串/null/undefined/false 視為沒填,不覆蓋雲端)
-          if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
-            merged[k] = ev;
-          }
-        });
+        if(forceCloud){
+          // 同步按鈕:雲端覆蓋本機(把這台本機的舊狀態用雲端最新狀態取代)
+          // 1) 先把本機放進去(當底,保留本機有但雲端沒的 key,例如尚未上傳的草稿)
+          Object.keys(existing).forEach(function(k){ merged[k] = existing[k]; });
+          // 2) 雲端覆蓋(雲端是最新,因為使用者主動按了同步要拿最新)
+          Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
+          console.log('[loadFormFromSheets] forceCloud=true,雲端覆蓋本機 (同步模式)');
+        } else {
+          // 預設:本機優先,雲端只補空缺
+          // 1) 雲端為底
+          Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
+          // 2) 本機有真實值的 key 覆蓋(本機是使用者現在正在做的事)
+          Object.keys(existing).forEach(function(k){
+            var ev = existing[k];
+            if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
+              merged[k] = ev;
+            }
+          });
+        }
         // 已刪除清單裡的 key 從 merged 移除(雙保險)
         if(typeof getDeletedKeysFor==='function'){
           var dk2 = getDeletedKeysFor(formKey);
@@ -7147,7 +7145,9 @@ function _sanitizeBareIds(obj){
 }
 
 /* ── 登入時批次從 GAS 拉取該使用者所有表單（跨裝置同步用）── */
-async function loadAllFormsFromSheets(){
+async function loadAllFormsFromSheets(forceCloud){
+  // forceCloud=true:強制雲端覆蓋本機(同步按鈕用)
+  // forceCloud=false/undefined:本機優先(預設,登入時的批次載入用)
   if(!APP.currentUser) return;
   var sid = APP.currentRole==='student' ? APP.currentUser.sid 
           : (APP.currentStudentId || null);
@@ -7177,19 +7177,23 @@ async function loadAllFormsFromSheets(){
           if(item.formData){
             try{
               var loaded = JSON.parse(item.formData);
-              // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★ 本機優先,雲端只補空缺
-              // 詳細說明見 loadFormFromSheets 內同樣修正點。
+              // ★★★【v1.5.5】雙模式 merge ★★★
+              // forceCloud=true(同步按鈕):雲端覆蓋本機。
+              // 預設:本機優先,雲端補空缺。
               var _existing = APP.formData[fkey] || {};
               var _merged = {};
-              // 1) 雲端為底
-              Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
-              // 2) 本機有值覆蓋
-              Object.keys(_existing).forEach(function(k){
-                var ev = _existing[k];
-                if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
-                  _merged[k] = ev;
-                }
-              });
+              if(forceCloud){
+                Object.keys(_existing).forEach(function(k){ _merged[k] = _existing[k]; });
+                Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
+              } else {
+                Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
+                Object.keys(_existing).forEach(function(k){
+                  var ev = _existing[k];
+                  if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
+                    _merged[k] = ev;
+                  }
+                });
+              }
               // 已刪除清單裡的 key 從 merged 移除(雙保險)
               if(typeof getDeletedKeysFor==='function'){
                 getDeletedKeysFor(fkey).forEach(function(k){ delete _merged[k]; });
@@ -7248,13 +7252,18 @@ async function loadAllFormsFromSheets(){
               // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★ 本機優先,雲端只補空缺
               var _existing2 = APP.formData[fk] || {};
               var _merged2 = {};
-              Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
-              Object.keys(_existing2).forEach(function(k){
-                var ev = _existing2[k];
-                if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
-                  _merged2[k] = ev;
-                }
-              });
+              if(forceCloud){
+                Object.keys(_existing2).forEach(function(k){ _merged2[k] = _existing2[k]; });
+                Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
+              } else {
+                Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
+                Object.keys(_existing2).forEach(function(k){
+                  var ev = _existing2[k];
+                  if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
+                    _merged2[k] = ev;
+                  }
+                });
+              }
               if(typeof getDeletedKeysFor==='function'){
                 getDeletedKeysFor(fk).forEach(function(k){ delete _merged2[k]; });
               }
@@ -7519,7 +7528,11 @@ async function manualSync(){
   var btn = document.getElementById('btn-sync');
   if(btn){ btn.disabled=true; btn.textContent='⏳ 同步中...'; }
   try{
-    await loadAllFormsFromSheets();
+    // ★★★【v1.5.5】同步按鈕走「強制雲端覆蓋本機」模式 ★★★
+    //   平常自動載入是「本機優先」,避免跳走再跳回洗掉剛填的東西;
+    //   但「同步」按鈕的意義就是「請用雲端最新覆蓋我這台」,所以走強制模式。
+    //   場景:桌機填完上傳 → 平板按同步應該看到桌機的進度,而不是平板本機的舊狀態。
+    await loadAllFormsFromSheets(true);
     toast('✓ 已從雲端載入最新資料');
     if(APP.currentFormId && !APP.currentFormId.startsWith('__')){
       openForm(APP.currentFormId);
