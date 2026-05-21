@@ -10169,7 +10169,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   // 基本資料（學生）
   h+='<div class="card"><div class="card-head"><div class="card-head-title">學生資料</div></div><div class="card-body">';
   h+='<div class="g2">';
-  // 學生姓名
+  // 學生姓名（學生登入 → currentUser；老師/管理員查看 → currentStudentId）
   var sn=d['s_name']||'';
   if(APP.currentRole==='student'&&APP.currentUser){
     sn=APP.currentUser.name;
@@ -10177,6 +10177,17 @@ function buildF04Bedside(f,d,canT,fkey,canS){
     if(!d['s_sign']){
       if(!APP.formData[fid])APP.formData[fid]={};
       APP.formData[fid]['s_sign']=sn;
+    }
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    var _stuF04=APP.students[APP.currentStudentId];
+    if(_stuF04&&_stuF04.name){
+      // 沒填過才覆寫，避免蓋掉手動編輯
+      if(!sn){
+        sn=_stuF04.name;
+        if(!APP.formData[fid])APP.formData[fid]={};
+        APP.formData[fid]['s_name']=sn;
+        d['s_name']=sn;
+      }
     }
   }
   h+='<div class="field"><label>學生姓名</label><input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name"'+(APP.currentRole==='student'&&APP.currentUser?' readonly':'')+' style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+(APP.currentRole==='student'?'var(--cream)':'#fff')+';font-size:13px;"></div>';
