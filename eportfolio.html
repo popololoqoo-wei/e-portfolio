@@ -6929,6 +6929,16 @@ async function saveFormToSheets(id){
   // 舊版用 iframe form submit 的問題：無法接收後端回應、無法判斷成功失敗
   // ★★★【v1.5.5 修正】回傳 Promise,讓呼叫端可選擇 await,
   //      確保「跳走前 flush」真的存完才放行,避免後續 loadFormFromSheets 讀到舊版。
+  //
+  // ★★★【v1.5.5 修正 - 關鍵】★★★
+  // _lastSavedAt 必須在「fetch 送出當下」就記下時間戳,而不是「fetch 回應後」。
+  // 原因:fetch 通常要 1~3 秒才完成,但「3 秒後重拉雲端」就會在 3 秒準時觸發,
+  //       race 順序可能是:[3 秒重拉觸發] → [fetch 才完成] → [_lastSavedAt 才寫入]
+  //       → freshness 永遠救不到第一次重拉 → 雲端舊版蓋掉本機新版。
+  // 修法:送出時立刻記時間戳。意義上是「我們已經把最新值送出,本機就是 source of truth,
+  //       接下來這 10 秒內任何拉取都應該以本機為準」。即使 fetch 失敗,
+  //       下次 autoSave / 手動儲存還會再嘗試,_lastSavedAt 不會永遠錯。
+  _lastSavedAt[formKey] = Date.now(); // ★ 在 fetch 送出前就標記
   try{
     return fetch(GAS_URL, {
       method:'POST',
@@ -6942,10 +6952,7 @@ async function saveFormToSheets(id){
           toast('⚠ 登入逾時，請重新登入', false);
           clearSession();
         }
-        return; // 失敗就不更新時間戳
       }
-      // ★ 成功:標記「剛存過」,5 秒內 openForm 會略過 loadFormFromSheets
-      _lastSavedAt[formKey] = Date.now();
     }).catch(function(e){ console.warn('saveFormToSheets error:',e); });
   }catch(e){console.warn('saveFormToSheets error:',e);}
 }
@@ -6984,24 +6991,34 @@ async function loadFormFromSheets(id){
             });
           }
         }
-        // ★★★【v1.5.5 修正】跨裝置同步:雲端 + 本機 merge,而非直接覆蓋 ★★★
-        // 舊版 bug: `APP.formData[formKey] = loaded;` 整份覆蓋本機。
-        // 後果:老師端打開表單時,先看到本機 merge 後的完整資料,
-        //       1~3 秒後雲端回應(可能是空物件或只有部分欄位)→ 整份覆蓋 →
-        //       「畫面上原本有的學生填答 突然消失」。
+        // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★
+        // 舊版策略:雲端值覆蓋本機(雲端為 source of truth)。
+        // 致命問題:使用者剛在本機填的答案,只要雲端有同一個 key 的舊值,就會被洗掉。
+        //          場景:學生填了第 24 題 = 2 → 跳走 → 跳回 → 雲端有「半小時前的 1」→
+        //                merge 把第 24 題改回 1 → 看起來「剛填的不見了」。
         //
-        // 修法策略:
-        //  (a) 已被 loaded 涵蓋的 key → 用雲端值(雲端是最終 source of truth)
-        //  (b) loaded 沒有的 key      → 保留本機(可能是尚未上傳的本地草稿,
-        //                              或被 deletedKeys 過濾掉的「真的該刪」的 key)
-        //  (c) 顯式刪除清單裡的 key   → 從本機也移除(已在上面處理 loaded)
-        // 注意:這不會讓「真的被刪掉」的欄位復活,因為已刪欄位被加入 _recently_deleted,
-        //      下次儲存時雲端也會被同步刪除。
+        // 新策略:本機優先,雲端只補本機沒有的 key。
+        //  (a) 本機有的 key → 永遠用本機(它代表使用者「現在在做的事」,最權威)
+        //  (b) 本機沒有的 key → 用雲端(可能是跨裝置同步來的、或之前儲存的)
+        //  (c) 顯式刪除清單裡的 key → 從本機也移除(雙保險,下面處理)
+        //
+        // 為什麼這樣安全:
+        // - 跨裝置同步:你在 A 裝置填的東西會推上雲端,B 裝置開的時候本機沒這個 key →
+        //   會從雲端載入 → 正常。
+        // - 唯一被犧牲的場景:你在 A 跟 B 兩台裝置同時改同一個欄位,B 裝置會看到自己填的,
+        //   不會看到 A 的。對學生表單來說這是合理的(自己填的東西應該優先呈現)。
         var existing = APP.formData[formKey] || {};
         var merged = {};
-        // 先放本機既有的(保底),再用雲端覆蓋
-        Object.keys(existing).forEach(function(k){ merged[k] = existing[k]; });
+        // 1) 先把雲端的全部放進去(當作底)
         Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
+        // 2) 本機有值的 key 永遠覆蓋掉雲端(本機是最新)
+        Object.keys(existing).forEach(function(k){
+          var ev = existing[k];
+          // 本機是「真的有值」才覆蓋(空字串/null/undefined/false 視為沒填,不覆蓋雲端)
+          if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
+            merged[k] = ev;
+          }
+        });
         // 已刪除清單裡的 key 從 merged 移除(雙保險)
         if(typeof getDeletedKeysFor==='function'){
           var dk2 = getDeletedKeysFor(formKey);
@@ -7160,24 +7177,23 @@ async function loadAllFormsFromSheets(){
           if(item.formData){
             try{
               var loaded = JSON.parse(item.formData);
-              // ★★★【v1.5.5 修正】merge 而非整份覆蓋 ★★★
-              // 舊版 bug:`APP.formData[fkey] = loaded;` 在雲端是空物件時會洗掉本機未上傳的草稿。
-              // 修法:本機 + 雲端 merge,雲端有的優先(source of truth),雲端沒有的保留本機。
+              // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★ 本機優先,雲端只補空缺
+              // 詳細說明見 loadFormFromSheets 內同樣修正點。
               var _existing = APP.formData[fkey] || {};
               var _merged = {};
-              Object.keys(_existing).forEach(function(k){ _merged[k] = _existing[k]; });
+              // 1) 雲端為底
               Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
+              // 2) 本機有值覆蓋
+              Object.keys(_existing).forEach(function(k){
+                var ev = _existing[k];
+                if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
+                  _merged[k] = ev;
+                }
+              });
               // 已刪除清單裡的 key 從 merged 移除(雙保險)
               if(typeof getDeletedKeysFor==='function'){
                 getDeletedKeysFor(fkey).forEach(function(k){ delete _merged[k]; });
               }
-              // ★★★【v1.5.5 fallback】雲端空字串/null 不可覆蓋本機有效值 ★★★
-              Object.keys(loaded).forEach(function(k){
-                var lv = loaded[k], ev = _existing[k];
-                var lEmpty = (lv==='' || lv===null || lv===undefined);
-                var eHas = (ev!=='' && ev!==null && ev!==undefined);
-                if(lEmpty && eHas){ _merged[k] = ev; }
-              });
               APP.formData[fkey] = _merged;
             }catch(e){}
           }
@@ -7229,21 +7245,19 @@ async function loadAllFormsFromSheets(){
           if(data.formData){
             try{
               var loaded = JSON.parse(data.formData);
-              // ★★★【v1.5.5 修正】同新 API 路徑:merge 而非整份覆蓋 ★★★
+              // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★ 本機優先,雲端只補空缺
               var _existing2 = APP.formData[fk] || {};
               var _merged2 = {};
-              Object.keys(_existing2).forEach(function(k){ _merged2[k] = _existing2[k]; });
               Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
+              Object.keys(_existing2).forEach(function(k){
+                var ev = _existing2[k];
+                if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
+                  _merged2[k] = ev;
+                }
+              });
               if(typeof getDeletedKeysFor==='function'){
                 getDeletedKeysFor(fk).forEach(function(k){ delete _merged2[k]; });
               }
-              // ★★★【v1.5.5 fallback】雲端空字串/null 不可覆蓋本機有效值 ★★★
-              Object.keys(loaded).forEach(function(k){
-                var lv = loaded[k], ev = _existing2[k];
-                var lEmpty = (lv==='' || lv===null || lv===undefined);
-                var eHas = (ev!=='' && ev!==null && ev!==undefined);
-                if(lEmpty && eHas){ _merged2[k] = ev; }
-              });
               APP.formData[fk] = _merged2;
             }catch(e){}
           }
