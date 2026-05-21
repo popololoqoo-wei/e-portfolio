@@ -10148,7 +10148,9 @@ function rBtnTable(fid,key,v,role,disabled){
   var cur=d[key];
   const selC=(cur==v||cur===String(v))?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
   const dis=disabled?'disabled':'';
-  var tAttr=role==='t'?' data-teacher="1"':'';
+  // ★ 修正:role 為 's' 時也要標記 data-student="1",否則老師端的 lockStudentFields 抓不到,
+  //   會導致老師可以直接亂改學生欄位(例如 F02 臨床表現自我學後評值表 10 項評分)而無警示。
+  var tAttr=role==='t'?' data-teacher="1"':(role==='s'?' data-student="1"':'');
   return`<button class="r-btn ${selC}" ${dis} data-fid="${fid}" data-rkey="${key}" data-rval="${v}"${tAttr} onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)" style="position:relative;z-index:2;touch-action:manipulation;">${v}</button>`;
 }
 
