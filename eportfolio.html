@@ -867,7 +867,7 @@ input[type="date"]{
       <span id="topbar-role" class="role-chip"></span>
       <button id="btn-home" onclick="APP.currentRole==='teacher'?renderTeacherHome():renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
       <button id="btn-sync" onclick="manualSync()" style="padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="從雲端重新載入最新資料">🔄 同步</button>
-      <button id="btn-diag" onclick="runDiagnostic()" style="display:none;padding:5px 12px;background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.6);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="診斷：檢查目前表單在雲端與本機的狀態">🔍 診斷</button>
+      <button id="btn-diag" onclick="runDiagnostic()" style="display:none;padding:5px 12px;background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.6);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="診斷">🔍 診斷</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -1151,12 +1151,6 @@ function startSessionWatchdog(){
 function isDevMode(){
   try{ return localStorage.getItem('__dev_mode')==='1'; }catch(e){ return false; }
 }
-
-/* ═══════════ 【v1.5.5】最近上傳時間戳(寫入/讀取防 race condition) ═══════════
- * 用途:openForm 拉雲端前先看這個,若 formKey 在 SAVE_FRESHNESS_MS 內剛上傳過,
- *      就跳過 loadFormFromSheets,避免「剛存好的資料」被「還沒同步的雲端舊版」蓋掉。 */
-var _lastSavedAt = {};   // { formKey: timestamp_ms }
-var SAVE_FRESHNESS_MS = 10000; // 10 秒內視為「剛存過,本機就是最新」(拉長以涵蓋 fetch 還在路上 + 3 秒後重拉的 race window)
 
 let APP={
   currentRole:null,       // 'student'|'teacher'|'admin'
@@ -3914,14 +3908,10 @@ function _courseTestCalcScore(fid){
 }
 
 function findForm(id){return FORMS.find(f=>f.id===id);}
-/* ── 把可能已帶學號的 id 還原成 baseId（例如 F01B_P145023 → F01B） ──
-   原因：switchStudent / openForm 之間，有時會把 formKey 當作 formId 又傳一次，
-   若不剝掉學號，getFormKey 會再加一次 → 變成 F01B_P145023_P145023，
-   這個 key 雲端不存在，loadFormFromSheets 拉到空 → refreshFormUI 把畫面清空。 */
+/* 把可能已帶學號的 id 還原成 baseId，避免 getFormKey 重複加學號 */
 function _stripSidFromId(id){
   if(!id || typeof id!=='string') return id;
   if(id.indexOf('_')<0) return id;
-  // 收集所有可能的學號（自己的 + 老師看的學生）
   var sids = [];
   if(APP.currentUser && APP.currentUser.sid) sids.push(APP.currentUser.sid);
   if(APP.currentStudentId) sids.push(APP.currentStudentId);
@@ -3932,13 +3922,10 @@ function _stripSidFromId(id){
       return id.slice(0, id.length - suffix.length);
     }
   }
-  // 沒有任何已知學號尾巴 → 視為純 baseId（避免誤砍像 F07M 這種本身有底線的 id）
   return id;
 }
 
 function getFormKey(id){
-  // 每位學生有獨立的表單資料
-  // ★ 先把可能已帶學號的 id 還原成 baseId,避免重複加學號
   id = _stripSidFromId(id);
   if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid){
     return id+'_'+APP.currentUser.sid;
@@ -3946,21 +3933,17 @@ function getFormKey(id){
   if((APP.currentRole==='teacher'||APP.currentRole==='admin') && APP.currentStudentId){
     return id+'_'+APP.currentStudentId;
   }
-  return id; // fallback：登入流程未完成時暫用裸 id（會於 enterApp/openForm 時 migration）
+  return id;
 }
 
-/* ── 取得「應寫入的正規 key」── 寫入點統一呼叫此函式，永不寫入裸 id（除非真的沒有學生 context） */
 function getCanonicalKey(id){
-  // ★ 同 getFormKey:先剝掉已帶的學號,避免雙重附加
   id = _stripSidFromId(id);
-  // 若有任一學生 context，永遠回傳 formKey（含學號）
   if(APP.currentRole==='student' && APP.currentUser && APP.currentUser.sid){
     return id+'_'+APP.currentUser.sid;
   }
   if(APP.currentStudentId){
     return id+'_'+APP.currentStudentId;
   }
-  // 真的沒有 context（極少見，例如尚未登入）→ 退回裸 id
   return id;
 }
 
@@ -4180,32 +4163,26 @@ function scheduleAutoSave(bareId){
 }
 
 function runAutoSave(bareId){
-  if(_autoSaveInFlight[bareId]) return Promise.resolve();
+  if(_autoSaveInFlight[bareId]) return;
   _autoSaveInFlight[bareId] = true;
   // 停止倒數刷新
   if(_autoSaveCountdownInterval){ clearInterval(_autoSaveCountdownInterval); _autoSaveCountdownInterval=null; }
   showAutoSaveIndicator('saving');
-  // ★★★【v1.5.5 修正】回傳 Promise,讓「切表單時 flush」能 await 等真正上傳完,
-  //      避免上傳還沒完就被 loadFormFromSheets 拉舊版蓋掉。
-  return new Promise(function(resolve){
-    try{
-      // saveForm 內部會呼叫 saveFormToSheets(formKey)(現已回傳 Promise);
-      // 但 saveForm 本身仍是同步函式,所以這邊用「給雲端 1.5 秒寫入時間」的保險作為等候上限,
-      // 確保大多數情況下 _lastSavedAt[formKey] 已被設好,後續 openForm 才能正確跳過 loadFormFromSheets。
-      if(typeof saveForm === 'function'){
-        saveForm(bareId, true);
-        showAutoSaveIndicator('saved');
-      }
-    }catch(e){
-      console.warn('autoSave failed:', e);
-      showAutoSaveIndicator('error');
+  try{
+    // 直接呼叫 saveForm，與「按儲存按鈕」效果完全相同
+    // 這會建立 historyLog 紀錄，讓狀態判定能正確運作
+    // ★ silent=true:autoSave 是背景觸發,不該跳「老師必填未完成」對話框
+    //   (那個對話框只在使用者主動按「儲存表單」按鈕時跳)
+    if(typeof saveForm === 'function'){
+      saveForm(bareId, true);
+      showAutoSaveIndicator('saved');
     }
-    // 等 1.5 秒讓 fetch 走完(實測 GAS 寫入 ~0.5-1.5 秒);超過視為已存,放行
-    setTimeout(function(){
-      _autoSaveInFlight[bareId] = false;
-      resolve();
-    }, 1500);
-  });
+  }catch(e){
+    console.warn('autoSave failed:', e);
+    showAutoSaveIndicator('error');
+  }finally{
+    setTimeout(function(){ _autoSaveInFlight[bareId] = false; }, 1000);
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -4499,9 +4476,7 @@ const TEACHER_EXACT_FIELDS = new Set([
 const TEACHER_PREFIX_FIELDS = [
   // F01B 指導者評核(28 項):f01_p1_0 ~ f01_p1_27
   'f01_p1_',
-  // ★ F02 移除:f02_0 ~ f02_9 是「學生臨床表現自評」,不是老師欄位!
-  //   原本誤列為老師前綴,導致老師端不會被守護,可直接竄改學生評分。
-  // 'f02_',  ← 已移除
+  // ★ f02_ 已移除:f02_0 ~ f02_9 是學生自評,不是老師欄位
   // F06 CbD 評估項目:f06_0 ~ f06_6
   'f06_',
   // F07 360 度評核項目:f07_0 ~ f07_13
@@ -5373,16 +5348,13 @@ async function openForm(id){
     if(!teacherConfirmLeaveIfIncomplete(APP.currentFormId)) return;
   }
   // ★ 切換表單前：強制觸發目前表單的待儲存草稿（若有未完成的 debounce 計時）
-  //   ★★★【v1.5.5 修正】改 await:等舊表單真的上傳完才繼續,
-  //        避免「上傳還在路上時,新表單流程已開始 loadFormFromSheets,
-  //        瞬間切回舊表單時雲端還沒收到上傳,把記憶體新值蓋掉」的 race condition。
   if(APP.currentFormId && APP.currentFormId !== id && !APP.currentFormId.startsWith('__')){
     const oldBare = APP.currentFormId.indexOf('_')>=0 ? APP.currentFormId.split('_')[0] : APP.currentFormId;
     if(_autoSaveTimers[oldBare]){
       clearTimeout(_autoSaveTimers[oldBare]);
       delete _autoSaveTimers[oldBare];
-      // 立即儲存而非等 8 秒,並 await 真正完成
-      try{ await runAutoSave(oldBare); }catch(e){console.warn('flush autoSave failed:',e);}
+      // 立即儲存而非等 5 秒
+      try{ runAutoSave(oldBare); }catch(e){console.warn('flush autoSave failed:',e);}
     }
   }
   // 自動暫存目前表單（如果有未儲存的資料）
@@ -5717,47 +5689,28 @@ async function openForm(id){
   }
 
   if(GAS_URL && GAS_URL !== 'YOUR_GAS_URL_HERE'){
-    // ★★★【v1.5.5 重大修正】★★★
-    // 舊版這裡會在老師/管理員打開表單時,強制清空 APP.formData[formKey] 和
-    // localStorage 中所有 `f` 開頭的 key (例如 f01_post_*, f02_*),期待 loadFormFromSheets
-    // 從雲端重新填回。
-    //
-    // 致命問題:
-    //   1. loadFormFromSheets 是非同步,中間有 1~3 秒 race window
-    //   2. 在此期間 buildXxx 會用「被清空的記憶體」渲染畫面 → 老師看到空白
-    //   3. 若使用者此時按診斷/切表單/觸發任何 saveFormToSheets,空物件會被推上雲端
-    //   4. 最重要:即使雲端正確回來,我們在 loadFormFromSheets 已實作「merge 而非覆蓋」,
-    //      雲端有的本來就會蓋過舊本機值,這段強制清空已經完全多餘且有害。
-    //
-    // 設計意圖原本是「避免學生取消選項但老師本機殘留舊值」——但這已透過
-    // _recently_deleted 機制由 loadFormFromSheets 統一處理,不需要在前端做激進清除。
-    //
-    // 因此這段強制清空已移除。loadFormFromSheets 內部的 merge + deletedKeys 過濾足夠了。
-    //
-    // ★★★【v1.5.5 修正:剛存過就別拉雲端】★★★
-    //   問題:學生填了第 24 題 → 切到別張表單(觸發 autoSave 上傳,但 fetch 還在路上) →
-    //         立刻切回 → 這裡呼叫 loadFormFromSheets → 雲端回的是「沒第 24 題」的舊版 →
-    //         merge 把本機剛填的第 24 題蓋掉 → 畫面上第 24 題又消失。
-    //   修法:檢查 _lastSavedAt[formKey],若 5 秒內剛存成功過,
-    //         本機就是最新狀態,直接略過 loadFormFromSheets,避免雲端舊版蓋掉本機新版。
-    var _justSavedAgo = _lastSavedAt[formKey] ? (Date.now() - _lastSavedAt[formKey]) : Infinity;
-    if(_justSavedAgo < SAVE_FRESHNESS_MS){
-      console.log('[openForm] '+formKey+' 在 '+_justSavedAgo+'ms 前剛存過,跳過 loadFormFromSheets (避免被舊雲端蓋掉)');
-      // 仍要刷一次 UI,確保按鈕視覺對得上記憶體
+    // ★ 若本機 APP.formData 已經有這個 formKey 的草稿,就不要拉雲端
+    //   (避免「跳走再跳回,雲端拉舊版蓋掉剛填的東西」)
+    //   要看別台裝置的最新版,請使用右上角「🔄 同步」按鈕(它走 replaceMode 強制覆蓋)
+    var _existing = APP.formData[formKey] || {};
+    var _hasLocalDraft = Object.keys(_existing).some(function(k){
+      var v = _existing[k];
+      return v !== '' && v !== null && v !== undefined && v !== false;
+    });
+    if(_hasLocalDraft){
+      console.log('[openForm] '+formKey+' 本機已有草稿,跳過 loadFormFromSheets,使用本機資料');
+      // 仍然刷一次 UI 以防按鈕視覺與記憶體不同步
       if(typeof refreshFormUI === 'function'){
         try{ refreshFormUI(formKey); }catch(e){}
       }
     } else {
+      // 本機沒有草稿(第一次打開、或是剛登入) → 從雲端拉
       loadFormFromSheets(formKey).then(function(){
         mergeAllKeys();
-        // 若目前還在同一個表單，靜默更新 history 顯示
         if(APP.currentFormId===id){
           var hw=document.getElementById('history-wrap');
           if(hw) hw.innerHTML=buildHistoryItems(formKey);
         }
-        // ★★★【v1.5.5 新增】雲端 merge 完成後,重新觸發畫面重繪,確保新拉回的資料能顯示 ★★★
-        // 因為 buildXxx 在 openForm 早期已執行,當時記憶體可能還沒有完整資料。
-        // 雲端非同步到達後,用 refreshFormUI 把按鈕視覺狀態更新到最新值。
         if(typeof refreshFormUI === 'function'){
           try{ refreshFormUI(formKey); }catch(e){}
         }
@@ -6845,23 +6798,8 @@ function saveForm(id, silent){
   }
 
   // ★★★ 跨裝置同步：3 秒後從雲端重新拉取，確認資料已同步 ★★★
-  //   ★★★【v1.5.5 修正:剛存過就跳過這次拉取】★★★
-  //   原本這段會在 saveForm 後 3 秒強制 loadFormFromSheets,
-  //   問題:若雲端寫入比讀取慢(常見於並發或網路抖動),
-  //         讀回來的會是「未含剛上傳資料」的舊版,merge 把記憶體洗掉,
-  //         狀態從「已完成」自動跳回「草稿中」,且使用者再開表單看到答案少了。
-  //   修法:檢查 _lastSavedAt,若仍在 freshness 期間(剛存過),跳過這次拉取。
   setTimeout(async function(){
     try{
-      var _fkey = getFormKey(id);
-      var _ago = _lastSavedAt[_fkey] ? (Date.now() - _lastSavedAt[_fkey]) : Infinity;
-      if(_ago < SAVE_FRESHNESS_MS){
-        console.log('[saveForm 3 秒後拉取] '+_fkey+' 在 '+_ago+'ms 前剛存過,跳過 loadFormFromSheets');
-        // 仍要 refresh 一次以防萬一
-        renderSidebar();
-        updateQuickNav();
-        return;
-      }
       await loadFormFromSheets(id);
       var hw=document.getElementById('history-wrap');
       if(hw && APP.currentFormId===id){
@@ -6878,14 +6816,6 @@ function saveForm(id, silent){
 }
 
 /* ── 將表單資料存到 GAS（共享給所有人） ── */
-/* ═══════════ 【v1.5.5】最近上傳時間戳 ═══════════
- * 用途:openForm 拉雲端前先看這個,若 formKey 在 5 秒內剛上傳過,
- *      就跳過 loadFormFromSheets,避免「剛存好的資料」被「還沒同步的雲端舊版」蓋掉。
- * 場景:學生在 F16 填了第 24 題 → 切到別張表單(觸發 autoSave 上傳) →
- *      立刻切回 F16 → openForm 呼叫 loadFormFromSheets →
- *      上傳的 fetch 還在路上,雲端回的是「沒有第 24 題」的舊版 →
- *      merge 把記憶體的第 24 題蓋掉 → 畫面上第 24 題消失。 */
-
 async function saveFormToSheets(id){
   // id 可能是裸 formId 或 formKey，統一處理
   // saveForm 呼叫時傳的是 formKey（含學號）
@@ -6927,25 +6857,13 @@ async function saveFormToSheets(id){
   }
   // 【改用 fetch + text/plain 避免 CORS preflight】
   // 舊版用 iframe form submit 的問題：無法接收後端回應、無法判斷成功失敗
-  // ★★★【v1.5.5 修正】回傳 Promise,讓呼叫端可選擇 await,
-  //      確保「跳走前 flush」真的存完才放行,避免後續 loadFormFromSheets 讀到舊版。
-  //
-  // ★★★【v1.5.5 修正 - 關鍵】★★★
-  // _lastSavedAt 必須在「fetch 送出當下」就記下時間戳,而不是「fetch 回應後」。
-  // 原因:fetch 通常要 1~3 秒才完成,但「3 秒後重拉雲端」就會在 3 秒準時觸發,
-  //       race 順序可能是:[3 秒重拉觸發] → [fetch 才完成] → [_lastSavedAt 才寫入]
-  //       → freshness 永遠救不到第一次重拉 → 雲端舊版蓋掉本機新版。
-  // 修法:送出時立刻記時間戳。意義上是「我們已經把最新值送出,本機就是 source of truth,
-  //       接下來這 10 秒內任何拉取都應該以本機為準」。即使 fetch 失敗,
-  //       下次 autoSave / 手動儲存還會再嘗試,_lastSavedAt 不會永遠錯。
-  _lastSavedAt[formKey] = Date.now(); // ★ 在 fetch 送出前就標記
   try{
-    return fetch(GAS_URL, {
+    fetch(GAS_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain'},
       body: JSON.stringify(payload),
       mode:'cors'
-    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(data){
+    }).then(r=>r.ok?r.json():null).then(data=>{
       if(data && data.error){
         console.warn('[Backend] saveForm rejected:', data.error);
         if(data.error.indexOf('token')>=0 || data.error.indexOf('expired')>=0){
@@ -6953,29 +6871,25 @@ async function saveFormToSheets(id){
           clearSession();
         }
       }
-    }).catch(function(e){ console.warn('saveFormToSheets error:',e); });
+    }).catch(e=>console.warn('saveFormToSheets error:',e));
   }catch(e){console.warn('saveFormToSheets error:',e);}
 }
 
 /* ── 從 GAS 讀取表單資料（載入時呼叫） ── */
-async function loadFormFromSheets(id, forceCloud){
-  // forceCloud=true:強制雲端覆蓋本機(用於「同步」按鈕,跨裝置取得最新)
-  // forceCloud=false/undefined:本機優先(預設,避免「跳走再跳回」洗掉剛填的東西)
+async function loadFormFromSheets(id){
   // 使用 formKey（含學號）確保資料存到正確的 key
   const formKey=getFormKey(id);
-  // ★★★ 旗標:只有「真的從雲端拿到資料」才執行後續 refreshFormUI ★★★
-  //   修補 bug:逾時/網路錯誤時,refreshFormUI 會用「空的記憶體」把畫面上 224 個按鈕
-  //   全部清回未選,使用者看到「先有資料、3 秒後消失」。
+  // ★ 旗標:逾時/失敗時不要呼叫 refreshFormUI 把畫面清空
   var cloudOk = false;
   try{
     const controller=new AbortController();
-    const tid=setTimeout(function(){controller.abort();},15000); // 從 8 秒拉到 15 秒,給慢的 GAS 多點時間
+    const tid=setTimeout(function(){controller.abort();},15000); // 從 8 秒拉到 15 秒
     const url=GAS_URL+'?action=loadForm&formId='+encodeURIComponent(formKey)+'&t='+Date.now();
     const resp=await fetch(url,{cache:'no-cache',signal:controller.signal});
     clearTimeout(tid);
     if(!resp.ok)return;
     const data=await resp.json();
-    cloudOk = true; // 走到這裡才算雲端 OK
+    cloudOk = true;
     if(data.formData){
       try{
         const loaded=JSON.parse(data.formData);
@@ -6993,30 +6907,24 @@ async function loadFormFromSheets(id, forceCloud){
             });
           }
         }
-        // ★★★【v1.5.5】雙模式 merge ★★★
-        // forceCloud=true(來自「同步」按鈕):強制雲端覆蓋本機,跨裝置同步用。
-        // forceCloud=false(預設,來自自動載入/openForm):本機優先,避免「跳走再跳回」洗掉剛填的東西。
+        // ★★★【v1.5.5 修正】跨裝置同步:雲端 + 本機 merge,而非直接覆蓋 ★★★
+        // 舊版 bug: `APP.formData[formKey] = loaded;` 整份覆蓋本機。
+        // 後果:老師端打開表單時,先看到本機 merge 後的完整資料,
+        //       1~3 秒後雲端回應(可能是空物件或只有部分欄位)→ 整份覆蓋 →
+        //       「畫面上原本有的學生填答 突然消失」。
+        //
+        // 修法策略:
+        //  (a) 已被 loaded 涵蓋的 key → 用雲端值(雲端是最終 source of truth)
+        //  (b) loaded 沒有的 key      → 保留本機(可能是尚未上傳的本地草稿,
+        //                              或被 deletedKeys 過濾掉的「真的該刪」的 key)
+        //  (c) 顯式刪除清單裡的 key   → 從本機也移除(已在上面處理 loaded)
+        // 注意:這不會讓「真的被刪掉」的欄位復活,因為已刪欄位被加入 _recently_deleted,
+        //      下次儲存時雲端也會被同步刪除。
         var existing = APP.formData[formKey] || {};
         var merged = {};
-        if(forceCloud){
-          // 同步按鈕:雲端覆蓋本機(把這台本機的舊狀態用雲端最新狀態取代)
-          // 1) 先把本機放進去(當底,保留本機有但雲端沒的 key,例如尚未上傳的草稿)
-          Object.keys(existing).forEach(function(k){ merged[k] = existing[k]; });
-          // 2) 雲端覆蓋(雲端是最新,因為使用者主動按了同步要拿最新)
-          Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
-          console.log('[loadFormFromSheets] forceCloud=true,雲端覆蓋本機 (同步模式)');
-        } else {
-          // 預設:本機優先,雲端只補空缺
-          // 1) 雲端為底
-          Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
-          // 2) 本機有真實值的 key 覆蓋(本機是使用者現在正在做的事)
-          Object.keys(existing).forEach(function(k){
-            var ev = existing[k];
-            if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
-              merged[k] = ev;
-            }
-          });
-        }
+        // 先放本機既有的(保底),再用雲端覆蓋
+        Object.keys(existing).forEach(function(k){ merged[k] = existing[k]; });
+        Object.keys(loaded).forEach(function(k){ merged[k] = loaded[k]; });
         // 已刪除清單裡的 key 從 merged 移除(雙保險)
         if(typeof getDeletedKeysFor==='function'){
           var dk2 = getDeletedKeysFor(formKey);
@@ -7073,23 +6981,15 @@ async function loadFormFromSheets(id, forceCloud){
       if(cid==='F15') calcF15Score(getFormKey(cid));
     },200);
   }
-  // ★★★ 跨帳號同步修復:雲端載入完後,強制根據最新 formData 重畫按鈕視覺狀態 ★★★
-  //   修補 bug:學生取消選項雲端已刪 key,但老師端打開時按鈕仍維持舊「佳」選中狀態。
-  //   buildXxx 在開表單當下渲染了一次,雲端非同步回來後若不重畫,舊按鈕樣式不會更新。
-  //
-  // ★★★【關鍵修正】只有「真的從雲端拿到資料」才重畫,否則保留畫面原本顯示。★★★
-  //   原本逾時 / AbortError / 網路錯誤時還是會跑 refreshFormUI,
-  //   但此時 APP.formData[formKey] 是空的 → 按鈕全部被清回未選 → 使用者看到資料消失。
+  // ★ 只有真的從雲端拿到資料才重畫,否則保留畫面原樣
+  //   逾時/錯誤時 APP.formData[formKey] 是空的,若仍跑 refreshFormUI 會把按鈕全清回未選
   if(cloudOk && typeof refreshFormUI==='function'){
-    // 多次重繪確保資料/畫面完全同步。場景:loadFormFromSheets merge 完成後,
-    // 若 buildXxx 還在執行(例如 F01B 有 28 行 × 8 按鈕 = 224 個按鈕,渲染需要一點時間),
-    // 第一次 refreshFormUI 可能找不到按鈕。多跑幾次保險,避免使用者看到「資料有但按鈕未選」。
     refreshFormUI(formKey);
     setTimeout(function(){ refreshFormUI(formKey); }, 100);
     setTimeout(function(){ refreshFormUI(formKey); }, 400);
     setTimeout(function(){ refreshFormUI(formKey); }, 1000);
   } else if(!cloudOk){
-    console.warn('[loadFormFromSheets] 雲端未成功取得 '+formKey+' → 跳過 refreshFormUI,保留畫面原樣');
+    console.warn('[loadFormFromSheets] 雲端未成功取得 '+formKey+' → 跳過 refreshFormUI');
   }
 }
 
@@ -7145,9 +7045,9 @@ function _sanitizeBareIds(obj){
 }
 
 /* ── 登入時批次從 GAS 拉取該使用者所有表單（跨裝置同步用）── */
-async function loadAllFormsFromSheets(forceCloud){
-  // forceCloud=true:強制雲端覆蓋本機(同步按鈕用)
-  // forceCloud=false/undefined:本機優先(預設,登入時的批次載入用)
+async function loadAllFormsFromSheets(replaceMode){
+  // replaceMode=true (來自手動「同步」按鈕):雲端整份替換本機,真的拿到別台裝置最新版
+  // replaceMode=false/undefined (來自登入時自動載入):merge,保留本機未上傳草稿
   if(!APP.currentUser) return;
   var sid = APP.currentRole==='student' ? APP.currentUser.sid 
           : (APP.currentStudentId || null);
@@ -7177,28 +7077,26 @@ async function loadAllFormsFromSheets(forceCloud){
           if(item.formData){
             try{
               var loaded = JSON.parse(item.formData);
-              // ★★★【v1.5.5】雙模式 merge ★★★
-              // forceCloud=true(同步按鈕):雲端覆蓋本機。
-              // 預設:本機優先,雲端補空缺。
-              var _existing = APP.formData[fkey] || {};
-              var _merged = {};
-              if(forceCloud){
+              if(replaceMode){
+                // ★ 手動同步:雲端整份替換本機(讓使用者真的拿到別台裝置的版本)
+                APP.formData[fkey] = loaded;
+              } else {
+                // 一般登入載入:merge,保留本機未上傳草稿
+                var _existing = APP.formData[fkey] || {};
+                var _merged = {};
                 Object.keys(_existing).forEach(function(k){ _merged[k] = _existing[k]; });
                 Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
-              } else {
-                Object.keys(loaded).forEach(function(k){ _merged[k] = loaded[k]; });
-                Object.keys(_existing).forEach(function(k){
-                  var ev = _existing[k];
-                  if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
-                    _merged[k] = ev;
-                  }
+                if(typeof getDeletedKeysFor==='function'){
+                  getDeletedKeysFor(fkey).forEach(function(k){ delete _merged[k]; });
+                }
+                Object.keys(loaded).forEach(function(k){
+                  var lv = loaded[k], ev = _existing[k];
+                  var lEmpty = (lv==='' || lv===null || lv===undefined);
+                  var eHas = (ev!=='' && ev!==null && ev!==undefined);
+                  if(lEmpty && eHas){ _merged[k] = ev; }
                 });
+                APP.formData[fkey] = _merged;
               }
-              // 已刪除清單裡的 key 從 merged 移除(雙保險)
-              if(typeof getDeletedKeysFor==='function'){
-                getDeletedKeysFor(fkey).forEach(function(k){ delete _merged[k]; });
-              }
-              APP.formData[fkey] = _merged;
             }catch(e){}
           }
           if(item.history){
@@ -7249,25 +7147,26 @@ async function loadAllFormsFromSheets(forceCloud){
           if(data.formData){
             try{
               var loaded = JSON.parse(data.formData);
-              // ★★★【v1.5.5 修正 - 關鍵翻轉】★★★ 本機優先,雲端只補空缺
-              var _existing2 = APP.formData[fk] || {};
-              var _merged2 = {};
-              if(forceCloud){
+              if(replaceMode){
+                // ★ 手動同步:雲端整份替換本機
+                APP.formData[fk] = loaded;
+              } else {
+                // 一般載入:merge
+                var _existing2 = APP.formData[fk] || {};
+                var _merged2 = {};
                 Object.keys(_existing2).forEach(function(k){ _merged2[k] = _existing2[k]; });
                 Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
-              } else {
-                Object.keys(loaded).forEach(function(k){ _merged2[k] = loaded[k]; });
-                Object.keys(_existing2).forEach(function(k){
-                  var ev = _existing2[k];
-                  if(ev !== '' && ev !== null && ev !== undefined && ev !== false){
-                    _merged2[k] = ev;
-                  }
+                if(typeof getDeletedKeysFor==='function'){
+                  getDeletedKeysFor(fk).forEach(function(k){ delete _merged2[k]; });
+                }
+                Object.keys(loaded).forEach(function(k){
+                  var lv = loaded[k], ev = _existing2[k];
+                  var lEmpty = (lv==='' || lv===null || lv===undefined);
+                  var eHas = (ev!=='' && ev!==null && ev!==undefined);
+                  if(lEmpty && eHas){ _merged2[k] = ev; }
                 });
+                APP.formData[fk] = _merged2;
               }
-              if(typeof getDeletedKeysFor==='function'){
-                getDeletedKeysFor(fk).forEach(function(k){ delete _merged2[k]; });
-              }
-              APP.formData[fk] = _merged2;
             }catch(e){}
           }
           if(data.history){
@@ -7297,42 +7196,31 @@ async function loadAllFormsFromSheets(forceCloud){
   }catch(e){}
 }
 
-/* ═══════════ 🔍 診斷模式的秘技觸發 ═══════════
- * 一般使用者畫面不顯示「診斷」按鈕,需透過下列任一方式叫出:
- *   1. 版本號連點 5 下(2 秒內)
- *   2. 鍵盤快捷鍵 Ctrl+Shift+D (Mac: Cmd+Shift+D)
- * 觸發後若已登入會直接執行 runDiagnostic,顯示診斷對話框。 */
+/* ═══════════ 🔍 診斷模式秘技觸發 ═══════════
+ * 版本號連點 5 下(2 秒內) 或 Ctrl+Shift+D 叫出診斷 */
 var _versionClickCount = 0;
 var _versionClickTimer = null;
 function _versionTagClick(){
   _versionClickCount++;
-  // 第一下後 2 秒內沒點滿 5 下就 reset,並顯示版本資訊
   if(_versionClickTimer) clearTimeout(_versionClickTimer);
   _versionClickTimer = setTimeout(function(){
     if(_versionClickCount < 5){
-      // 沒連點滿 → 維持原本「顯示版本資訊」行為
       if(typeof window.showAboutDialog === 'function'){
         try{ window.showAboutDialog(); }catch(e){}
       }
     }
     _versionClickCount = 0;
   }, 2000);
-  // 連點滿 5 下 → 立刻叫診斷
   if(_versionClickCount >= 5){
     clearTimeout(_versionClickTimer);
     _versionClickCount = 0;
-    if(typeof runDiagnostic === 'function'){
-      runDiagnostic();
-    }
+    if(typeof runDiagnostic === 'function'){ runDiagnostic(); }
   }
 }
-// 鍵盤快捷鍵:Ctrl+Shift+D 或 Cmd+Shift+D
 document.addEventListener('keydown', function(ev){
   if((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === 'D' || ev.key === 'd')){
     ev.preventDefault();
-    if(typeof runDiagnostic === 'function'){
-      runDiagnostic();
-    }
+    if(typeof runDiagnostic === 'function'){ runDiagnostic(); }
   }
 });
 
@@ -7528,10 +7416,8 @@ async function manualSync(){
   var btn = document.getElementById('btn-sync');
   if(btn){ btn.disabled=true; btn.textContent='⏳ 同步中...'; }
   try{
-    // ★★★【v1.5.5】同步按鈕走「強制雲端覆蓋本機」模式 ★★★
-    //   平常自動載入是「本機優先」,避免跳走再跳回洗掉剛填的東西;
-    //   但「同步」按鈕的意義就是「請用雲端最新覆蓋我這台」,所以走強制模式。
-    //   場景:桌機填完上傳 → 平板按同步應該看到桌機的進度,而不是平板本機的舊狀態。
+    // ★ 手動同步:走「整份替換」模式,真的把雲端最新版本拉下來蓋掉本機
+    //   (一般載入是 merge 保留本機草稿;但手動同步代表「我要看別台裝置最新進度」)
     await loadAllFormsFromSheets(true);
     toast('✓ 已從雲端載入最新資料');
     if(APP.currentFormId && !APP.currentFormId.startsWith('__')){
@@ -10274,8 +10160,7 @@ function rBtnTable(fid,key,v,role,disabled){
   var cur=d[key];
   const selC=(cur==v||cur===String(v))?(role==='t'?'sel-t':role==='a'?'sel-a':'sel-s'):'';
   const dis=disabled?'disabled':'';
-  // ★ 修正:role 為 's' 時也要標記 data-student="1",否則老師端的 lockStudentFields 抓不到,
-  //   會導致老師可以直接亂改學生欄位(例如 F02 臨床表現自我學後評值表 10 項評分)而無警示。
+  // ★ role 為 's' 時也標記 data-student="1",讓老師端的 lockStudentFields 抓得到
   var tAttr=role==='t'?' data-teacher="1"':(role==='s'?' data-student="1"':'');
   return`<button class="r-btn ${selC}" ${dis} data-fid="${fid}" data-rkey="${key}" data-rval="${v}"${tAttr} onclick="setRating('${fid}','${key}',${JSON.stringify(v)},'${role}',this)" style="position:relative;z-index:2;touch-action:manipulation;">${v}</button>`;
 }
