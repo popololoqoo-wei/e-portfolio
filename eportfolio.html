@@ -859,7 +859,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科 <span style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="showAboutDialog()" title="點擊查看版本資訊">v1.5.5 · 2026.05</span></div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span id="version-tag" style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="_versionTagClick()" title="點擊查看版本資訊（連點 5 下可叫出診斷工具）">v1.5.5 · 2026.05</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -867,7 +867,7 @@ input[type="date"]{
       <span id="topbar-role" class="role-chip"></span>
       <button id="btn-home" onclick="APP.currentRole==='teacher'?renderTeacherHome():renderFormList()" style="display:none;padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;">🏠 首頁</button>
       <button id="btn-sync" onclick="manualSync()" style="padding:5px 12px;background:none;border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="從雲端重新載入最新資料">🔄 同步</button>
-      <button id="btn-diag" onclick="runDiagnostic()" style="padding:5px 12px;background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.6);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="診斷：檢查目前表單在雲端與本機的狀態">🔍 診斷</button>
+      <button id="btn-diag" onclick="runDiagnostic()" style="display:none;padding:5px 12px;background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.6);border-radius:var(--r);color:#fff;font-size:12px;cursor:pointer;margin-right:4px;" title="診斷：檢查目前表單在雲端與本機的狀態">🔍 診斷</button>
       <button class="logout-btn" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -7214,6 +7214,45 @@ async function loadAllFormsFromSheets(){
     localStorage.setItem('history_logs', JSON.stringify(_sanitizeStoreForBackup(APP.historyLog)));
   }catch(e){}
 }
+
+/* ═══════════ 🔍 診斷模式的秘技觸發 ═══════════
+ * 一般使用者畫面不顯示「診斷」按鈕,需透過下列任一方式叫出:
+ *   1. 版本號連點 5 下(2 秒內)
+ *   2. 鍵盤快捷鍵 Ctrl+Shift+D (Mac: Cmd+Shift+D)
+ * 觸發後若已登入會直接執行 runDiagnostic,顯示診斷對話框。 */
+var _versionClickCount = 0;
+var _versionClickTimer = null;
+function _versionTagClick(){
+  _versionClickCount++;
+  // 第一下後 2 秒內沒點滿 5 下就 reset,並顯示版本資訊
+  if(_versionClickTimer) clearTimeout(_versionClickTimer);
+  _versionClickTimer = setTimeout(function(){
+    if(_versionClickCount < 5){
+      // 沒連點滿 → 維持原本「顯示版本資訊」行為
+      if(typeof window.showAboutDialog === 'function'){
+        try{ window.showAboutDialog(); }catch(e){}
+      }
+    }
+    _versionClickCount = 0;
+  }, 2000);
+  // 連點滿 5 下 → 立刻叫診斷
+  if(_versionClickCount >= 5){
+    clearTimeout(_versionClickTimer);
+    _versionClickCount = 0;
+    if(typeof runDiagnostic === 'function'){
+      runDiagnostic();
+    }
+  }
+}
+// 鍵盤快捷鍵:Ctrl+Shift+D 或 Cmd+Shift+D
+document.addEventListener('keydown', function(ev){
+  if((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === 'D' || ev.key === 'd')){
+    ev.preventDefault();
+    if(typeof runDiagnostic === 'function'){
+      runDiagnostic();
+    }
+  }
+});
 
 /* ═══════════ 🔍 診斷模式（v1.5.5） ═══════════
  * 功能:檢查目前表單在 本機 / 雲端 / 記憶體 三邊的狀態,以全螢幕對話框呈現,
