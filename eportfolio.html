@@ -5566,6 +5566,9 @@ async function openForm(id){
   if(APP.currentRole==='teacher'){
     var isStudentOnlyForm=(f&&f.roles==='student');
     if(!isStudentOnlyForm){
+      // 進到非 student-only 表單時,先解除可能殘留的「整表警示」listener,
+      // 避免從 F16 等切過來時,舊 listener 仍對新表單觸發提示
+      if(typeof disarmStudentOnlyTeacherWarning==='function') disarmStudentOnlyTeacherWarning();
       lockStudentFields();
     } else {
       // ★ student-only 表單(F16 學習風格、F-PRE/POST 筆試、F-CT01~12 課後測驗):
@@ -6243,10 +6246,29 @@ function teacherConfirmLeaveIfIncomplete(formId){
  *  - 所以改成「整張表第一次互動時跳一次提醒」,確認後就放行
  *  - 不放行則所有編輯動作都被吃掉
  *  - 標記放在 mc 上,離開表單(重新 openForm)會自動失效,符合「一個訪問週期一次」 */
+function disarmStudentOnlyTeacherWarning(){
+  // 移除前一次 armStudentOnlyTeacherWarning 所掛上的 listeners,避免跨表殘留
+  // (修 bug:離開 student-only 表進到 'both' 表時,舊 listener 仍會用舊 formId 跳警示)
+  var mc=document.getElementById('main-content');
+  if(!mc) return;
+  if(mc._studentOnlyWarnMouse){
+    mc.removeEventListener('mousedown', mc._studentOnlyWarnMouse, true);
+    mc._studentOnlyWarnMouse=null;
+  }
+  if(mc._studentOnlyWarnKey){
+    mc.removeEventListener('keydown', mc._studentOnlyWarnKey, true);
+    mc._studentOnlyWarnKey=null;
+  }
+  mc.removeAttribute('data-student-only-warn-form');
+  mc.removeAttribute('data-student-only-warn-shown');
+}
+
 function armStudentOnlyTeacherWarning(formId){
   if(APP.currentRole!=='teacher') return;
   var mc=document.getElementById('main-content');
   if(!mc) return;
+  // 先解除上一次的 listener,避免「進過 F16 後再進別張 both 表單也跳警示」
+  disarmStudentOnlyTeacherWarning();
   // 同一個表單的同一次訪問內,只跳一次
   mc.setAttribute('data-student-only-warn-form', formId);
   mc.setAttribute('data-student-only-warn-shown', '0');
@@ -6271,6 +6293,11 @@ function armStudentOnlyTeacherWarning(formId){
   function handler(ev){
     // 若已通過警示 → 直接放行
     if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
+    // 防呆:若當前 form 已不是 arm 時的那張(使用者已切走),直接 disarm 並放行
+    if(mc.getAttribute('data-student-only-warn-form')!==formId){
+      disarmStudentOnlyTeacherWarning();
+      return;
+    }
     var target=ev.target;
     if(!target) return;
     // 找最近的「表單欄位元素」;若點到的是按鈕內 <span> 等,往上找
@@ -6291,14 +6318,17 @@ function armStudentOnlyTeacherWarning(formId){
     if(confirm(msg)){
       // ★ 按「確定」 → 標記警示已通過,解除監聽,後續操作放行
       mc.setAttribute('data-student-only-warn-shown','1');
-      mc.removeEventListener('mousedown', handler, true);
-      mc.removeEventListener('keydown', keyHandler, true);
+      disarmStudentOnlyTeacherWarning();
     }
     // ★ 按「取消」 → 保留監聽,下次點到學生欄位還會跳警示
     //   (老師不該代填學生欄位,所以重複提醒是合理的)
   }
   function keyHandler(ev){
     if(mc.getAttribute('data-student-only-warn-shown')==='1') return;
+    if(mc.getAttribute('data-student-only-warn-form')!==formId){
+      disarmStudentOnlyTeacherWarning();
+      return;
+    }
     var target=ev.target;
     if(!target) return;
     if(!isFormFieldElement(target)) return; // 非表單欄位 → 放行
@@ -6308,6 +6338,9 @@ function armStudentOnlyTeacherWarning(formId){
     ev.stopPropagation();
     handler({target:target, preventDefault:function(){}, stopPropagation:function(){}});
   }
+  // 存到 mc 屬性上,下次 disarm 時可移除
+  mc._studentOnlyWarnMouse=handler;
+  mc._studentOnlyWarnKey=keyHandler;
   mc.addEventListener('mousedown', handler, true);
   mc.addEventListener('keydown', keyHandler, true);
 }
