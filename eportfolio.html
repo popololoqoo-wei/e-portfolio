@@ -11679,11 +11679,18 @@ function calcF16AndRender(fid){
 function buildF16(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined) canS=true;
-  // 自動帶入學生姓名
+  // 自動帶入學生姓名（學生登入時用 currentUser；老師/管理員查看時用 currentStudentId）
   if(APP.currentRole==='student'&&APP.currentUser&&!d['s_name']){
     if(!APP.formData[fid])APP.formData[fid]={};
     APP.formData[fid]['s_name']=APP.currentUser.name;
     d['s_name']=APP.currentUser.name;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId&&!d['s_name']){
+    const _stu=APP.students[APP.currentStudentId];
+    if(_stu&&_stu.name){
+      if(!APP.formData[fid])APP.formData[fid]={};
+      APP.formData[fid]['s_name']=_stu.name;
+      d['s_name']=_stu.name;
+    }
   }
   const cats=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
   const schools=['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
