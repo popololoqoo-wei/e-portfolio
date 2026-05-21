@@ -4822,12 +4822,19 @@ async function switchStudent(sid, formId){
     // 直接呼叫底層儲存:把 APP.formData[<current formKey>] 推到雲端 + localStorage
     try{
       var _curFormKey = getFormKey(_curBareId); // 此時 currentStudentId 還是「舊學生」
-      if(_curFormKey && APP.formData[_curFormKey]
-         && Object.keys(APP.formData[_curFormKey]).length>0){
-        // 寫入 localStorage 草稿(立即生效)
+      // ★★★【v1.5.5 修正】嚴格守門:資料是空的就不要儲存,也不要覆蓋雲端 ★★★
+      // 舊版 bug:當 loadFormFromSheets 暫時清空 APP.formData[_curFormKey] 後,
+      // 老師切換學生會把「空物件」推上雲端,覆蓋掉學生本人之前填的資料。
+      var _hasData = _curFormKey && APP.formData[_curFormKey]
+        && Object.keys(APP.formData[_curFormKey]).length>0;
+      if(_hasData){
+        // 寫入 localStorage 草稿(改為 merge,不覆蓋本機既有 key)
         try{
           var _drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
-          _drafts[_curFormKey] = Object.assign({}, APP.formData[_curFormKey]);
+          if(!_drafts[_curFormKey]) _drafts[_curFormKey] = {};
+          Object.keys(APP.formData[_curFormKey]).forEach(function(k){
+            _drafts[_curFormKey][k] = APP.formData[_curFormKey][k];
+          });
           localStorage.setItem('form_drafts', JSON.stringify(_drafts));
         }catch(e){}
         // 寫入雲端 GAS(非同步,不等待)
@@ -4866,11 +4873,16 @@ function selectStudent(sid){
     }
     try{
       var _curFormKey = getFormKey(_curBareId);
-      if(_curFormKey && APP.formData[_curFormKey]
-         && Object.keys(APP.formData[_curFormKey]).length>0){
+      // ★★★【v1.5.5 修正】同 switchStudent:空資料不推上雲端,localStorage 改 merge ★★★
+      var _hasData = _curFormKey && APP.formData[_curFormKey]
+        && Object.keys(APP.formData[_curFormKey]).length>0;
+      if(_hasData){
         try{
           var _drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
-          _drafts[_curFormKey] = Object.assign({}, APP.formData[_curFormKey]);
+          if(!_drafts[_curFormKey]) _drafts[_curFormKey] = {};
+          Object.keys(APP.formData[_curFormKey]).forEach(function(k){
+            _drafts[_curFormKey][k] = APP.formData[_curFormKey][k];
+          });
           localStorage.setItem('form_drafts', JSON.stringify(_drafts));
         }catch(e){}
         if(typeof saveFormToSheets === 'function'){
@@ -6805,6 +6817,18 @@ async function saveFormToSheets(id){
   // ★ 只用 formKey 的資料上雲;不再 merge 裸 id(裸 id 是跨學生共用空間,
   //   可能含上一位被檢視學生的污染殘留,merge 進來會把錯誤資料推到雲端)
   const mergedData=Object.assign({},APP.formData[formKey]||{});
+
+  // ★★★【v1.5.5 修正:防止空資料覆蓋雲端】★★★
+  // 場景:loadFormFromSheets 短暫把 APP.formData[formKey] 清空時,
+  //      若 autoSave / switchStudent / pagehide 在此瞬間觸發 saveFormToSheets,
+  //      會把空物件推上雲端,徹底覆蓋學生原本填的資料 — 這就是「老師打開後消失」的根因之一。
+  // 守門:資料為空就拒絕上傳(若要清空整份表單,使用者應主動「再點清除」逐 key 刪除,
+  //      該流程會走 _recently_deleted 機制,雲端會收到精準的刪除指令)。
+  if(!mergedData || Object.keys(mergedData).length===0){
+    console.warn('[saveFormToSheets] 拒絕推送空資料到雲端,避免覆蓋既有內容:', formKey);
+    return;
+  }
+
   const mergedLog=(APP.historyLog[formKey]||[]).slice();
   // 去重複 log
   const logMap={};mergedLog.forEach(function(l){if(!logMap[l.ts])logMap[l.ts]=l;});
@@ -9714,14 +9738,26 @@ function refreshFormUI(formKey){
       });
     });
     // 3) 同步 localStorage form_drafts:雲端沒有的 key 也從本機草稿清掉,避免下次又被回灌
+    //
+    // ★★★【v1.5.5 修正】此步驟原本太激進,會在「雲端尚未收到資料」的情況下
+    // 把本機合法草稿全部清掉,導致老師端打開後幾秒內畫面從「有」變「無」。
+    //
+    // 新規則:必須同時滿足兩個條件才清除草稿 key——
+    //   (a) APP.formData[formKey] 目前確實沒這個 key(雲端 merge 結果也沒)
+    //   (b) 此 key 出現在 _recently_deleted 清單裡(是使用者主動刪的)
+    // 只滿足 (a) 不足以判定「該清」——可能只是雲端還沒收到本機新填的資料。
     try{
       var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
       if(drafts[formKey]){
+        var deletedSet = {};
+        if(typeof getDeletedKeysFor==='function'){
+          getDeletedKeysFor(formKey).forEach(function(k){ deletedSet[k] = true; });
+        }
         var draftKeys = Object.keys(drafts[formKey]);
         var changed = false;
         draftKeys.forEach(function(k){
-          // 評分類 key(f01_/f02_/f03_/f04_ 等以 f 開頭含底線數字)如果雲端沒有,本機也清掉
-          if(/^f\d/.test(k) && !d.hasOwnProperty(k)){
+          // 只清「使用者主動刪除」且「目前 merge 後也確實沒有」的評分 key
+          if(/^f\d/.test(k) && !d.hasOwnProperty(k) && deletedSet[k]){
             delete drafts[formKey][k];
             changed = true;
           }
