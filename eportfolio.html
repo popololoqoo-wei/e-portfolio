@@ -6061,12 +6061,19 @@ function lockStudentFields(){
   var currentFid = APP.currentFormId || '';
   var currentBare = currentFid.indexOf('_')>=0 ? currentFid.split('_')[0] : currentFid;
 
-  // ★★★ F15 實習課程評值表:整張表跳過守護 ★★★
-  //   F15 是老師主導的最終評核表,主要欄位都是老師評分(學習態度 6 題 + 專業 10 題
-  //   + 溝通 4 題 + 加分項目),學生只填自己的請假紀錄與心得反思。
-  //   為了避免任何意外路徑導致老師點評分按鈕跳出「修改學生欄位?」警示,
-  //   F15 整張表完全跳過守護機制。
-  if(currentBare==='F15') return;
+  // ★★★ F15 實習課程評值表:已恢復守護機制 ★★★
+  //   原本擔心老師點評分按鈕會誤觸「修改學生欄位?」警示,所以整張表跳過守護。
+  //   但實際上所有評分按鈕(r-btn / d-btn / radio)都已標記 data-teacher="1",
+  //   守護函式內 isExplicitTeacherElement() 會先檢查白名單豁免,
+  //   評分按鈕不會被攔截。整表跳過反而導致 13 個學生欄位失去保護:
+  //     - 基本資料(s_name / school / s_date / intern_cat)
+  //     - 請假紀錄(leave_pub / leave_sick / leave_priv / late_cnt)
+  //     - 自我評語(s_comment)
+  //     - 個人反思(reflect_learn / reflect_challenge / reflect_improve / reflect_goal)
+  //     - 學生簽名日期(s_sign_date)
+  //   老師可不經警示直接覆蓋學生內容,違反「對稱保護」設計原則。
+  //   故移除整表豁免,讓守護機制正常運作。
+  // if(currentBare==='F15') return;  ← 已停用,改由欄位級別判斷
 
   var EPA_EXEMPT_KEYS = ['s_name','school','s_date','s_date_start','s_date_end','intern_cat'];
   var isEPAForm = (currentBare==='E01'||currentBare==='E02'||currentBare==='E03');
