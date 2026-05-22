@@ -5684,10 +5684,19 @@ async function openForm(id){
   html+=studentBanner;
 
   // 表單填寫進度條(掛在表單上方,自動統計已填欄位;對學生視角不計入老師欄位)
-  // 排除清單:F04M/F04S 床邊教學(內外科)、F08 全人照護、F09 跨領域團隊合作
-  //         這 4 張表單流程偏自由文字 / 多選跨段,不適合單純欄位數進度條
-  var __noProgressForms=['F04M','F04S','F08','F09'];
-  if(__noProgressForms.indexOf(id)<0){
+  // ─── 隱藏進度條的規則(依角色 × 表單) ───
+  //   學生視角: F04M/F04S/F08/F09 隱藏(這 4 張流程偏自由文字 / 多選跨段)
+  //   老師視角: F01A、F-PRE、F-POST、F-CT01~12、F16、E01~E03 隱藏
+  //            (這些表單老師沒有需要填寫的欄位,或使用者明確指定不需要)
+  var __role=APP.currentRole||'';
+  var __hideForStudent=['F04M','F04S','F08','F09'];
+  var __hideForTeacher=['F01A','F-PRE','F-POST','F16','E01','E02','E03',
+    'F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06',
+    'F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12'];
+  var __hideProgress=false;
+  if(__role==='student' && __hideForStudent.indexOf(id)>=0) __hideProgress=true;
+  if((__role==='teacher'||__role==='admin') && __hideForTeacher.indexOf(id)>=0) __hideProgress=true;
+  if(!__hideProgress){
     html+=`<div class="form-progress" id="form-progress-${id}" role="status" aria-label="表單填寫進度">
       <div class="form-progress-label">
         已填 <span class="fp-num"><span class="fp-done">0</span> / <span class="fp-total">0</span></span> 欄
@@ -6034,14 +6043,34 @@ function applyCardColors(){
 }
 
 /* ────────────────────────────────────────────────────────────
-   表單填寫進度條:統計 form-detail-view 內可填寫欄位
-   - 對學生視角:跳過 data-teacher="1" 與 .t-badge 父層欄位(不算分母)
-   - 對老師/管理員視角:統計全部
+   表單填寫進度條:統計欄位
+   - 學生視角:掃 DOM(input/textarea/select + 按鈕群組),跳過老師欄位
+   - 老師視角:走「白名單」— 用 REQUIRED_STUDENT_FIELDS[formId] 篩出老師欄位,
+     從 APP.formData[canonical key] 判斷是否已填。
+     ★ F07M/F07S 360 度評估有「團隊成員」欄位(team_*) 不算老師欄位,白名單覆寫。
    - 跳過 readonly、disabled、hidden、非互動元素(button、submit)
    - 同一群 radio buttons (name 相同)算 1 欄
    - 按鈕群組(F01A/F01B/F02 等用 button + data-rkey + data-fid)算 1 欄,
      已填依 APP.formData 而非 DOM(按鈕 inline-style 染色不可靠)
 ──────────────────────────────────────────────────────────── */
+
+/* 老師視角各表單應算入進度的「老師欄位」白名單覆寫
+ * - 若 formId 不在此 map,就用 REQUIRED_STUDENT_FIELDS[formId] 過濾出老師欄位
+ * - F07M/F07S 因為含 team_* 等「非老師同儕」欄位需手動列出,排除這些 */
+var TEACHER_PROGRESS_OVERRIDE = {
+  // F07M/F07S 360 度評估(內/外科)— 24 欄
+  // 14 個評核 + peer_good + peer_suggest + t_sign + t_sign_date + t_title
+  //   + director_fb + t_sign2 + t_sign2_date + host_sign + host_sign_date
+  F07M: ['f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
+         'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
+         'peer_good','peer_suggest','t_sign','t_sign_date','t_title',
+         'director_fb','t_sign2','t_sign2_date','host_sign','host_sign_date'],
+  F07S: ['f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
+         'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
+         'peer_good','peer_suggest','t_sign','t_sign_date','t_title',
+         'director_fb','t_sign2','t_sign2_date','host_sign','host_sign_date']
+};
+
 function updateFormProgress(formId){
   try{
     var view=document.querySelector('.form-detail-view');
@@ -6050,7 +6079,58 @@ function updateFormProgress(formId){
     var bar=view.querySelector('.form-progress');
     if(!bar) return;
     var isStudent=(role==='student');
+    var isTeacher=(role==='teacher'||role==='admin');
 
+    // ───────────────────────────────────────────────
+    // 【老師視角】走白名單:精準對齊使用者期望的欄位數
+    // ───────────────────────────────────────────────
+    if(isTeacher){
+      var curFormId=view.getAttribute('data-form-id')||APP.currentFormId||formId||'';
+      var bareId=curFormId.indexOf('_')>=0 ? curFormId.split('_')[0] : curFormId;
+      // 取得老師白名單
+      var teacherKeys;
+      if(TEACHER_PROGRESS_OVERRIDE[bareId]){
+        teacherKeys=TEACHER_PROGRESS_OVERRIDE[bareId].slice();
+      } else {
+        var req=(typeof REQUIRED_STUDENT_FIELDS!=='undefined'&&REQUIRED_STUDENT_FIELDS[bareId])
+          ? REQUIRED_STUDENT_FIELDS[bareId] : [];
+        teacherKeys=req.filter(function(k){
+          if(!k||k.indexOf('__')===0) return false;
+          return (typeof isTeacherFieldKey==='function') && isTeacherFieldKey(k);
+        });
+      }
+      var teacherTotal=teacherKeys.length;
+      // 讀資料:canonical key
+      var targetKey=(typeof getCanonicalKey==='function') ? getCanonicalKey(bareId) : bareId;
+      var rec=(APP.formData && APP.formData[targetKey]) ? APP.formData[targetKey] : {};
+      var teacherDone=0;
+      teacherKeys.forEach(function(k){
+        var v=rec[k];
+        if(v===undefined||v===null||v===false) return;
+        var s=String(v).trim();
+        if(s===''||s==='[]'||s==='{}'||s==='null') return;
+        // 簽名類:剔除「請選擇...」佔位字串
+        if(k==='t_sign'||k==='t_sign2'||k==='host_sign'){
+          if(s.indexOf('請選擇')===0) return;
+        }
+        teacherDone++;
+      });
+      var teacherPct=teacherTotal>0?Math.round(teacherDone/teacherTotal*100):0;
+      var tDone=bar.querySelector('.fp-done');
+      var tTotal=bar.querySelector('.fp-total');
+      var tPct=bar.querySelector('.fp-pct');
+      var tFill=bar.querySelector('.form-progress-fill');
+      if(tDone) tDone.textContent=teacherDone;
+      if(tTotal) tTotal.textContent=teacherTotal;
+      if(tPct) tPct.textContent='('+teacherPct+'%)';
+      if(tFill) tFill.style.width=teacherPct+'%';
+      bar.classList.toggle('is-done', teacherTotal>0 && teacherDone===teacherTotal);
+      return;
+    }
+
+    // ───────────────────────────────────────────────
+    // 【學生視角】掃 DOM(維持原邏輯)
+    // ───────────────────────────────────────────────
     // 判斷是否為應計入的欄位
     function shouldCount(el){
       if(!el) return false;
@@ -6115,25 +6195,21 @@ function updateFormProgress(formId){
       var rkey=btn.getAttribute('data-rkey');
       var bfid=btn.getAttribute('data-fid');
       if(!rkey||!bfid) return;
-      var isTeacher=btn.getAttribute('data-teacher')==='1' ||
+      var isTch=btn.getAttribute('data-teacher')==='1' ||
                     (btn.classList && btn.classList.contains('sel-t'));
-      // 也透過 data-student 區分(rBtnTable 會標記)
-      var isStudentBtn=btn.getAttribute('data-student')==='1';
       // 學生視角:跳過老師欄位
-      if(isStudent && isTeacher) return;
+      if(isStudent && isTch) return;
 
       var gkey=bfid+'|'+rkey;
       if(!(gkey in btnGroups)){
-        btnGroups[gkey]={ isTeacher:isTeacher, filled:false, fid:bfid, rkey:rkey };
+        btnGroups[gkey]={ isTeacher:isTch, filled:false, fid:bfid, rkey:rkey };
       }
       // 若先前掃描中此群組已判定為老師欄位,而當前掃到的按鈕是學生按鈕,
       // 表示同 rkey 有混合 → 保守視為非老師,讓學生視角納入
-      if(!isTeacher) btnGroups[gkey].isTeacher=false;
+      if(!isTch) btnGroups[gkey].isTeacher=false;
     });
     // 判斷每組是否「已填」:從 APP.formData 找(canonical formKey)
     // ★ 規則:嚴格只看 canonical key,與 setRating/f01Click 的寫入規則一致。
-    //   原本還會 fallback 到原 fid 看舊值,結果使用者「取消」時只刪了 canonical key,
-    //   fallback 卻把舊 fid 殘留的值撿回來,造成進度條退不掉。
     Object.keys(btnGroups).forEach(function(gk){
       var g=btnGroups[gk];
       // 學生視角再次過濾
