@@ -6068,7 +6068,35 @@ var TEACHER_PROGRESS_OVERRIDE = {
   F07S: ['f07_0','f07_1','f07_2','f07_3','f07_4','f07_5','f07_6',
          'f07_7','f07_8','f07_9','f07_10','f07_11','f07_12','f07_13',
          'peer_good','peer_suggest','t_sign','t_sign_date','t_title',
-         'director_fb','t_sign2','t_sign2_date','host_sign','host_sign_date']
+         'director_fb','t_sign2','t_sign2_date','host_sign','host_sign_date'],
+  // F10A/F10B 輔導記錄表(1)/(2) — 老師端 11 欄
+  // 8 個查核點選題 (q_basic ~ q_all_sign) + t_note(輔導備註) + t_sign(老師簽名) + t_sign_date(老師簽名日期)
+  F10A: ['q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+         't_note','t_sign','t_sign_date'],
+  F10B: ['q_basic','q_self','q_progress','q_detail','q_t_sign','q_feeling','q_t_fb','q_all_sign',
+         't_note','t_sign','t_sign_date'],
+  // D01 DOPS:抽痰技術 — 老師端 26 欄 (21 評分 + score_grade + result + t_fb + t_sign + t_sign_date)
+  D01: ['D01_i1','D01_i2','D01_i3','D01_i4','D01_i5','D01_i6','D01_i7',
+        'D01_i8','D01_i9','D01_i10','D01_i11','D01_i12','D01_i13','D01_i14',
+        'D01_i15','D01_i16','D01_i17','D01_i18','D01_i19','D01_i20','D01_i21',
+        'score_grade','result','t_fb','t_sign','t_sign_date'],
+  // D02 DOPS:MDI 配合呼吸器 — 老師端 24 欄 (19 評分 + 5)
+  D02: ['D02_i1','D02_i2','D02_i3','D02_i4','D02_i5','D02_i6','D02_i7',
+        'D02_i8','D02_i9','D02_i10','D02_i11','D02_i12','D02_i13','D02_i14',
+        'D02_i15','D02_i16','D02_i17','D02_i18','D02_i19',
+        'score_grade','result','t_fb','t_sign','t_sign_date'],
+  // D03 DOPS:呼吸器技術操作 — 老師端 23 欄 (18 評分 + 5)
+  D03: ['D03_i1','D03_i2','D03_i3','D03_i4','D03_i5','D03_i6','D03_i7',
+        'D03_i8','D03_i9','D03_i10','D03_i11','D03_i12','D03_i13','D03_i14',
+        'D03_i15','D03_i16','D03_i17','D03_i18',
+        'score_grade','result','t_fb','t_sign','t_sign_date'],
+  // D04 DOPS:呼吸器脫離測量 — 老師端 39 欄 (34 評分 + 5)
+  D04: ['D04_i1','D04_i2','D04_i3','D04_i4','D04_i5','D04_i6','D04_i7',
+        'D04_i8','D04_i9','D04_i10','D04_i11','D04_i12','D04_i13','D04_i14',
+        'D04_i15','D04_i16','D04_i17','D04_i18','D04_i19','D04_i20','D04_i21',
+        'D04_i22','D04_i23','D04_i24','D04_i25','D04_i26','D04_i27','D04_i28',
+        'D04_i29','D04_i30','D04_i31','D04_i32','D04_i33','D04_i34',
+        'score_grade','result','t_fb','t_sign','t_sign_date']
 };
 
 function updateFormProgress(formId){
@@ -6265,10 +6293,16 @@ function bindFormProgressEvents(){
     //   (a) 每次按鈕點擊都會走進 onclick → 同步更新 APP.formData → 才冒泡到這裡
     //   (b) 連點不同按鈕 → 每次都會即時反映,不會殘留舊狀態
     view.addEventListener('click', function(ev){
-      var t=ev.target;
-      if(!t || t.tagName!=='BUTTON') return;
-      // 只處理「評分群組按鈕」:必須同時帶 data-rkey 和 data-fid
-      if(!t.hasAttribute('data-rkey')||!t.hasAttribute('data-fid')) return;
+      // 用 closest 找最近的 button,避免 target 是 button 內的子節點(如 span)導致漏判
+      var t = (ev.target && ev.target.closest) ? ev.target.closest('button') : null;
+      if(!t) return;
+      // 只處理「評分群組按鈕」:
+      //   - 標準按鈕(F01A/F01B/F02/F06/F07/F14/F15/EPA 等):同時帶 data-rkey 和 data-fid
+      //   - DOPS 按鈕(D01~D04):用 data-key + data-fid + data-rval(setDOPS 寫法)
+      //   ★ DOPS 點擊「再點同值=取消」也要立即更新進度,故必須涵蓋
+      var isStdRating = t.hasAttribute('data-rkey') && t.hasAttribute('data-fid');
+      var isDOPSRating = t.hasAttribute('data-key') && t.hasAttribute('data-fid') && t.hasAttribute('data-rval');
+      if(!isStdRating && !isDOPSRating) return;
       // ★ 取消「延遲感」的雙保險:
       //   (1) 立刻同步呼叫 — onclick 已經同步寫好 APP.formData,這裡讀到的就是最新狀態
       //   (2) 再用 rAF 排一次 — 若 onclick 內有微任務(Promise/setTimeout)會在下一拍生效,補正
