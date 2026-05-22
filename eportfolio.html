@@ -5684,13 +5684,18 @@ async function openForm(id){
   html+=studentBanner;
 
   // 表單填寫進度條(掛在表單上方,自動統計已填欄位;對學生視角不計入老師欄位)
-  html+=`<div class="form-progress" id="form-progress-${id}" role="status" aria-label="表單填寫進度">
-    <div class="form-progress-label">
-      已填 <span class="fp-num"><span class="fp-done">0</span> / <span class="fp-total">0</span></span> 欄
-      <span class="fp-pct">(0%)</span>
-    </div>
-    <div class="form-progress-track"><div class="form-progress-fill"></div></div>
-  </div>`;
+  // 排除清單:F04M/F04S 床邊教學(內外科)、F08 全人照護、F09 跨領域團隊合作
+  //         這 4 張表單流程偏自由文字 / 多選跨段,不適合單純欄位數進度條
+  var __noProgressForms=['F04M','F04S','F08','F09'];
+  if(__noProgressForms.indexOf(id)<0){
+    html+=`<div class="form-progress" id="form-progress-${id}" role="status" aria-label="表單填寫進度">
+      <div class="form-progress-label">
+        已填 <span class="fp-num"><span class="fp-done">0</span> / <span class="fp-total">0</span></span> 欄
+        <span class="fp-pct">(0%)</span>
+      </div>
+      <div class="form-progress-track"><div class="form-progress-fill"></div></div>
+    </div>`;
+  }
 
   // Lock bar for student viewing teacher-only form
   if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
@@ -6034,6 +6039,8 @@ function applyCardColors(){
    - 對老師/管理員視角:統計全部
    - 跳過 readonly、disabled、hidden、非互動元素(button、submit)
    - 同一群 radio buttons (name 相同)算 1 欄
+   - 按鈕群組(F01A/F01B/F02 等用 button + data-rkey + data-fid)算 1 欄,
+     已填依 APP.formData 而非 DOM(按鈕 inline-style 染色不可靠)
 ──────────────────────────────────────────────────────────── */
 function updateFormProgress(formId){
   try{
@@ -6098,6 +6105,47 @@ function updateFormProgress(formId){
     // radio 群組:已填者納入 done
     Object.keys(radioGroups).forEach(function(k){
       if(radioGroups[k].filled) done++;
+    });
+
+    // ── 按鈕群組(F01A/F01B 用 button + onclick="f01Click", F02 等用 rBtnTable)──
+    // 一組 = 同 data-fid + 同 data-rkey 的所有 button,代表一個評分項目
+    var btnGroups={}; // (fid|rkey) → { isTeacher, filled }
+    view.querySelectorAll('button[data-rkey][data-fid]').forEach(function(btn){
+      if(btn.disabled) return;
+      var rkey=btn.getAttribute('data-rkey');
+      var bfid=btn.getAttribute('data-fid');
+      if(!rkey||!bfid) return;
+      var isTeacher=btn.getAttribute('data-teacher')==='1' ||
+                    (btn.classList && btn.classList.contains('sel-t'));
+      // 也透過 data-student 區分(rBtnTable 會標記)
+      var isStudentBtn=btn.getAttribute('data-student')==='1';
+      // 學生視角:跳過老師欄位
+      if(isStudent && isTeacher) return;
+
+      var gkey=bfid+'|'+rkey;
+      if(!(gkey in btnGroups)){
+        btnGroups[gkey]={ isTeacher:isTeacher, filled:false, fid:bfid, rkey:rkey };
+      }
+      // 若先前掃描中此群組已判定為老師欄位,而當前掃到的按鈕是學生按鈕,
+      // 表示同 rkey 有混合 → 保守視為非老師,讓學生視角納入
+      if(!isTeacher) btnGroups[gkey].isTeacher=false;
+    });
+    // 判斷每組是否「已填」:從 APP.formData 找(canonical formKey)
+    Object.keys(btnGroups).forEach(function(gk){
+      var g=btnGroups[gk];
+      // 學生視角再次過濾
+      if(isStudent && g.isTeacher) return;
+      // 取 canonical formKey
+      var bare=g.fid.indexOf('_')>=0 ? g.fid.split('_')[0] : g.fid;
+      var targetKey=(typeof getCanonicalKey==='function') ? getCanonicalKey(bare) : g.fid;
+      var rec=(APP.formData && APP.formData[targetKey]) ? APP.formData[targetKey] : null;
+      // 也並進原 fid 的資料(避免 canonical 切換時遺漏)
+      var rec2=(APP.formData && APP.formData[g.fid]) ? APP.formData[g.fid] : null;
+      var v1=rec?rec[g.rkey]:undefined;
+      var v2=rec2?rec2[g.rkey]:undefined;
+      var v=(v1!==undefined&&v1!==null&&v1!=='')?v1:v2;
+      total++;
+      if(v!==undefined && v!==null && String(v).trim()!=='') done++;
     });
 
     var pct=total>0?Math.round(done/total*100):0;
