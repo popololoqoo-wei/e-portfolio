@@ -6177,6 +6177,19 @@ function bindFormProgressEvents(){
     };
     view.addEventListener('input', handler, true);
     view.addEventListener('change', handler, true);
+    // ★ 按鈕群組(F01A/F01B 的 f01Click、F02/DOPS/EPA/360 的 setRating 等)用 onclick 不會冒
+    //   input/change 事件,所以另外掛 click 監聽。
+    //   click 冒泡時 onclick 已執行完畢(APP.formData 已更新),這時統計才會準確;
+    //   為防 race(極少數情況 onclick 內有微任務),用 60ms debounce 給 onclick 留時間完成。
+    view.addEventListener('click', function(ev){
+      var t=ev.target;
+      if(!t) return;
+      // 只處理「評分群組按鈕」:必須同時帶 data-rkey 和 data-fid
+      if(t.tagName!=='BUTTON') return;
+      if(!t.hasAttribute('data-rkey')||!t.hasAttribute('data-fid')) return;
+      clearTimeout(deb);
+      deb=setTimeout(function(){ updateFormProgress(); }, 60);
+    }, true);
     // 也曝露給其他流程呼叫
     window.refreshFormProgress=function(){ updateFormProgress(); };
   }catch(e){console.warn('bindFormProgressEvents:',e);}
