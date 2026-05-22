@@ -6131,19 +6131,18 @@ function updateFormProgress(formId){
       if(!isTeacher) btnGroups[gkey].isTeacher=false;
     });
     // 判斷每組是否「已填」:從 APP.formData 找(canonical formKey)
+    // ★ 規則:嚴格只看 canonical key,與 setRating/f01Click 的寫入規則一致。
+    //   原本還會 fallback 到原 fid 看舊值,結果使用者「取消」時只刪了 canonical key,
+    //   fallback 卻把舊 fid 殘留的值撿回來,造成進度條退不掉。
     Object.keys(btnGroups).forEach(function(gk){
       var g=btnGroups[gk];
       // 學生視角再次過濾
       if(isStudent && g.isTeacher) return;
-      // 取 canonical formKey
+      // 取 canonical formKey (button 的 data-fid 通常已經是 canonical,但保險再算一次)
       var bare=g.fid.indexOf('_')>=0 ? g.fid.split('_')[0] : g.fid;
       var targetKey=(typeof getCanonicalKey==='function') ? getCanonicalKey(bare) : g.fid;
       var rec=(APP.formData && APP.formData[targetKey]) ? APP.formData[targetKey] : null;
-      // 也並進原 fid 的資料(避免 canonical 切換時遺漏)
-      var rec2=(APP.formData && APP.formData[g.fid]) ? APP.formData[g.fid] : null;
-      var v1=rec?rec[g.rkey]:undefined;
-      var v2=rec2?rec2[g.rkey]:undefined;
-      var v=(v1!==undefined&&v1!==null&&v1!=='')?v1:v2;
+      var v=rec?rec[g.rkey]:undefined;
       total++;
       if(v!==undefined && v!==null && String(v).trim()!=='') done++;
     });
@@ -6178,18 +6177,30 @@ function bindFormProgressEvents(){
     view.addEventListener('input', handler, true);
     view.addEventListener('change', handler, true);
     // ★ 按鈕群組(F01A/F01B 的 f01Click、F02/DOPS/EPA/360 的 setRating 等)用 onclick 不會冒
-    //   input/change 事件,所以另外掛 click 監聽。
-    //   click 冒泡時 onclick 已執行完畢(APP.formData 已更新),這時統計才會準確;
-    //   為防 race(極少數情況 onclick 內有微任務),用 60ms debounce 給 onclick 留時間完成。
+    //   input/change 事件,另外掛 click 監聽。
+    //
+    //   ⚠ 必須用 bubble phase (第 3 參數 false):
+    //   - capture phase 會在 button 的 onclick="..." 屬性執行【之前】觸發,
+    //     此時 APP.formData 還沒被更新,讀到舊值 → 點「取消」時看不到變化。
+    //   - bubble phase 是 onclick 執行完才冒泡上來,APP.formData 已是最新狀態,
+    //     可安全立即呼叫 updateFormProgress。
+    //
+    //   不用 debounce 也安全,因為:
+    //   (a) 每次按鈕點擊都會走進 onclick → 同步更新 APP.formData → 才冒泡到這裡
+    //   (b) 連點不同按鈕 → 每次都會即時反映,不會殘留舊狀態
     view.addEventListener('click', function(ev){
       var t=ev.target;
-      if(!t) return;
+      if(!t || t.tagName!=='BUTTON') return;
       // 只處理「評分群組按鈕」:必須同時帶 data-rkey 和 data-fid
-      if(t.tagName!=='BUTTON') return;
       if(!t.hasAttribute('data-rkey')||!t.hasAttribute('data-fid')) return;
-      clearTimeout(deb);
-      deb=setTimeout(function(){ updateFormProgress(); }, 60);
-    }, true);
+      // ★ 取消「延遲感」的雙保險:
+      //   (1) 立刻同步呼叫 — onclick 已經同步寫好 APP.formData,這裡讀到的就是最新狀態
+      //   (2) 再用 rAF 排一次 — 若 onclick 內有微任務(Promise/setTimeout)會在下一拍生效,補正
+      try{ updateFormProgress(); }catch(e){}
+      if(typeof requestAnimationFrame==='function'){
+        requestAnimationFrame(function(){ try{updateFormProgress();}catch(e){} });
+      }
+    }, false);
     // 也曝露給其他流程呼叫
     window.refreshFormProgress=function(){ updateFormProgress(); };
   }catch(e){console.warn('bindFormProgressEvents:',e);}
