@@ -456,6 +456,113 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .field textarea{resize:vertical;min-height:72px;line-height:1.6;}
 .t-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;background:var(--red-soft);color:var(--red);border:1px solid var(--red-line);margin-left:6px;font-weight:600;letter-spacing:.2px;}
 .s-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;background:var(--blue-soft);color:var(--blue);border:1px solid var(--blue-line);margin-left:6px;font-weight:600;letter-spacing:.2px;}
+
+/* ─── 表單填寫進度條(置於 form-detail-header 下方) ─── */
+.form-progress{
+  position:sticky;top:0;z-index:5;
+  background:#FFFFFF;
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:8px 14px;
+  margin:8px 0 14px;
+  display:flex;align-items:center;gap:12px;
+  box-shadow:0 1px 3px rgba(15,23,42,.04);
+}
+.form-progress-label{font-size:12px;color:var(--ink2);font-weight:600;white-space:nowrap;}
+.form-progress-label .fp-num{color:var(--primary2);font-weight:700;font-size:13px;}
+.form-progress-label .fp-pct{color:var(--ink3);font-size:11px;margin-left:6px;font-weight:500;}
+.form-progress-track{flex:1;height:8px;background:#EEF2F7;border-radius:999px;overflow:hidden;position:relative;}
+.form-progress-fill{height:100%;background:linear-gradient(90deg,#3B82F6 0%,#1E3A8A 100%);border-radius:999px;transition:width .3s ease;width:0%;}
+.form-progress.is-done .form-progress-fill{background:linear-gradient(90deg,#22C55E 0%,#059669 100%);}
+.form-progress.is-done .form-progress-label .fp-num{color:#059669;}
+@media(max-width:560px){
+  .form-progress{padding:7px 10px;gap:8px;}
+  .form-progress-label{font-size:11px;}
+  .form-progress-label .fp-num{font-size:12px;}
+  .form-progress-label .fp-pct{display:none;}
+}
+
+/* ─── 學生視角:老師欄位灰階淡化 (整體仍維持紅色色票,僅降低存在感) ───
+   觸發條件:容器 .form-detail-view[data-role="student"]
+   作用對象:
+     1) [data-teacher="1"] 的輸入元素本體
+     2) .field 內含 .t-badge 的整個 field 區塊
+     3) .card.t-card 內非 .t-badge 的內容(包住老師區段時更安靜)
+   保留:.t-badge 本身保持紅色清楚標示 */
+.form-detail-view[data-role="student"] .field:has(.t-badge){
+  opacity:.55;
+  filter:grayscale(35%);
+  transition:opacity .15s,filter .15s;
+}
+.form-detail-view[data-role="student"] .field:has(.t-badge):hover{
+  opacity:.85;
+  filter:grayscale(10%);
+}
+.form-detail-view[data-role="student"] [data-teacher="1"]:not(.t-badge){
+  opacity:.7;
+  filter:grayscale(25%);
+}
+.form-detail-view[data-role="student"] [data-teacher="1"]:not(.t-badge):hover{
+  opacity:1;
+  filter:none;
+}
+/* 在 t-card / m-card 中,讓老師區塊整體稍微降低存在感(只調 body,不調標題與 badge) */
+.form-detail-view[data-role="student"] .card.t-card > .card-body{
+  opacity:.72;
+  filter:grayscale(20%);
+  transition:opacity .15s,filter .15s;
+}
+.form-detail-view[data-role="student"] .card.t-card:hover > .card-body{
+  opacity:.95;
+  filter:grayscale(5%);
+}
+/* badge 本身永遠保持清楚紅色 */
+.form-detail-view[data-role="student"] .t-badge{
+  opacity:1 !important;
+  filter:none !important;
+}
+
+/* ─── F16 學習策略推薦區塊 ─── */
+.f16-strategy{
+  margin-top:16px;
+  border:1px solid #E2E8F0;
+  border-radius:var(--r2);
+  overflow:hidden;
+  background:#FFFFFF;
+}
+.f16-strategy-head{
+  background:linear-gradient(135deg,#C0392B 0%,#922B21 100%);
+  color:#fff;
+  padding:10px 16px;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.5px;
+  display:flex;align-items:center;gap:8px;
+}
+.f16-strategy-body{padding:12px 16px;font-size:12px;line-height:1.75;}
+.f16-strategy-section{margin-bottom:12px;}
+.f16-strategy-section:last-child{margin-bottom:0;}
+.f16-strategy-section-title{
+  font-size:12px;font-weight:700;color:#1E3A8A;
+  margin-bottom:6px;padding-bottom:4px;
+  border-bottom:1px solid #E5E7EB;
+  display:flex;align-items:center;gap:6px;
+}
+.f16-strategy-style-block{
+  background:#FFF5F5;border-left:3px solid #C0392B;
+  border-radius:4px;padding:8px 12px;margin-bottom:8px;
+}
+.f16-strategy-style-block:last-child{margin-bottom:0;}
+.f16-strategy-style-name{font-weight:700;color:#C0392B;font-size:12.5px;margin-bottom:4px;}
+.f16-strategy-list{margin:4px 0 0 0;padding-left:18px;}
+.f16-strategy-list li{margin-bottom:3px;color:#374151;}
+.f16-weak-block{
+  background:#FFFBEB;border-left:3px solid #D97706;
+  border-radius:4px;padding:8px 12px;
+  font-size:11.5px;color:#78350F;line-height:1.7;
+}
+.f16-weak-block strong{color:#92400E;}
+
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 @media(max-width:560px){.g2,.g3{grid-template-columns:1fr;}}
@@ -5569,12 +5676,21 @@ async function openForm(id){
   </div>`;
   }
 
-  let html=`<div class="form-detail-view">`;
+  let html=`<div class="form-detail-view" data-role="${APP.currentRole||''}" data-form-id="${id}">`;
   html+=`<div class="form-detail-header">
   <h1>${f.name}</h1>
   <div class="fh-meta">${f.sub}　｜　${f.roles==='both'?'學生＋老師填寫':f.roles==='student'?'學生填寫':'老師填寫'}</div>
   </div>`;
   html+=studentBanner;
+
+  // 表單填寫進度條(掛在表單上方,自動統計已填欄位;對學生視角不計入老師欄位)
+  html+=`<div class="form-progress" id="form-progress-${id}" role="status" aria-label="表單填寫進度">
+    <div class="form-progress-label">
+      已填 <span class="fp-num"><span class="fp-done">0</span> / <span class="fp-total">0</span></span> 欄
+      <span class="fp-pct">(0%)</span>
+    </div>
+    <div class="form-progress-track"><div class="form-progress-fill"></div></div>
+  </div>`;
 
   // Lock bar for student viewing teacher-only form
   if(f.roles==='both'&&APP.currentRole==='student'&&!APP.teacherUnlocked){
@@ -5621,6 +5737,14 @@ async function openForm(id){
 
   // 自動為每張 card 套上學生藍／老師紅／混合色
   try{ applyCardColors(); }catch(e){console.warn('applyCardColors failed:',e);}
+
+  // 表單填寫進度條:初始計算 + 綁定變更監聽
+  try{
+    bindFormProgressEvents();
+    // 延後一拍,等待各 build 函式的 setTimeout 渲染完成(如 F16 等)
+    setTimeout(function(){ updateFormProgress(); }, 80);
+    setTimeout(function(){ updateFormProgress(); }, 700);
+  }catch(e){console.warn('form progress init failed:',e);}
 
   // ★ 為所有 radio 啟用「再點同一值就清除」功能
   try{ enableRadioToggleClear(); }catch(e){console.warn('enableRadioToggleClear failed:',e);}
@@ -5902,6 +6026,112 @@ function applyCardColors(){
       // 完全中性的不染色
     }
   });
+}
+
+/* ────────────────────────────────────────────────────────────
+   表單填寫進度條:統計 form-detail-view 內可填寫欄位
+   - 對學生視角:跳過 data-teacher="1" 與 .t-badge 父層欄位(不算分母)
+   - 對老師/管理員視角:統計全部
+   - 跳過 readonly、disabled、hidden、非互動元素(button、submit)
+   - 同一群 radio buttons (name 相同)算 1 欄
+──────────────────────────────────────────────────────────── */
+function updateFormProgress(formId){
+  try{
+    var view=document.querySelector('.form-detail-view');
+    if(!view) return;
+    var role=view.getAttribute('data-role')||APP.currentRole||'';
+    var bar=view.querySelector('.form-progress');
+    if(!bar) return;
+    var isStudent=(role==='student');
+
+    // 判斷是否為應計入的欄位
+    function shouldCount(el){
+      if(!el) return false;
+      if(el.type==='hidden'||el.type==='button'||el.type==='submit'||el.type==='reset') return false;
+      if(el.disabled||el.readOnly) return false;
+      // 跳過 PIN 解鎖輸入框
+      if(el.id==='inline-pin') return false;
+      // 跳過簽名時間戳隱藏欄
+      var k=el.getAttribute('data-key')||el.name||'';
+      // 學生視角:不計老師欄位
+      if(isStudent){
+        if(el.getAttribute('data-teacher')==='1') return false;
+        // 透過父層 .field 內有 t-badge 判斷
+        var fld=el.closest('.field');
+        if(fld && fld.querySelector(':scope > label .t-badge, label > .t-badge')) return false;
+      }
+      return true;
+    }
+    // 判斷是否「已填」
+    function hasValue(el){
+      if(el.type==='checkbox'||el.type==='radio') return !!el.checked;
+      var v=el.value;
+      if(v===null||v===undefined) return false;
+      return String(v).trim().length>0;
+    }
+
+    var done=0, total=0;
+    var radioGroups={}; // name → {filled:bool}
+
+    var fields=view.querySelectorAll('input,textarea,select');
+    fields.forEach(function(el){
+      if(!shouldCount(el)) return;
+      if(el.type==='radio'){
+        var name=el.name||el.getAttribute('data-fid')+'_'+el.getAttribute('data-key');
+        if(!name) return;
+        if(!(name in radioGroups)){
+          radioGroups[name]={filled:false};
+          total++;
+        }
+        if(el.checked) radioGroups[name].filled=true;
+        return;
+      }
+      if(el.type==='checkbox'){
+        // checkbox 單獨計算(常用於同意/勾選)
+        total++;
+        if(el.checked) done++;
+        return;
+      }
+      total++;
+      if(hasValue(el)) done++;
+    });
+    // radio 群組:已填者納入 done
+    Object.keys(radioGroups).forEach(function(k){
+      if(radioGroups[k].filled) done++;
+    });
+
+    var pct=total>0?Math.round(done/total*100):0;
+    var doneEl=bar.querySelector('.fp-done');
+    var totalEl=bar.querySelector('.fp-total');
+    var pctEl=bar.querySelector('.fp-pct');
+    var fillEl=bar.querySelector('.form-progress-fill');
+    if(doneEl) doneEl.textContent=done;
+    if(totalEl) totalEl.textContent=total;
+    if(pctEl) pctEl.textContent='('+pct+'%)';
+    if(fillEl) fillEl.style.width=pct+'%';
+    bar.classList.toggle('is-done', total>0 && done===total);
+  }catch(e){
+    console.warn('updateFormProgress error:',e);
+  }
+}
+
+/* 監聽 form-detail-view 內所有變更,自動更新進度 */
+function bindFormProgressEvents(){
+  try{
+    var view=document.querySelector('.form-detail-view');
+    if(!view) return;
+    if(view._progressBound) return;
+    view._progressBound=true;
+    var deb=null;
+    var handler=function(){
+      clearTimeout(deb);
+      deb=setTimeout(function(){ updateFormProgress(); }, 120);
+    };
+    view.addEventListener('input', handler, true);
+    view.addEventListener('change', handler, true);
+    // 也曝露給其他流程呼叫
+    window.refreshFormProgress=function(){ updateFormProgress(); };
+  }catch(e){console.warn('bindFormProgressEvents:',e);}
 }
 
 /* ── 鎖定老師欄位（儲存後呼叫）── */
@@ -9719,6 +9949,66 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       });
     }
     html+='</table>';
+
+    // ── 個人化學習策略推薦 ──
+    if(f16scores && f16top.length>0 && typeof F16_STRATEGIES!=='undefined'){
+      html+='<div class="section-head">個人化學習策略推薦</div>';
+      html+='<div style="background:#FAFBFF;border:1px solid #C0392B;border-radius:4px;padding:0;margin:6px 0;">';
+      html+='<div style="background:#C0392B;color:#fff;padding:6px 12px;font-size:11pt;font-weight:700;">💡 根據你的學習風格，推薦的學習策略</div>';
+      html+='<div style="padding:10px 14px;font-size:10pt;line-height:1.75;">';
+      // 主要風格策略
+      html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E3A8A;font-size:10.5pt;margin-bottom:6px;">🎯 主要學習風格 — 重點發揮</div>';
+      f16top.forEach(function(c){
+        var st = F16_STRATEGIES[c];
+        var sInfo = F16_STYLES[c];
+        if(!st || !sInfo) return;
+        var sc = f16scores[c]||0;
+        html+='<div style="background:#FFF5F5;border-left:3px solid #C0392B;border-radius:4px;padding:8px 12px;margin-bottom:6px;">';
+        html+='<div style="font-weight:700;color:#C0392B;font-size:10.5pt;margin-bottom:3px;">'+sInfo.zh+'（'+sc+'/20 分）</div>';
+        html+='<div style="color:#6B5050;font-size:9.5pt;margin-bottom:4px;">'+sInfo.desc+'</div>';
+        html+='<ol style="margin:4px 0 0 0;padding-left:20px;color:#374151;font-size:10pt;">';
+        st.strategies.forEach(function(s){ html+='<li style="margin-bottom:3px;">'+s+'</li>'; });
+        html+='</ol></div>';
+      });
+      html+='</div>';
+      // 次強風格
+      var sorted = Object.keys(f16scores).slice().sort(function(a,b){ return f16scores[b]-f16scores[a]; });
+      var second = sorted.filter(function(c){ return f16top.indexOf(c)<0; })[0];
+      if(second && f16scores[second]>=10){
+        var st2 = F16_STRATEGIES[second];
+        var s2Info = F16_STYLES[second];
+        if(st2 && s2Info){
+          html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E3A8A;font-size:10.5pt;margin-bottom:6px;">🔆 次強風格 — 輔助運用</div>';
+          html+='<div style="background:#FFF8E1;border-left:3px solid #D97706;border-radius:4px;padding:8px 12px;">';
+          html+='<div style="font-weight:700;color:#92400E;font-size:10.5pt;margin-bottom:3px;">'+s2Info.zh+'（'+f16scores[second]+'/20 分）</div>';
+          html+='<div style="color:#78350F;font-size:9.5pt;margin-bottom:4px;">'+s2Info.desc+'</div>';
+          html+='<ul style="margin:4px 0 0 0;padding-left:20px;color:#374151;font-size:10pt;">';
+          st2.strategies.slice(0,3).forEach(function(s){ html+='<li style="margin-bottom:3px;">'+s+'</li>'; });
+          html+='</ul></div></div>';
+        }
+      }
+      // 弱項提醒
+      var lowest = sorted[sorted.length-1];
+      if(lowest && f16scores[lowest]<=8){
+        var stLow = F16_STRATEGIES[lowest];
+        var sLowInfo = F16_STYLES[lowest];
+        if(stLow && sLowInfo){
+          var ctxHint = {VS:'看圖表、看 SOP、看波形',SC:'晨會討論、團隊合作、口頭交班',PS:'動手操作、模型練習、儀器設定',AL:'聆聽口頭講解、聽老師交班',VB:'寫日誌、做 case report、口頭報告',SL:'獨立預習、自我複習、寫反思',LG:'邏輯推理、參數推算、鑑別診斷'};
+          html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E3A8A;font-size:10.5pt;margin-bottom:6px;">⚠️ 較弱風格 — 注意補強</div>';
+          html+='<div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;padding:8px 12px;color:#78350F;font-size:10pt;">';
+          html+='<strong style="color:#92400E;">'+sLowInfo.zh+'（'+f16scores[lowest]+'/20 分）：</strong>這是你目前較不擅長的學習方式。實習中遇到偏向此風格的學習情境（例如：'+(ctxHint[lowest]||'相關情境')+'）時，請特別放慢腳步、多花時間。建議：';
+          html+='<ul style="margin:6px 0 0 0;padding-left:20px;">';
+          stLow.watchouts.forEach(function(w){ html+='<li style="margin-bottom:3px;">'+w+'</li>'; });
+          html+='</ul></div></div>';
+        }
+      }
+      // 結語
+      html+='<div style="margin-top:8px;padding:8px 12px;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;font-size:9.5pt;color:#1E3A8A;line-height:1.7;">';
+      html+='<strong>📌 提醒：</strong>學習風格沒有好壞之分，每個人都是多種風格的綜合體。這份推薦只是「順著你的優勢」的學習切入點，實習中仍鼓勵嘗試各種方式，找出最適合自己的節奏。';
+      html+='</div>';
+      html+='</div></div>';
+    }
+
     // ── 學生簽名 ──
     html+='<div class="section-head">學生簽名</div>';
     html+='<table>';
@@ -12249,6 +12539,113 @@ const F16_STYLES = {
   SL: { zh:'獨立型',  desc:'較獨立、注意力集中、學習事物較謹慎，會先預習以及大量練習。' },
   LG: { zh:'邏輯型',  desc:'善用腦力邏輯及數學、善於組合資訊、了解事情前後解決問題。' }
 };
+
+/* ─────────────────────────────────────────────────────────
+   F16 學習策略推薦資料
+   - strategies: 適合此風格的學習方法(實習情境導向,呼吸治療相關)
+   - watchouts:  此風格在實習中容易出現的盲點 / 補強建議
+   每個風格 5 條策略 + 3 條注意事項,符合 RT 實習現場
+───────────────────────────────────────────────────────── */
+const F16_STRATEGIES = {
+  VS:{ // 視覺型
+    strategies:[
+      '把臨床觀察重點畫成流程圖或心智圖,例如脫離呼吸器流程、ABG 判讀步驟',
+      '使用顏色標記呼吸器參數警戒線(高/低值),建立視覺化警示記憶',
+      '把 X 光、波形圖、SOP 釘在隨身筆記前頁,定期翻閱',
+      '看影片教學(YouTube 或科內錄影)比純文字更易吸收,觀後立刻畫出步驟圖',
+      '建立病人個案的視覺化時間軸:入院 → 插管 → 脫離 → 出院,便於回顧'
+    ],
+    watchouts:[
+      '純文字 SOP 容易讀過就忘 → 邊讀邊畫流程圖加深記憶',
+      '別只看不寫,實作前先親手描繪一次操作步驟',
+      '老師口頭交班時容易漏資訊 → 請老師允許你邊聽邊記筆記畫圖'
+    ]
+  },
+  SC:{ // 社交型
+    strategies:[
+      '主動加入晨會討論,問問題並複述老師重點(說出來才會記住)',
+      '找實習夥伴互相口試:你問我答練習臨床案例與機械通氣設定',
+      '跟學長姐或老師一對一討論個案,在對話中釐清觀念',
+      '主動參與跨團隊合作(醫護/醫師/RT)、家屬衛教,在互動中學習',
+      '把每天學到的東西當天找一位同學講一次,當作小型 mini-teaching'
+    ],
+    watchouts:[
+      '獨自閱讀容易分心 → 把書桌移到有同學一起讀書的空間',
+      '討論時容易聊開 → 給自己 25 分鐘專注討論 + 5 分鐘休息的節奏',
+      '別只記「同學說的」,自己也要動手翻原始資料確認'
+    ]
+  },
+  PS:{ // 身體型
+    strategies:[
+      '把握每個動手機會:抽痰、CPT、設定呼吸器都主動爭取練習',
+      '操作前先在假人模型上練 3 次以上,建立肌肉記憶再上臨床',
+      '邊走邊背:在通勤或巡房途中複習口訣(如 ABCDE 流程)',
+      '把參數調整當作「動手實驗」:觀察改 PEEP/FiO₂ 後病人變化,做手寫對照表',
+      '用便利貼把 SOP 步驟貼在工作站,操作時逐條點頭確認'
+    ],
+    watchouts:[
+      '只動手不思考 → 每次操作後問自己「為什麼這樣設?」並寫下',
+      '坐著讀書容易打瞌睡 → 站著背、邊走邊聽錄音',
+      '別省略理論基礎,操作熟練後務必回頭把生理機轉讀通'
+    ]
+  },
+  AL:{ // 聽覺型
+    strategies:[
+      '把老師的口頭講解或晨會內容(經同意後)錄音,通勤時重聽',
+      '把抽象概念用口訣或押韻記住,例如「ABG 三步走」、「四低一高」',
+      '聽 podcast 或 YouTube 醫學頻道補充呼吸生理、機械通氣觀念',
+      '讀書時讀出聲、或用文字轉語音 App 聽教科書',
+      '參與 case 報告或讀書會,主動發言、複誦他人說過的關鍵點'
+    ],
+    watchouts:[
+      '吵雜環境會嚴重影響專注 → 戴降噪耳機或選安靜時段讀書',
+      '純看圖表抓不到重點 → 找一段相關 podcast / 影片補聲音解說',
+      '別只「聽過」就以為會了,務必動手寫一次或實作一次驗證'
+    ]
+  },
+  VB:{ // 言語型
+    strategies:[
+      '每天用 3–5 句話寫實習日誌,把學到的東西「翻譯」成自己的話',
+      '主動爭取做 case presentation,以教代學',
+      '把生硬名詞改寫成口語版本(例如「順肺性」→「肺好不好吹得起來」)',
+      '寫文字版的 SOP 摘要卡,自己編號、自己排版',
+      '讀英文 paper 時把摘要用中文重述,加深理解'
+    ],
+    watchouts:[
+      '光看口語化筆記不夠精確 → 比對原始教科書或 SOP 校正用詞',
+      '別陷入「我說得出來=我會做」,務必動手實作驗證',
+      '寫得太長反而沒重點 → 每篇日誌限制 5 句話內'
+    ]
+  },
+  SL:{ // 獨立型
+    strategies:[
+      '安排固定的獨立讀書時段(每天 1 小時、安靜環境)做深度預習',
+      '使用實習日誌系統做自我反思:今日學到什麼 / 哪裡可以更好',
+      '把每個臨床決策都問自己「為什麼」,建立自己的決策邏輯樹',
+      '製作個人化的 SOP 速查卡,內容與排版完全依自己理解編排',
+      '預習比複習重要:上臨床前一晚把今天可能遇到的個案先看一輪'
+    ],
+    watchouts:[
+      '太獨立容易卡關不問人 → 給自己「30 分鐘規則」:卡 30 分鐘就問老師',
+      '不要避開團隊討論,老師回饋與同儕觀點是你看不到的盲點',
+      '別把所有事都自己扛,適度求助是專業能力的一部分'
+    ]
+  },
+  LG:{ // 邏輯型
+    strategies:[
+      '把臨床現象拆解為「原因 → 機制 → 結果 → 處置」四階段,寫成表格',
+      '把呼吸器參數當作數學問題:每改一個變數,推算對 PaO₂/PaCO₂ 的影響',
+      '用樹狀圖整理鑑別診斷(例如低血氧的 5 大原因 → 各自處置)',
+      '研讀 paper 時注意統計方法與 p 值,訓練 evidence-based 思維',
+      '每日寫「決策複盤」:今天為何這樣做?有沒有更佳方案?'
+    ],
+    watchouts:[
+      '太追求邏輯完美容易延誤行動 → 設定「先決策再優化」的原則',
+      '別忽略病人主觀感受,臨床不只有數字,情緒與動機同樣重要',
+      '邏輯推演不能取代基礎熟練度,務必把 SOP 練到反射動作'
+    ]
+  }
+};
 // 雷達圖顯示順序（與圖片中的軸位置一致：上→右上→右下→下→左下→左上→左）
 const F16_AXIS_ORDER = ['VS','SC','PS','AL','VB','SL','LG'];
 
@@ -12384,6 +12781,104 @@ function calcF16AndRender(fid){
       topEl.innerHTML = '<div style="font-size:14px;margin-bottom:6px;">您的主要學習風格：'+topNames+'</div>'+topDescs;
     }
   }
+  // 更新學習策略推薦
+  var strEl = document.getElementById('f16_strategy_'+fid);
+  if(strEl){
+    strEl.innerHTML = buildF16StrategyHTML(scores, top);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   產生學習策略推薦 HTML(網頁與 PDF 共用)
+   - scores: 7 種風格分數
+   - topStyles: 主要(最高分)風格代碼陣列
+   渲染邏輯:
+     1. 若尚未作答 → 顯示提示
+     2. 顯示「您的主要風格 → 推薦學習策略」(每個 top 風格 5 條)
+     3. 顯示「次強風格」(取第二高,如分數>=10)若無則略過
+     4. 顯示「需特別留意」(取最低分風格,如分數<=8,提供補強建議)
+───────────────────────────────────────────────────────── */
+function buildF16StrategyHTML(scores, topStyles){
+  if(!scores || !topStyles || topStyles.length===0){
+    return '<div style="padding:14px;text-align:center;color:var(--ink3);font-size:12px;">完成 70 題自我評估後,系統會根據您的學習風格,自動推薦個人化的實習學習策略。</div>';
+  }
+  var html='';
+  // 1. 標頭
+  html += '<div class="f16-strategy">';
+  html += '<div class="f16-strategy-head">💡 根據你的學習風格，推薦的學習策略</div>';
+  html += '<div class="f16-strategy-body">';
+
+  // 2. 主要風格策略(每個 top 都列)
+  html += '<div class="f16-strategy-section">';
+  html += '<div class="f16-strategy-section-title">🎯 主要學習風格 — 重點發揮</div>';
+  topStyles.forEach(function(code){
+    var st = F16_STRATEGIES[code];
+    if(!st) return;
+    var styleInfo = F16_STYLES[code];
+    var sc = scores[code]||0;
+    html += '<div class="f16-strategy-style-block">';
+    html += '<div class="f16-strategy-style-name">'+styleInfo.zh+' ('+sc+'/20 分)</div>';
+    html += '<div style="color:#6B5050;font-size:11.5px;margin-bottom:4px;">'+styleInfo.desc+'</div>';
+    html += '<ol class="f16-strategy-list">';
+    st.strategies.forEach(function(s){ html += '<li>'+s+'</li>'; });
+    html += '</ol></div>';
+  });
+  html += '</div>';
+
+  // 3. 次強風格(第二高分,且 >=10 分,非主要風格)
+  var sorted = Object.keys(scores).slice().sort(function(a,b){ return scores[b]-scores[a]; });
+  var second = sorted.filter(function(c){ return topStyles.indexOf(c)<0; })[0];
+  if(second && scores[second]>=10){
+    var st2 = F16_STRATEGIES[second];
+    var st2Info = F16_STYLES[second];
+    if(st2 && st2Info){
+      html += '<div class="f16-strategy-section">';
+      html += '<div class="f16-strategy-section-title">🔆 次強風格 — 輔助運用</div>';
+      html += '<div class="f16-strategy-style-block" style="background:#FFF8E1;border-left-color:#D97706;">';
+      html += '<div class="f16-strategy-style-name" style="color:#92400E;">'+st2Info.zh+' ('+scores[second]+'/20 分)</div>';
+      html += '<div style="color:#78350F;font-size:11.5px;margin-bottom:4px;">'+st2Info.desc+'</div>';
+      html += '<ul class="f16-strategy-list" style="color:#374151;">';
+      // 次強只列前 3 條,避免過長
+      st2.strategies.slice(0,3).forEach(function(s){ html += '<li>'+s+'</li>'; });
+      html += '</ul></div>';
+      html += '</div>';
+    }
+  }
+
+  // 4. 弱項提醒(最低分,若 <=8 分提供補強)
+  var lowest = sorted[sorted.length-1];
+  if(lowest && scores[lowest]<=8){
+    var stLow = F16_STRATEGIES[lowest];
+    var stLowInfo = F16_STYLES[lowest];
+    if(stLow && stLowInfo){
+      html += '<div class="f16-strategy-section">';
+      html += '<div class="f16-strategy-section-title">⚠️ 較弱風格 — 注意補強</div>';
+      html += '<div class="f16-weak-block">';
+      html += '<strong>'+stLowInfo.zh+' ('+scores[lowest]+'/20 分):</strong> 這是你目前較不擅長的學習方式。實習中遇到偏向此風格的學習情境(例如:';
+      // 依風格給出情境提示
+      var contextHint = {
+        VS:'看圖表、看 SOP、看波形',
+        SC:'晨會討論、團隊合作、口頭交班',
+        PS:'動手操作、模型練習、儀器設定',
+        AL:'聆聽口頭講解、聽老師交班',
+        VB:'寫日誌、做 case report、口頭報告',
+        SL:'獨立預習、自我複習、寫反思',
+        LG:'邏輯推理、參數推算、鑑別診斷'
+      };
+      html += (contextHint[lowest]||'相關情境')+')時,請特別放慢腳步、多花時間。建議:';
+      html += '<ul style="margin:6px 0 0 0;padding-left:18px;">';
+      stLow.watchouts.forEach(function(w){ html += '<li>'+w+'</li>'; });
+      html += '</ul></div></div>';
+    }
+  }
+
+  // 5. 結語
+  html += '<div style="margin-top:10px;padding:8px 12px;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;font-size:11.5px;color:#1E3A8A;line-height:1.7;">';
+  html += '<strong>📌 提醒:</strong>學習風格沒有好壞之分,每個人都是多種風格的綜合體。這份推薦只是「順著你的優勢」的學習切入點,實習中仍鼓勵嘗試各種方式,找出最適合自己的節奏。';
+  html += '</div>';
+
+  html += '</div></div>'; // body, strategy
+  return html;
 }
 
 function buildF16(f,d,canT,fkey,canS){
@@ -12473,6 +12968,11 @@ function buildF16(f,d,canT,fkey,canS){
   h+='<div id="f16_radar_'+fid+'" style="margin:12px 0;text-align:center;"></div>';
   // 主要風格
   h+='<div id="f16_top_'+fid+'" style="margin-top:8px;"></div>';
+  h+='</div></div>';
+
+  // ── 學習策略推薦（依風格自動生成）──
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">個人化學習策略推薦</div></div><div class="card-body">';
+  h+='<div id="f16_strategy_'+fid+'"></div>';
   h+='</div></div>';
 
   // ── 學生簽名 ──
