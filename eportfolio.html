@@ -94,14 +94,14 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .screen{display:none;position:relative;z-index:1;}
 .screen.active{display:block;}
 
-/* ─── LOGIN ─── */
-#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;background:linear-gradient(135deg,#EEF3FB 0%,#F8FAFE 50%,#EEF3FB 100%);}
-.login-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);box-shadow:var(--shadow-lg);width:100%;max-width:460px;overflow:hidden;}
-.login-header{background:linear-gradient(135deg,#1E40AF 0%,#2563EB 100%);padding:2rem;text-align:center;position:relative;}
-.login-header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2),var(--gold));}
-.login-header .hosp{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:1.5px;margin-bottom:8px;font-family:var(--ff-sans);font-weight:500;}
-.login-header .title{font-family:var(--ff-serif);font-size:20px;color:#fff;font-weight:600;line-height:1.4;text-shadow:0 1px 2px rgba(0,0,0,.1);}
-.login-header .sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:6px;letter-spacing:.5px;}
+/* ─── LOGIN ─── 方案B：白底卡 + 深藍頂條，靠左排版（醫療文件感） ─── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;background:#F4F6FA;}
+.login-card{background:var(--paper);border:1px solid #E5EAF1;border-radius:var(--r2);box-shadow:0 1px 3px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);width:100%;max-width:460px;overflow:hidden;}
+.login-header{background:#FFFFFF;border-top:4px solid #1E3A8A;padding:2rem 2rem 1.5rem;text-align:left;position:relative;}
+.login-header::after{display:none;}
+.login-header .hosp{font-size:11px;color:#1E3A8A;letter-spacing:2px;margin-bottom:8px;font-family:var(--ff-sans);font-weight:600;}
+.login-header .title{font-family:var(--ff-serif);font-size:22px;color:#1A2332;font-weight:600;line-height:1.4;text-shadow:none;letter-spacing:.5px;}
+.login-header .sub{font-size:11px;color:#6B7689;margin-top:8px;letter-spacing:.5px;}
 .login-body{padding:2rem;}
 .role-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.5rem;background:var(--bg-soft);}
 .role-tab{flex:1;padding:11px;text-align:center;cursor:pointer;font-size:13px;font-weight:500;color:var(--ink3);background:transparent;transition:all .2s;border:none;border-right:1px solid var(--border);}
@@ -129,7 +129,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ─── MAIN APP ─── */
 #app-screen{min-height:100vh;}
-.topbar{background:linear-gradient(135deg,#1E40AF 0%,#2563EB 100%);color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(15,23,42,.15);}
+.topbar{background:#1E3A8A;color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(15,23,42,.15);}
 .topbar-left{display:flex;align-items:center;gap:12px;}
 .topbar-title{font-family:var(--ff-serif);font-size:15px;font-weight:600;letter-spacing:.3px;}
 .topbar-sub{font-size:11px;color:rgba(255,255,255,.7);margin-top:1px;}
@@ -323,7 +323,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .form-list-view{padding:1.5rem;}
 .section-header{display:flex;align-items:baseline;gap:10px;margin:1.5rem 0 1rem;padding:0 0 8px 0;border-bottom:2px solid var(--border2);}
 .section-header:first-child{margin-top:0;}
-.section-header h2{font-family:var(--ff-serif);font-size:17px;font-weight:600;color:var(--ink);}
+.section-header h2{font-family:var(--ff-serif);font-size:17px;font-weight:600;color:var(--ink);letter-spacing:.5px;}
 .section-header span{font-size:11px;color:var(--ink3);background:var(--bg-soft);padding:3px 9px;border-radius:999px;}
 
 /* ─── 可摺疊群組(總覽用) ─── */
@@ -371,10 +371,10 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ─── FORM DETAIL ─── */
 .form-detail-view{padding:1.5rem;max-width:900px;}
-.form-detail-header{background:linear-gradient(135deg,#1E40AF 0%,#2563EB 100%);color:#fff;border-radius:var(--r2);padding:1.4rem 1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:var(--shadow);}
-.form-detail-header::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));}
-.form-detail-header::after{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;}
-.form-detail-header h1{font-family:var(--ff-serif);font-size:18px;font-weight:600;letter-spacing:.3px;}
+.form-detail-header{background:#1E3A8A;color:#fff;border-radius:var(--r2);padding:1.4rem 1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:var(--shadow);}
+.form-detail-header::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(194,138,44,.7);}
+.form-detail-header::after{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none;}
+.form-detail-header h1{font-family:var(--ff-serif);font-size:18px;font-weight:600;letter-spacing:.5px;}
 .form-detail-header .fh-meta{font-size:11px;color:rgba(255,255,255,.75);margin-top:5px;letter-spacing:.3px;}
 
 /* ─── LOCK BAR ─── 改成警告色明亮樣式 ─── */
@@ -388,7 +388,13 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:1.1rem;overflow:hidden;box-shadow:var(--shadow-sm);transition:box-shadow .2s;}
 .card:hover{box-shadow:var(--shadow);}
 .card-head{background:linear-gradient(180deg,#F8FAFC 0%,#F1F5F9 100%);border-bottom:1px solid var(--border2);padding:11px 1.2rem;display:flex;align-items:center;gap:8px;}
-.card-head-title{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.2px;}
+.card-head-title{font-family:var(--ff-serif);font-size:14px;font-weight:600;color:var(--ink);letter-spacing:.5px;}
+
+/* ─── Serif utility:分數顯示（評值結果、課後測驗、F-PRE/POST） ─── */
+.score-display{font-family:var(--ff-serif);font-size:28px;font-weight:600;letter-spacing:-.5px;line-height:1;}
+.score-display-sm{font-family:var(--ff-serif);font-size:20px;font-weight:600;letter-spacing:-.3px;}
+/* ─── Serif utility:簽名顯示（學生/老師/主持人簽名顯示） ─── */
+.signature-display{font-family:var(--ff-serif);font-size:15px;color:var(--ink);letter-spacing:1px;padding:2px 8px;display:inline-block;}
 .card-body{padding:1.2rem;}
 
 /* ─── 統一配色標準 ───
@@ -7675,20 +7681,26 @@ function downloadPDF(id){
   function section(title,color){ return '<tr><td colspan="2" style="background:'+color+';color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>'; }
   
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+f.name+'</title><style>';
-  html+='@page{size:A4;margin:1.5cm;} body{font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;font-size:11pt;color:#1A1612;margin:0;} ';
+  html+='@page{size:A4;margin:1.5cm;} ';
+  /* ─── 字型分工:body 用 sans 確保列印清晰,標題/章節/署名用 serif 賦予正式文件感 ─── */
+  html+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:11pt;color:#1A1612;margin:0;} ';
+  html+='.serif{font-family:"Microsoft JhengHei","PMingLiU","Noto Serif TC","Source Han Serif TC",serif;} ';
   html+='table{width:100%;border-collapse:collapse;margin-bottom:12px;} ';
-  html+='.header{text-align:center;border-bottom:3px solid #B8860B;padding-bottom:10px;margin-bottom:15px;} ';
-  html+='.hosp{font-size:10pt;color:#666;letter-spacing:1px;margin-bottom:4px;} ';
-  html+='.title{font-size:16pt;font-weight:700;color:#1A1612;margin:6px 0;} ';
+  html+='.header{text-align:center;border-bottom:2px solid #1E3A8A;padding-bottom:10px;margin-bottom:15px;} ';
+  html+='.hosp{font-size:10pt;color:#1E3A8A;letter-spacing:1.5px;margin-bottom:4px;font-weight:600;} ';
+  /* 表單主標題:serif、加大字距 */
+  html+='.title{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;font-size:17pt;font-weight:600;color:#1A1612;margin:8px 0 4px;letter-spacing:2px;} ';
   html+='.sub{font-size:10pt;color:#888;} ';
   html+='.info-bar{font-size:9pt;color:#666;margin-top:6px;} ';
-  html+='.section-head{background:#1A3A5C;color:#fff;font-weight:700;padding:5px 10px;font-size:11pt;margin-top:10px;margin-bottom:0;} ';
+  /* 章節標題:serif、深藍底白字 */
+  html+='.section-head{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E3A8A;color:#fff;font-weight:600;padding:6px 12px;font-size:11.5pt;margin-top:12px;margin-bottom:0;letter-spacing:1px;} ';
   html+='.rating-grid{display:grid;border:1px solid #DDD;} ';
   html+='.r-cell{border:1px solid #DDD;padding:4px 6px;text-align:center;font-size:9pt;} ';
-  html+='.r-head{background:#2471A3;color:#fff;font-weight:700;} ';
+  html+='.r-head{background:#2471A3;color:#fff;font-weight:600;} ';
   html+='.r-sel-s{background:#2471A3;color:#fff;font-weight:700;} ';
   html+='.r-sel-t{background:#C0392B;color:#fff;font-weight:700;} ';
-  html+='.sign-box{border-top:1px solid #B8860B;padding-top:10px;margin-top:10px;} ';
+  /* 簽名區:serif、金線下框 */
+  html+='.sign-box{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;border-top:1px solid #B8860B;padding-top:10px;margin-top:10px;letter-spacing:1px;} ';
   html+='</style></head><body>';
   
   // ── 頁首 ──
@@ -12924,7 +12936,7 @@ function _buildExamCommon(f, d, fid, mode){
       '<div class="card-head" style="background:'+bd+';color:#fff;"><div class="card-head-title">'+ic+' 作答結果</div></div>'+
       '<div class="card-body" style="background:'+bg+';">'+
       '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:14px;">'+
-      '<div><b>分數：</b><span style="font-size:22px;font-weight:700;color:'+bd+';">'+res.score+'</span> / 100</div>'+
+      '<div><b>分數：</b><span class="score-display" style="color:'+bd+';">'+res.score+'</span> <span style="color:var(--ink3);font-size:13px;">/ 100</span></div>'+
       '<div><b>答對：</b>'+res.correctCnt+' / '+res.total+' 題</div>'+
       '<div><b>狀態：</b><span style="color:'+bd+';font-weight:700;">'+label+'</span>（及格標準 '+EXAM_PASS_SCORE+' 分）</div>'+
       (d.submit_time?'<div><b>送出時間：</b>'+d.submit_time+'</div>':'')+
@@ -13366,7 +13378,7 @@ function buildCourseTest(f, d, canT, fkey, canS){
       '<div class="card-head" style="background:'+bd+';color:#fff;"><div class="card-head-title">'+ic+' 作答結果</div></div>'+
       '<div class="card-body" style="background:'+bg+';">'+
       '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:14px;">'+
-      '<div><b>分數：</b><span style="font-size:22px;font-weight:700;color:'+bd+';">'+res.score+'</span> / 100</div>'+
+      '<div><b>分數：</b><span class="score-display" style="color:'+bd+';">'+res.score+'</span> <span style="color:var(--ink3);font-size:13px;">/ 100</span></div>'+
       '<div><b>答對：</b>'+res.correctCnt+' / '+res.total+' 題</div>'+
       '<div><b>狀態：</b><span style="color:'+bd+';font-weight:700;">'+label+'</span>（及格標準 '+passLine+' 分）</div>'+
       (d.submit_time?'<div><b>送出時間：</b>'+d.submit_time+'</div>':'')+
@@ -15627,13 +15639,15 @@ function batchDownloadPDF(){
   allHtml+='<title>臺中榮總 e-Portfolio 已完成表單</title>';
   allHtml+='<style>';
   allHtml+='@page{size:A4;margin:1.5cm;}';
-  allHtml+='body{font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;font-size:10pt;color:#1A1612;margin:0;}';
+  allHtml+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:10pt;color:#1A1612;margin:0;}';
+  /* ─── 字型分工:body 用 sans 確保列印清晰,標題/章節/署名用 serif 賦予正式文件感 ─── */
+  allHtml+='.serif{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;}';
   allHtml+='table{width:100%;border-collapse:collapse;margin-bottom:10px;}';
   allHtml+='td,th{border:1px solid #DDD;padding:5px 8px;font-size:10pt;}';
-  /* ★ 每張表單獨立成頁：列印時強制下一張表單從新一頁開始 */
+  /* ★ 每張表單獨立成頁:列印時強制下一張表單從新一頁開始 */
   allHtml+='.form-page{page-break-after:always;break-after:page;}';
   allHtml+='.form-page:last-child{page-break-after:auto;break-after:auto;}';
-  /* 表單內的元素盡量避免被切開（標題與內容、表格列等） */
+  /* 表單內的元素盡量避免被切開(標題與內容、表格列等) */
   allHtml+='.header{page-break-after:avoid;break-after:avoid;}';
   allHtml+='.sec{page-break-after:avoid;break-after:avoid;page-break-inside:avoid;break-inside:avoid;}';
   allHtml+='table{page-break-inside:auto;}';
@@ -15641,12 +15655,14 @@ function batchDownloadPDF(){
   allHtml+='.history{page-break-inside:avoid;break-inside:avoid;}';
   /* 螢幕預覽時也用視覺分隔線顯示分頁位置 */
   allHtml+='@media screen{.form-page{border-bottom:3px double #B8860B;margin-bottom:24px;padding-bottom:20px;}.form-page:last-child{border-bottom:none;}}';
-  allHtml+='.header{text-align:center;border-bottom:3px solid #B8860B;padding-bottom:10px;margin-bottom:12px;}';
-  allHtml+='.hosp{font-size:9pt;color:#666;letter-spacing:1px;}';
-  allHtml+='.title{font-size:15pt;font-weight:700;margin:5px 0;}';
+  allHtml+='.header{text-align:center;border-bottom:2px solid #1E3A8A;padding-bottom:10px;margin-bottom:12px;}';
+  allHtml+='.hosp{font-size:9pt;color:#1E3A8A;letter-spacing:1.5px;font-weight:600;}';
+  /* 表單主標題:serif、加大字距 */
+  allHtml+='.title{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;font-size:16pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;}';
   allHtml+='.sub{font-size:9pt;color:#888;}';
   allHtml+='.info-bar{font-size:9pt;color:#555;margin-top:5px;background:#F5F5F0;padding:4px 8px;border-radius:3px;}';
-  allHtml+='.sec{background:#1A3A5C;color:#fff;font-weight:700;padding:5px 10px;margin-top:10px;}';
+  /* 章節標題:serif */
+  allHtml+='.sec{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E3A8A;color:#fff;font-weight:600;padding:6px 12px;margin-top:10px;letter-spacing:1px;}';
   allHtml+='.t-row td{background:#FFF5F5;}';
   allHtml+='.s-row td{background:#F5F9FF;}';
   allHtml+='.r-sel-s{background:#2471A3!important;color:#fff!important;font-weight:700;}';
