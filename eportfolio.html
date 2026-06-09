@@ -14739,7 +14739,139 @@ function cohortSections(students){
     secs.push({id:'dopsepa', title:'⑥ DOPS／EPA 完成度與分數', html:html});
   })();
 
-  /* 7) 所有表單狀態矩陣 */
+  /* 7) 教師評分型表單（臨床表現 / CbD / 360 / 實習總評值） */
+  (function(){
+    // 各表單分數萃取（回 {score,max,pass} 或 null）
+    function f02Score(sid){ // 臨床表現自評：10 題 1-5，滿分 50
+      var d=cohortForm('F02',sid), any=false, t=0;
+      for(var i=0;i<10;i++){var v=d['f02_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;var n=parseInt(v,10)||0;t+=n;}}
+      return any?{score:t,max:50,pass:null}:null;
+    }
+    function cbdScore(fid,sid){ // CbD：7 題 1-9，滿分 63（UGY 每項需 ≥5）
+      var d=cohortForm(fid,sid), any=false, t=0;
+      for(var i=0;i<7;i++){var v=d['f06_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;var n=parseInt(v,10)||0;t+=n;}}
+      return any?{score:t,max:63,pass:null}:null;
+    }
+    function f07Score(fid,sid){ // 360：態度80+題0-7、臨床75+題8-13，總分=兩者各半，及格 ≥70
+      var d=cohortForm(fid,sid), any=false;
+      var att=80; for(var i=0;i<8;i++){var v=d['f07_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;att+=parseInt(v,10)||0;}}
+      var clin=75; for(var j=8;j<14;j++){var v2=d['f07_'+j]; if(v2!==undefined&&v2!==''&&v2!=null){any=true;clin+=parseInt(v2,10)||0;}}
+      var tot=Math.round(att*0.5+clin*0.5);
+      return any?{score:tot,max:100,pass:70}:null;
+    }
+    function f15Score(sid){ // 實習總評值：態度30+技能50+溝通20(+加分5)，滿分105，及格 ≥60
+      var d=cohortForm('F15',sid), any=false, t=0;
+      for(var i=0;i<6;i++){var v=d['f15_att_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;t+=parseInt(v,10)||0;}}
+      for(var i=0;i<10;i++){var v=d['f15_skl_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;t+=parseInt(v,10)||0;}}
+      for(var i=0;i<4;i++){var v=d['f15_com_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;t+=parseInt(v,10)||0;}}
+      if((d['bonus']||'').indexOf('+5')>=0) t+=5;
+      return any?{score:t,max:105,pass:60}:null;
+    }
+    var cols=[
+      {key:'F02',  label:'臨床表現(自評)',  get:function(s){return f02Score(s.sid);}},
+      {key:'F06M', label:'CbD 內科',        get:function(s){return cbdScore('F06M',s.sid);}},
+      {key:'F06S', label:'CbD 外科',        get:function(s){return cbdScore('F06S',s.sid);}},
+      {key:'F07M', label:'360 內科',        get:function(s){return f07Score('F07M',s.sid);}},
+      {key:'F07S', label:'360 外科',        get:function(s){return f07Score('F07S',s.sid);}},
+      {key:'F15',  label:'實習總評值',      get:function(s){return f15Score(s.sid);}}
+    ];
+    var html='';
+    html+=_cohNote('彙整各份「教師評分型」表單的總分。臨床表現為學生自評（滿分 50，無及格線）；CbD 每張 7 項各 1–9（滿分 63，UGY 每項需 ≥5）；360 度換算總分滿分 100、<b style="color:#DC2626;">及格 ≥70</b>；實習總評值滿分 105、<b style="color:#DC2626;">及格 ≥60</b>。低於及格線以紅字標示。');
+    var head='<tr>'+_cohTh('學生','text-align:left;')+cols.map(function(c){return _cohTh(c.label);}).join('')+'</tr>';
+    var body='';
+    students.forEach(function(s){
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
+      cols.forEach(function(c){
+        var r=c.get(s);
+        if(!r){ row+=_cohTd('<span style="color:#bbb;">未評</span>','text-align:center;'); return; }
+        var fail=(r.pass!=null && r.score<r.pass);
+        var col=fail?'#DC2626':'#0f172a';
+        row+=_cohTd('<b style="color:'+col+';">'+r.score+'</b><span style="color:#94a3b8;font-size:10px;"> / '+r.max+'</span>','text-align:center;');
+      });
+      body+=row+'</tr>';
+    });
+    // 全班平均列
+    var avgRow='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>');
+    cols.forEach(function(c){
+      var vals=students.map(function(s){var r=c.get(s);return r?r.score:null;});
+      var a=_cohAvg(vals);
+      avgRow+=_cohTd(a==null?'—':'<b>'+a+'</b>','text-align:center;');
+    });
+    body+=avgRow+'</tr>';
+    html+=_cohTbl(head,body);
+    secs.push({id:'tscores', title:'⑦ 教師評分型表單總覽', html:html});
+  })();
+
+  /* 8) 核心技能自評 / 指導者評核（F01A 學前、F01B 學後） */
+  (function(){
+    var skillCount=28;
+    function countCat(fid,sid,prefix){ // 回 {佳,可,差,NA,done}
+      var d=cohortForm(fid,sid), c={'佳':0,'可':0,'差':0,'NA':0,answered:0};
+      for(var i=0;i<skillCount;i++){
+        var v=d[prefix+i];
+        if(v!==undefined&&v!==''&&v!=null){ c.answered++; if(c[v]!==undefined) c[v]++; }
+      }
+      return c;
+    }
+    var html='';
+    html+=_cohNote('核心技能（共 '+skillCount+' 項）以「佳／可／差／NA」自評與評核。下表顯示各等第數量；學前為學生自評，學後含學生自評與指導者評核。');
+    var head='<tr>'+_cohTh('學生','text-align:left;')
+      +_cohTh('學前自評 佳/可/差')
+      +_cohTh('學後自評 佳/可/差')
+      +_cohTh('指導者評核 佳/可/差')+'</tr>';
+    var body='';
+    students.forEach(function(s){
+      var pre=countCat('F01A',s.sid,'f01_pre_');
+      var post=countCat('F01B',s.sid,'f01_post_');
+      var tut=countCat('F01B',s.sid,'f01_p1_');
+      function cell(c){
+        if(!c.answered) return _cohTd('<span style="color:#bbb;">未填</span>','text-align:center;');
+        return _cohTd('<span style="color:#059669;font-weight:700;">'+c['佳']+'</span> / <span style="color:#2563EB;">'+c['可']+'</span> / <span style="color:#DC2626;">'+c['差']+'</span>'
+          +(c['NA']?'<span style="color:#94a3b8;font-size:10px;"> (NA '+c['NA']+')</span>':''),'text-align:center;');
+      }
+      body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(pre)+cell(post)+cell(tut)+'</tr>';
+    });
+    html+=_cohTbl(head,body);
+    secs.push({id:'skills', title:'⑧ 核心技能自評／指導者評核', html:html});
+  })();
+
+  /* 9) 其他紀錄表（完成度與重點摘要） */
+  (function(){
+    // [formId, 顯示名稱, 重點欄位 key, 重點欄位標題]
+    var rows=[
+      ['F11','個人化學習計畫 ILPs','goal','學習目標'],
+      ['F04M','床邊教學（內科）','diagnosis','診斷'],
+      ['F04S','床邊教學（外科）','diagnosis','診斷'],
+      ['F08','全人照護紀錄','diagnosis','診斷'],
+      ['F09','跨領域團隊合作','diagnosis','診斷'],
+      ['F10A','輔導記錄表(1)','t_note','輔導重點'],
+      ['F10B','輔導記錄表(2)','t_note','輔導重點'],
+      ['F12','學習心得與建議','env_review','心得摘要']
+    ];
+    function snip(t){ t=String(t||'').replace(/\s+/g,' ').trim(); if(!t) return ''; return t.length>22?_cohEsc(t.slice(0,22))+'…':_cohEsc(t); }
+    var html='';
+    html+=_cohNote('其餘紀錄型表單（多為質性內容，無單一分數）以「完成度＋重點摘要」呈現。狀態：<span style="color:#059669;font-weight:700;">✓ 完成</span>／<span style="color:#D97706;font-weight:700;">◐ 草稿</span>／<span style="color:#cbd5e1;">· 未開始</span>，括號內為該欄位摘要。');
+    var head='<tr>'+_cohTh('表單','text-align:left;')+students.map(function(s){return _cohTh(s.name);}).join('')+'</tr>';
+    var body='';
+    rows.forEach(function(r){
+      var fid=r[0], nm=r[1], keyField=r[2];
+      var f=findForm(fid); if(!f) return;
+      var tr='<tr>'+_cohTd('<b>'+_cohEsc(nm)+'</b>','background:#FAFBFF;font-size:11px;');
+      students.forEach(function(s){
+        var st=getStudentFormStatus(fid,s.sid);
+        var mk=st==='done'?'<span style="color:#059669;font-weight:700;">✓</span>':st==='draft'?'<span style="color:#D97706;font-weight:700;">◐</span>':'<span style="color:#cbd5e1;">·</span>';
+        var d=cohortForm(fid,s.sid);
+        var extra=snip(d[keyField]);
+        tr+=_cohTd(mk+(extra?'<div style="font-size:9px;color:#64748b;line-height:1.3;">'+extra+'</div>':''),'text-align:center;');
+      });
+      body+=tr+'</tr>';
+    });
+    html+=_cohTbl(head,body);
+    secs.push({id:'records', title:'⑨ 其他紀錄表（完成度與重點）', html:html});
+  })();
+
+
+  /* 10) 所有表單狀態矩陣 */
   (function(){
     var groups=[
       {label:'學習風格',ids:['F16']},
@@ -14770,7 +14902,7 @@ function cohortSections(students){
       });
     });
     html+=_cohTbl(head,body);
-    secs.push({id:'matrix', title:'⑦ 所有表單狀態矩陣', html:html});
+    secs.push({id:'matrix', title:'⑩ 所有表單狀態矩陣', html:html});
   })();
 
   return secs;
@@ -14813,7 +14945,10 @@ async function renderCohortDashboard(){
   html+='</div>';
   html+='<div style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">資料時間：'+new Date().toLocaleString('zh-TW')+'　·　共 '+students.length+' 位學生</div>';
   secs.forEach(function(sec){
-    html+='<div class="admin-card"><div class="admin-card-head">'+_cohEsc(sec.title)+'</div><div class="admin-card-body">'+sec.html+'</div></div>';
+    html+='<div class="admin-card"><div class="admin-card-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+      +'<span>'+_cohEsc(sec.title)+'</span>'
+      +'<button onclick="downloadCohortPDF(\''+sec.id+'\')" title="只匯出此區塊的 PDF" style="flex:0 0 auto;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;white-space:nowrap;">🖨 此區 PDF</button>'
+      +'</div><div class="admin-card-body">'+sec.html+'</div></div>';
   });
   html+='</div>';
   mc.innerHTML=html;
@@ -14821,14 +14956,21 @@ async function renderCohortDashboard(){
 }
 
 /* ═════════════════ 匯出班級總表 PDF ═════════════════ */
-function downloadCohortPDF(){
+function downloadCohortPDF(sectionId){
   var students=cohortStudentList();
   if(!students.length){ toast('⚠ 無學生資料'); return; }
   var secs=cohortSections(students);
+  // ★ 若指定 sectionId，只匯出該區塊；否則匯出整份班級總表
+  if(sectionId){
+    var single=secs.filter(function(s){return s.id===sectionId;});
+    if(!single.length){ toast('⚠ 找不到此區塊'); return; }
+    secs=single;
+  }
+  var docTitle = sectionId ? ('班級統整－'+secs[0].title.replace(/^[①-⑩]\s*/,'')) : '班級學習統整報告';
   var appVer=(document.querySelector('meta[name="version"]')||{}).content||'';
   var now=new Date().toLocaleString('zh-TW');
 
-  var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>班級學習統整報告</title><style>';
+  var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_cohEsc(docTitle)+'</title><style>';
   h+='@page{size:A4 landscape;margin:1.2cm;} ';
   h+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;color:#1A1612;margin:0;font-size:11pt;} ';
   h+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:14px;} ';
@@ -14840,13 +14982,13 @@ function downloadCohortPDF(){
   h+='table{page-break-inside:auto;} tr{page-break-inside:avoid;} svg{page-break-inside:avoid;} ';
   h+='</style></head><body>';
   h+='<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
-  h+='<div class="title">班級學習統整報告</div>';
+  h+='<div class="title">'+_cohEsc(docTitle)+'</div>';
   h+='<div class="sub">共 '+students.length+' 位學生　·　產製時間：'+now+(appVer?'　·　系統版本：'+appVer:'')+'</div></div>';
   secs.forEach(function(sec,i){
     h+='<div class="sec'+(i>0?' brk':'')+'"><div class="sec-h">'+_cohEsc(sec.title)+'</div>'+sec.html+'</div>';
   });
   h+='</body></html>';
-  var auto='<scr'+'ipt>window.addEventListener("load",function(){setTimeout(function(){document.title="班級學習統整報告_"+(new Date().toISOString().slice(0,10));window.print();},400);});</scr'+'ipt>';
+  var auto='<scr'+'ipt>window.addEventListener("load",function(){setTimeout(function(){document.title='+JSON.stringify(docTitle+'_'+new Date().toISOString().slice(0,10))+';window.print();},400);});</scr'+'ipt>';
   h=h.replace('</body>', auto+'</body>');
   var w=window.open('','_blank');
   if(!w){ toast('⚠ 瀏覽器阻擋了彈出視窗，請允許後再試'); return; }
