@@ -4862,6 +4862,7 @@ function renderSidebar(){
     sb.innerHTML=`
       <div class="sidebar-section">管理功能</div>
       <div class="sidebar-item active" onclick="renderAdmin()">⚙ 系統管理</div>
+      <div class="sidebar-item" id="cohort-nav-btn" onclick="renderCohortDashboard()">📊 班級統計</div>
       <div class="sidebar-item" onclick="renderFormList()">📋 表單總覽</div>
     `;return;
   }
@@ -4877,6 +4878,8 @@ function renderSidebar(){
       {label:'實習課程總評值',ids:['F15']},
     ];
     let thtml='';
+    thtml+=`<div class="sidebar-section">班級總覽</div>`;
+    thtml+=`<div class="sidebar-item" id="cohort-nav-btn" onclick="renderCohortDashboard()">📊 班級統計</div>`;
     if(APP.currentStudentId){
       const stu=APP.students[APP.currentStudentId];
       thtml+=`<div style="padding:8px 1rem;background:var(--cream);border-bottom:1px solid var(--border2);font-size:11px;font-weight:600;color:var(--gold);">👤 ${stu?escapeHtml(stu.name):'未知學生'}</div>`;
@@ -14329,6 +14332,515 @@ async function examPostUnlock(){
     msg.style.color='#DC2626';
     msg.textContent='⚠ 連線後端失敗：'+(err.message||err)+'。請稍後再試或洽管理員。';
   }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   班級統整 / 統計儀表板（管理員 + 老師可用）
+   - 跨全班學生彙整：Learning Style、筆試前後測、核心課程課後測驗、
+     個案報告、DOPS/EPA、整體完成率、所有表單狀態矩陣
+   - 畫面內檢視 + 可匯出「班級總表 PDF」
+   - 圖表一律手繪 inline SVG（與 F16 雷達圖一致，符合 CSP，不依賴外部圖表庫）
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 多學生分類色盤（高對比、列印友善；用明確 hex 以便 PDF 視窗也一致） */
+function _cohColors(){ return ['#2563EB','#DC2626','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D']; }
+function _cohEsc(s){ return (typeof esc==='function') ? esc(String(s==null?'':s)) : String(s==null?'':s); }
+
+/* 取得全班學生清單 [{sid,name,school}] */
+function cohortStudentList(){
+  var order = (APP.studentOrder && APP.studentOrder.length) ? APP.studentOrder.slice()
+            : Object.keys(APP.students||{});
+  return order.filter(function(sid){ return APP.students && APP.students[sid]; })
+              .map(function(sid){
+                var s = APP.students[sid] || {};
+                return { sid: sid, name: s.name || sid, school: s.school || '' };
+              });
+}
+
+/* 讀取某學生某表單的欄位資料 */
+function cohortForm(formId, sid){ return APP.formData[formId+'_'+sid] || {}; }
+
+/* ── 一次把全班所有學生的表單資料載入 APP.formData（沿用後端 loadAllForms API） ── */
+async function loadCohortData(){
+  var students = cohortStudentList();
+  for(var i=0;i<students.length;i++){
+    var sid = students[i].sid;
+    try{
+      var controller = new AbortController();
+      var tid = setTimeout(function(){ controller.abort(); }, 12000);
+      var resp = await fetch(GAS_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({ action:'loadAllForms', sid: sid }),
+        signal: controller.signal, cache:'no-cache'
+      });
+      clearTimeout(tid);
+      if(!resp.ok) continue;
+      var data = await resp.json();
+      if(!data.ok || !data.forms) continue;
+      Object.keys(data.forms).forEach(function(fkey){
+        var item = data.forms[fkey] || {};
+        if(!item.formData) return;
+        try{
+          var loaded = JSON.parse(item.formData);
+          // 整份覆蓋該 formKey（統計需要雲端最新版；不影響其他 key）
+          APP.formData[fkey] = loaded;
+        }catch(e){}
+      });
+    }catch(e){ /* 單一學生失敗就略過，續抓其他人 */ }
+  }
+  return students;
+}
+
+/* ───────────────────────── 分數萃取 ───────────────────────── */
+/* 筆試 / 課後測驗：final_score（0-100），未作答回 null */
+function cohortQuizScore(formId, sid){
+  var d = cohortForm(formId, sid);
+  var v = d.final_score;
+  if(v===undefined || v===null || v==='') return null;
+  var n = parseInt(v,10); return isNaN(n) ? null : n;
+}
+/* F13 書面個案：s1 + s2a~s2h（各有上限），總分 100 */
+function cohortF13Score(sid){
+  var d = cohortForm('F13', sid);
+  var items=[['s1',5],['s2a',5],['s2b',20],['s2c',10],['s2d',20],['s2e',5],['s2f',15],['s2g',15],['s2h',5]];
+  var any=false, tot=0;
+  items.forEach(function(it){
+    var v=d[it[0]];
+    if(v!==undefined && v!=='' && v!==null){ any=true; var n=parseInt(v,10)||0; if(n>it[1])n=it[1]; if(n<0)n=0; tot+=n; }
+  });
+  return any ? tot : null;
+}
+/* F14 PPT 個案：f14_sc_0~11（各有上限），總分 100 */
+function cohortF14Score(sid){
+  var d = cohortForm('F14', sid);
+  var maxes=[5,5,10,5,10,10,10,10,15,10,5,5];
+  var any=false, tot=0;
+  for(var i=0;i<12;i++){
+    var v=d['f14_sc_'+i];
+    if(v!==undefined && v!=='' && v!==null){ any=true; var n=parseInt(v,10)||0; if(n>maxes[i])n=maxes[i]; if(n<0)n=0; tot+=n; }
+  }
+  return any ? tot : null;
+}
+/* F16 學習風格七向度分數；無作答回 null */
+function cohortF16(sid){
+  var d = cohortForm('F16', sid);
+  var answered=false;
+  for(var k in d){ if(k.indexOf('f16_q_')===0 && d[k]!=='' && d[k]!=null){ answered=true; break; } }
+  if(!answered) return null;
+  return (typeof calcF16Scores==='function') ? calcF16Scores(d) : null;
+}
+/* DOPS 評分等級短標（優/良/佳/尚可/差）與評量結果 */
+function cohortDops(formId, sid){
+  var d = cohortForm(formId, sid);
+  var grade = d.score_grade || '';
+  var gShort = grade ? String(grade).split('：')[0].split(':')[0] : '';
+  return { grade: gShort, result: d.result || '' };
+}
+/* EPA 信賴等級（1-5） */
+function cohortEpaLevel(sid, formId){
+  var d = cohortForm(formId, sid);
+  var v = d.epa_level;
+  return (v===undefined||v===null||v==='') ? null : String(v);
+}
+/* 核心課程短標籤："(n) 主題" */
+function cohortCourseLabel(f){
+  var nm = (f.name||'').replace('課後測驗-','').replace(/（[^）]*）\s*$/,'').trim();
+  var m = (f.num||'').match(/(\d+)/);
+  var n = m ? m[1] : '';
+  return (n? '('+n+') ':'') + nm;
+}
+
+/* ═════════════════ SVG 圖表 ═════════════════ */
+/* 群組長條圖：categories（X 軸）× series（圖例）；matrix[cat][ser]=值 */
+function cohortGroupedBarSVG(categories, series, matrix, max, opts){
+  opts = opts || {};
+  var colors = opts.colors || _cohColors();
+  var W = opts.width||720, H = opts.height||340;
+  var padL=42, padR=14, padT=16, padB=70;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var nCat=categories.length, nSer=series.length;
+  var groupW=plotW/nCat, barGap=3, groupInner=groupW*0.74;
+  var barW=Math.max(3,(groupInner - barGap*(nSer-1))/nSer);
+  var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;font-family:sans-serif;max-width:'+W+'px;margin:0 auto;">';
+  s+='<rect width="'+W+'" height="'+H+'" fill="#FFFFFF"/>';
+  var steps=opts.ySteps||4;
+  for(var g=0;g<=steps;g++){
+    var yv=max*g/steps, y=padT+plotH-(yv/max)*plotH;
+    s+='<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y.toFixed(1)+'" stroke="#E5E9F0" stroke-width="1"/>';
+    s+='<text x="'+(padL-6)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="10" fill="#888">'+Math.round(yv)+'</text>';
+  }
+  if(opts.threshold!=null){
+    var ty=padT+plotH-(opts.threshold/max)*plotH;
+    s+='<line x1="'+padL+'" y1="'+ty.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+ty.toFixed(1)+'" stroke="#DC2626" stroke-width="1.4" stroke-dasharray="5,4"/>';
+    s+='<text x="'+(W-padR)+'" y="'+(ty-4).toFixed(1)+'" text-anchor="end" font-size="10" fill="#DC2626">'+_cohEsc(opts.thresholdLabel||('門檻 '+opts.threshold))+'</text>';
+  }
+  for(var c=0;c<nCat;c++){
+    var gx=padL+groupW*c+(groupW-groupInner)/2;
+    for(var si=0;si<nSer;si++){
+      var v=matrix[c][si];
+      if(v==null||isNaN(v)) continue;
+      var bh=(v/max)*plotH, bx=gx+si*(barW+barGap), by=padT+plotH-bh;
+      s+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+Math.max(0,bh).toFixed(1)+'" fill="'+colors[si%colors.length]+'" rx="2"/>';
+      if(opts.valueLabels) s+='<text x="'+(bx+barW/2).toFixed(1)+'" y="'+(by-2).toFixed(1)+'" text-anchor="middle" font-size="8.5" fill="#555">'+v+'</text>';
+    }
+    var cxl=padL+groupW*c+groupW/2;
+    s+='<text x="'+cxl.toFixed(1)+'" y="'+(padT+plotH+15)+'" text-anchor="middle" font-size="11" fill="#333">'+_cohEsc(categories[c])+'</text>';
+  }
+  s+='<line x1="'+padL+'" y1="'+(padT+plotH)+'" x2="'+(W-padR)+'" y2="'+(padT+plotH)+'" stroke="#999" stroke-width="1"/>';
+  var lx=padL, ly=H-22;
+  for(var si2=0;si2<nSer;si2++){
+    s+='<rect x="'+lx+'" y="'+(ly-9)+'" width="11" height="11" rx="2" fill="'+colors[si2%colors.length]+'"/>';
+    s+='<text x="'+(lx+15)+'" y="'+ly+'" font-size="11" fill="#333">'+_cohEsc(series[si2])+'</text>';
+    lx += 22 + String(series[si2]).length*12;
+    if(lx > W-110){ lx=padL; ly+=16; }
+  }
+  s+='</svg>';
+  return s;
+}
+
+/* 水平長條圖：適合項目多、名稱長（核心課程各堂平均） */
+function cohortHBarSVG(labels, values, opts){
+  opts = opts || {};
+  var max=opts.max||100, rowH=opts.rowH||26, padT=10, padB=26;
+  var labelW=opts.labelW||168, padR=46, padL=8;
+  var n=labels.length, W=opts.width||690, H=padT+padB+n*rowH;
+  var plotX=padL+labelW, plotW=W-plotX-padR;
+  var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;font-family:sans-serif;max-width:'+W+'px;margin:0 auto;">';
+  s+='<rect width="'+W+'" height="'+H+'" fill="#FFFFFF"/>';
+  if(opts.threshold!=null){
+    var tx=plotX+(opts.threshold/max)*plotW;
+    s+='<line x1="'+tx.toFixed(1)+'" y1="'+padT+'" x2="'+tx.toFixed(1)+'" y2="'+(H-padB)+'" stroke="#DC2626" stroke-width="1.3" stroke-dasharray="5,4"/>';
+    s+='<text x="'+tx.toFixed(1)+'" y="'+(H-padB+14)+'" text-anchor="middle" font-size="10" fill="#DC2626">'+_cohEsc(opts.thresholdLabel||opts.threshold)+'</text>';
+  }
+  for(var i=0;i<n;i++){
+    var y=padT+i*rowH, v=values[i];
+    s+='<text x="'+(plotX-6)+'" y="'+(y+rowH/2+3).toFixed(1)+'" text-anchor="end" font-size="10" fill="#333">'+_cohEsc(labels[i])+'</text>';
+    s+='<rect x="'+plotX+'" y="'+(y+4).toFixed(1)+'" width="'+plotW+'" height="'+(rowH-8)+'" fill="#F0F2F6" rx="3"/>';
+    if(v!=null && !isNaN(v)){
+      var bw=Math.max(0,(v/max))*plotW;
+      var col=(opts.threshold!=null && v<opts.threshold) ? '#DC2626' : (opts.color||'#2563EB');
+      s+='<rect x="'+plotX+'" y="'+(y+4).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(rowH-8)+'" fill="'+col+'" rx="3"/>';
+      s+='<text x="'+(plotX+bw+4).toFixed(1)+'" y="'+(y+rowH/2+3).toFixed(1)+'" font-size="10" font-weight="700" fill="#333">'+(opts.fmt?opts.fmt(v):v)+'</text>';
+    } else {
+      s+='<text x="'+(plotX+4)+'" y="'+(y+rowH/2+3).toFixed(1)+'" font-size="10" fill="#bbb">—（未完成）</text>';
+    }
+  }
+  s+='</svg>';
+  return s;
+}
+
+/* ═════════════════ 共用小工具 ═════════════════ */
+function _cohAvg(arr){ var v=arr.filter(function(x){return x!=null && !isNaN(x);}); if(!v.length) return null; return Math.round(v.reduce(function(a,b){return a+b;},0)/v.length); }
+function _cohTbl(headHtml, bodyHtml){
+  return '<table style="width:100%;border-collapse:collapse;font-size:12px;margin:4px 0 2px;">'
+       + '<thead>'+headHtml+'</thead><tbody>'+bodyHtml+'</tbody></table>';
+}
+function _cohTh(t,extra){ return '<th style="background:#1E40AF;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;'+(extra||'')+'">'+_cohEsc(t)+'</th>'; }
+function _cohTd(t,extra){ return '<td style="padding:5px 8px;border:1px solid #d8dee9;'+(extra||'')+'">'+(t==null?'':t)+'</td>'; }
+function _cohNote(t){ return '<div style="font-size:11px;color:#64748b;margin:2px 0 10px;line-height:1.6;">'+t+'</div>'; }
+function _cohChartBox(svg){ return '<div style="overflow-x:auto;margin:6px 0 4px;-webkit-overflow-scrolling:touch;">'+svg+'</div>'; }
+
+/* ═════════════════ 各統整區段 ═════════════════ */
+/* 回傳 [{id,title,html}]，畫面與 PDF 共用 */
+function cohortSections(students){
+  var secs=[];
+  var names=students.map(function(s){return s.name;});
+
+  /* 1) 整體表單完成率 */
+  (function(){
+    var html='';
+    var totalForms=FORMS.length;
+    var perStu=students.map(function(s){
+      var done=0,draft=0;
+      FORMS.forEach(function(f){
+        var st=getStudentFormStatus(f.id,s.sid);
+        if(st==='done')done++; else if(st==='draft')draft++;
+      });
+      return {name:s.name, done:done, draft:draft, pct:Math.round(done/totalForms*100)};
+    });
+    var classDone=perStu.reduce(function(a,b){return a+b.done;},0);
+    var classPct=Math.round(classDone/(totalForms*students.length||1)*100);
+    // KPI
+    html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">';
+    html+='<div style="flex:1;min-width:110px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:#1E40AF;">學生人數</div><div style="font-size:22px;font-weight:700;color:#1E3A8A;">'+students.length+'</div></div>';
+    html+='<div style="flex:1;min-width:110px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:#1E40AF;">每人表單數</div><div style="font-size:22px;font-weight:700;color:#1E3A8A;">'+totalForms+'</div></div>';
+    html+='<div style="flex:1;min-width:110px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:#047857;">全班整體完成率</div><div style="font-size:22px;font-weight:700;color:#047857;">'+classPct+'%</div></div>';
+    html+='</div>';
+    // per-student progress bars
+    html+='<div style="margin-top:4px;">';
+    perStu.forEach(function(p){
+      var col=p.pct>=80?'#059669':p.pct>=50?'#2563EB':'#D97706';
+      html+='<div style="margin-bottom:8px;">';
+      html+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span style="font-weight:600;color:#1A2332;">'+_cohEsc(p.name)+'</span><span style="color:#64748b;">已完成 '+p.done+'／'+totalForms+'（'+p.pct+'%）'+(p.draft?'，草稿 '+p.draft:'')+'</span></div>';
+      html+='<div style="background:#EEF2F7;border-radius:6px;height:12px;overflow:hidden;"><div style="height:12px;width:'+p.pct+'%;background:'+col+';border-radius:6px;"></div></div>';
+      html+='</div>';
+    });
+    html+='</div>';
+    secs.push({id:'overview', title:'① 整體表單完成率', html:html});
+  })();
+
+  /* 2) Learning Style 四人總匯 */
+  (function(){
+    var dims=F16_AXIS_ORDER;
+    var dimLabels=dims.map(function(c){return F16_STYLES[c].zh;});
+    var stuScores=students.map(function(s){return cohortF16(s.sid);});
+    var matrix=dims.map(function(code){
+      return stuScores.map(function(sc){ return sc?sc[code]:null; });
+    });
+    var html='';
+    html+=_cohNote('每向度滿分 20 分（七向度：視覺／社交／身體／聽覺／言語／獨立／邏輯）。各學生最高分向度即其主要學習風格，可作為帶教方式調整參考。');
+    html+=_cohChartBox(cohortGroupedBarSVG(dimLabels, names, matrix, 20, {height:340, valueLabels:false}));
+    // 表格：主要風格
+    var head='<tr>'+_cohTh('學生','text-align:left;')+dimLabels.map(function(l){return _cohTh(l);}).join('')+_cohTh('主要風格')+'</tr>';
+    var body='';
+    students.forEach(function(s,si){
+      var sc=stuScores[si];
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
+      var top='—';
+      if(sc){
+        var maxv=-1, topCode=null;
+        dims.forEach(function(c){ if(sc[c]>maxv){maxv=sc[c];topCode=c;} });
+        dims.forEach(function(c){
+          var isTop=(c===topCode);
+          row+=_cohTd(sc[c],'text-align:center;'+(isTop?'background:#DBEAFE;font-weight:700;color:#1E40AF;':''));
+        });
+        top = topCode ? F16_STYLES[topCode].zh : '—';
+      } else {
+        dims.forEach(function(){ row+=_cohTd('—','text-align:center;color:#bbb;'); });
+        top='<span style="color:#bbb;">未完成</span>';
+      }
+      row+=_cohTd(top,'text-align:center;font-weight:600;')+'</tr>';
+      body+=row;
+    });
+    html+=_cohTbl(head,body);
+    secs.push({id:'f16', title:'② Learning Style 四人總匯', html:html});
+  })();
+
+  /* 3) 筆試前/後測成績分布 */
+  (function(){
+    var pre=students.map(function(s){return cohortQuizScore('F-PRE',s.sid);});
+    var post=students.map(function(s){return cohortQuizScore('F-POST',s.sid);});
+    var matrix=students.map(function(s,i){ return [pre[i],post[i]]; });
+    var html='';
+    html+=_cohNote('每題 4 分共 25 題，滿分 100，<b style="color:#DC2626;">60 分及格</b>（紅色虛線）。藍＝前測、橘＝後測，可看出每位學生的進步幅度。');
+    html+=_cohChartBox(cohortGroupedBarSVG(names, ['前測','後測'], matrix, 100, {height:320, threshold:60, thresholdLabel:'及格線 60', valueLabels:true, colors:['#60A5FA','#D97706']}));
+    var head='<tr>'+_cohTh('學生','text-align:left;')+_cohTh('前測')+_cohTh('後測')+_cohTh('進步')+'</tr>';
+    var body='';
+    students.forEach(function(s,i){
+      function cell(v){ if(v==null) return _cohTd('<span style="color:#bbb;">未完成</span>','text-align:center;'); return _cohTd(v,'text-align:center;font-weight:700;color:'+(v>=60?'#059669':'#DC2626')+';'); }
+      var diff=(pre[i]!=null&&post[i]!=null)?(post[i]-pre[i]):null;
+      var diffTxt = diff==null?'—':((diff>0?'▲ +':diff<0?'▼ ':'')+diff);
+      var diffCol = diff==null?'#94a3b8':(diff>0?'#059669':diff<0?'#DC2626':'#64748b');
+      body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(pre[i])+cell(post[i])+_cohTd(diffTxt,'text-align:center;font-weight:600;color:'+diffCol+';')+'</tr>';
+    });
+    var avgPre=_cohAvg(pre), avgPost=_cohAvg(post);
+    body+='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>')+_cohTd(avgPre==null?'—':avgPre,'text-align:center;font-weight:700;')+_cohTd(avgPost==null?'—':avgPost,'text-align:center;font-weight:700;')+_cohTd((avgPre!=null&&avgPost!=null)?((avgPost-avgPre>=0?'+':'')+(avgPost-avgPre)):'—','text-align:center;font-weight:700;')+'</tr>';
+    html+=_cohTbl(head,body);
+    secs.push({id:'exam', title:'③ 筆試前／後測成績分布', html:html});
+  })();
+
+  /* 4) 核心課程各堂平均 */
+  (function(){
+    var cts=FORMS.filter(function(f){return f.id.indexOf('F-CT')===0;});
+    var labels=cts.map(cohortCourseLabel);
+    var avgs=cts.map(function(f){ return _cohAvg(students.map(function(s){return cohortQuizScore(f.id,s.sid);})); });
+    var html='';
+    html+=_cohNote('每堂課後測驗每題 10 分共 10 題，滿分 100，<b style="color:#DC2626;">60 分及格</b>。長條為全班平均；低於及格線者以紅色標示，代表該堂課普遍偏弱、值得加強。');
+    html+=_cohChartBox(cohortHBarSVG(labels, avgs, {max:100, threshold:60, thresholdLabel:'及格 60', labelW:172, rowH:25}));
+    // 明細表：各堂 × 各生
+    var head='<tr>'+_cohTh('課堂','text-align:left;')+names.map(function(n){return _cohTh(n);}).join('')+_cohTh('平均')+_cohTh('及格數')+'</tr>';
+    var body='';
+    cts.forEach(function(f,ci){
+      var vals=students.map(function(s){return cohortQuizScore(f.id,s.sid);});
+      var passN=vals.filter(function(v){return v!=null&&v>=60;}).length;
+      var row='<tr>'+_cohTd(_cohEsc(labels[ci]),'background:#FAFBFF;');
+      vals.forEach(function(v){
+        if(v==null) row+=_cohTd('—','text-align:center;color:#bbb;');
+        else row+=_cohTd(v,'text-align:center;font-weight:600;color:'+(v>=60?'#0f172a':'#DC2626')+';');
+      });
+      row+=_cohTd(avgs[ci]==null?'—':avgs[ci],'text-align:center;font-weight:700;'+(avgs[ci]!=null&&avgs[ci]<60?'color:#DC2626;':''));
+      row+=_cohTd(passN+'／'+students.length,'text-align:center;color:#64748b;');
+      body+=row+'</tr>';
+    });
+    html+=_cohTbl(head,body);
+    secs.push({id:'cts', title:'④ 核心課程各堂平均', html:html});
+  })();
+
+  /* 5) 個案報告成績總表 */
+  (function(){
+    var f13=students.map(function(s){return cohortF13Score(s.sid);});
+    var f14=students.map(function(s){return cohortF14Score(s.sid);});
+    var matrix=students.map(function(s,i){return [f13[i],f14[i]];});
+    var html='';
+    html+=_cohNote('書面（F13）與口頭 PPT（F14）皆滿分 100，<b style="color:#DC2626;">60 分及格</b>。');
+    html+=_cohChartBox(cohortGroupedBarSVG(names, ['書面 F13','口頭 F14'], matrix, 100, {height:300, threshold:60, thresholdLabel:'及格線 60', valueLabels:true}));
+    var head='<tr>'+_cohTh('學生','text-align:left;')+_cohTh('書面 F13')+_cohTh('口頭 F14')+'</tr>';
+    var body='';
+    function cell(v){ if(v==null) return _cohTd('<span style="color:#bbb;">未完成</span>','text-align:center;'); return _cohTd(v+' / 100','text-align:center;font-weight:700;color:'+(v>=60?'#059669':'#DC2626')+';'); }
+    students.forEach(function(s,i){ body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(f13[i])+cell(f14[i])+'</tr>'; });
+    var a13=_cohAvg(f13),a14=_cohAvg(f14);
+    body+='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>')+_cohTd(a13==null?'—':a13+' / 100','text-align:center;font-weight:700;')+_cohTd(a14==null?'—':a14+' / 100','text-align:center;font-weight:700;')+'</tr>';
+    html+=_cohTbl(head,body);
+    secs.push({id:'case', title:'⑤ 個案報告成績總表', html:html});
+  })();
+
+  /* 6) DOPS / EPA 完成度與分數 */
+  (function(){
+    var dops=FORMS.filter(function(f){return /^D0\d$/.test(f.id);});
+    var epas=FORMS.filter(function(f){return /^E0\d$/.test(f.id);});
+    var html='';
+    // DOPS 表
+    html+='<div style="font-size:13px;font-weight:700;color:#991B1B;margin:2px 0 4px;">DOPS 操作技術評核</div>';
+    var dHead='<tr>'+_cohTh('學生','text-align:left;')+dops.map(function(f){return _cohTh(f.name.replace('DOPS：',''));}).join('')+'</tr>';
+    var dBody='';
+    students.forEach(function(s){
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
+      dops.forEach(function(f){
+        var r=cohortDops(f.id,s.sid);
+        var st=getStudentFormStatus(f.id,s.sid);
+        var cell;
+        if(r.result){
+          var pass=(r.result==='合格');
+          cell='<span style="font-weight:700;color:'+(pass?'#059669':'#DC2626')+';">'+_cohEsc(r.result)+'</span>'+(r.grade?'<br><span style="font-size:10px;color:#64748b;">'+_cohEsc(r.grade)+'</span>':'');
+        } else if(st==='draft'){ cell='<span style="color:#D97706;">填寫中</span>'; }
+        else { cell='<span style="color:#bbb;">未評</span>'; }
+        row+=_cohTd(cell,'text-align:center;');
+      });
+      dBody+=row+'</tr>';
+    });
+    html+=_cohTbl(dHead,dBody);
+    // EPA 表
+    html+='<div style="font-size:13px;font-weight:700;color:#991B1B;margin:12px 0 4px;">EPA 可信賴專業活動（信賴等級 1–5；UGY 上限 Level 2）</div>';
+    var eHead='<tr>'+_cohTh('學生','text-align:left;')+epas.map(function(f){return _cohTh(f.name.replace(/：.*/,'').replace('EPA ',''));}).join('')+'</tr>';
+    var eBody='';
+    students.forEach(function(s){
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
+      epas.forEach(function(f){
+        var lv=cohortEpaLevel(s.sid,f.id);
+        var st=getStudentFormStatus(f.id,s.sid);
+        var cell = lv ? '<span style="font-weight:700;color:#1E40AF;">Level '+_cohEsc(lv)+'</span>' : (st==='draft'?'<span style="color:#D97706;">填寫中</span>':'<span style="color:#bbb;">未評</span>');
+        row+=_cohTd(cell,'text-align:center;');
+      });
+      eBody+=row+'</tr>';
+    });
+    html+=_cohTbl(eHead,eBody);
+    secs.push({id:'dopsepa', title:'⑥ DOPS／EPA 完成度與分數', html:html});
+  })();
+
+  /* 7) 所有表單狀態矩陣 */
+  (function(){
+    var groups=[
+      {label:'學習風格',ids:['F16']},
+      {label:'筆試',ids:['F-PRE','F-POST']},
+      {label:'學習評估',ids:['F11','F01A','F01B','F02','F04M','F04S','F06M','F06S','F07M','F07S','F08','F09','F10A','F10B','F12']},
+      {label:'個案報告',ids:['F13','F14']},
+      {label:'DOPS',ids:['D01','D02','D03','D04']},
+      {label:'EPA',ids:['E01','E02','E03']},
+      {label:'課後測驗',ids:['F-CT01','F-CT02','F-CT03','F-CT04','F-CT05','F-CT06','F-CT07','F-CT08','F-CT09','F-CT10','F-CT11','F-CT12']},
+      {label:'總評值',ids:['F15']}
+    ];
+    var html='';
+    html+=_cohNote('每位學生在每份表單的狀態總覽。<span style="color:#059669;font-weight:700;">✓ 完成</span>　<span style="color:#D97706;font-weight:700;">◐ 草稿</span>　<span style="color:#cbd5e1;font-weight:700;">· 未開始</span>。');
+    var head='<tr>'+_cohTh('表單','text-align:left;')+names.map(function(n){return _cohTh(n,'writing-mode:initial;');}).join('')+'</tr>';
+    var body='';
+    groups.forEach(function(grp){
+      body+='<tr><td colspan="'+(students.length+1)+'" style="background:#E8EEF7;color:#1E40AF;font-weight:700;font-size:11px;padding:4px 8px;border:1px solid #d8dee9;">'+_cohEsc(grp.label)+'</td></tr>';
+      grp.ids.forEach(function(id){
+        var f=findForm(id); if(!f) return;
+        var short=f.name.length>18?f.name.slice(0,18)+'…':f.name;
+        var row='<tr>'+_cohTd(_cohEsc(short),'font-size:11px;');
+        students.forEach(function(s){
+          var st=getStudentFormStatus(id,s.sid);
+          var mk=st==='done'?'<span style="color:#059669;font-weight:700;">✓</span>':st==='draft'?'<span style="color:#D97706;font-weight:700;">◐</span>':'<span style="color:#cbd5e1;">·</span>';
+          row+=_cohTd(mk,'text-align:center;');
+        });
+        body+=row+'</tr>';
+      });
+    });
+    html+=_cohTbl(head,body);
+    secs.push({id:'matrix', title:'⑦ 所有表單狀態矩陣', html:html});
+  })();
+
+  return secs;
+}
+
+/* ═════════════════ 畫面渲染 ═════════════════ */
+async function renderCohortDashboard(){
+  if(APP.currentRole!=='admin' && APP.currentRole!=='teacher'){
+    console.warn('renderCohortDashboard blocked: role='+APP.currentRole);
+    return;
+  }
+  // 清理 F16 浮動表頭殘留（同 renderAdmin）
+  var _f16fh=document.getElementById('f16-floating-thead'); if(_f16fh)_f16fh.remove();
+  var mc=document.getElementById('main-content');
+  var sb=document.getElementById('sidebar');
+  if(sb) sb.querySelectorAll('.sidebar-item').forEach(function(el){el.classList.remove('active');});
+  var navOn=document.getElementById('cohort-nav-btn'); if(navOn)navOn.classList.add('active');
+
+  mc.innerHTML='<div style="padding:3rem;text-align:center;color:var(--ink3);">'
+    +'<div style="font-size:32px;margin-bottom:10px;">📊</div>'
+    +'<div style="font-size:14px;font-weight:600;">正在彙整全班資料…</div>'
+    +'<div style="font-size:12px;margin-top:6px;color:var(--ink3);">逐一從雲端載入每位學生的表單</div></div>';
+
+  var students;
+  try{ students = await loadCohortData(); }
+  catch(e){
+    mc.innerHTML='<div class="admin-section"><div style="padding:2rem;text-align:center;color:#DC2626;">⚠ 載入失敗：'+_cohEsc(e.message||e)+'<br><button class="btn-update" style="margin-top:12px;" onclick="renderCohortDashboard()">重試</button></div></div>';
+    return;
+  }
+  if(!students || !students.length){
+    mc.innerHTML='<div class="admin-section"><div style="padding:2rem;text-align:center;color:var(--ink3);">尚無學生資料。請先於「系統管理」新增學生帳號。</div></div>';
+    return;
+  }
+
+  var secs=cohortSections(students);
+  var html='<div class="admin-section">';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">';
+  html+='<div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;">📊 班級學習統整</div>';
+  html+='<div style="display:flex;gap:8px;"><button class="btn-update" onclick="renderCohortDashboard()">↻ 重新整理</button><button class="btn-primary" style="padding:8px 16px;" onclick="downloadCohortPDF()">🖨 匯出班級總表 PDF</button></div>';
+  html+='</div>';
+  html+='<div style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">資料時間：'+new Date().toLocaleString('zh-TW')+'　·　共 '+students.length+' 位學生</div>';
+  secs.forEach(function(sec){
+    html+='<div class="admin-card"><div class="admin-card-head">'+_cohEsc(sec.title)+'</div><div class="admin-card-body">'+sec.html+'</div></div>';
+  });
+  html+='</div>';
+  mc.innerHTML=html;
+  window.scrollTo(0,0);
+}
+
+/* ═════════════════ 匯出班級總表 PDF ═════════════════ */
+function downloadCohortPDF(){
+  var students=cohortStudentList();
+  if(!students.length){ toast('⚠ 無學生資料'); return; }
+  var secs=cohortSections(students);
+  var appVer=(document.querySelector('meta[name="version"]')||{}).content||'';
+  var now=new Date().toLocaleString('zh-TW');
+
+  var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>班級學習統整報告</title><style>';
+  h+='@page{size:A4 landscape;margin:1.2cm;} ';
+  h+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;color:#1A1612;margin:0;font-size:11pt;} ';
+  h+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:14px;} ';
+  h+='.hosp{font-size:10pt;color:#1E40AF;letter-spacing:1.5px;font-weight:600;} ';
+  h+='.title{font-family:"PMingLiU","Noto Serif TC",serif;font-size:18pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;} ';
+  h+='.sub{font-size:9pt;color:#888;} ';
+  h+='.sec{margin-top:14px;} .sec.brk{page-break-before:always;} ';
+  h+='.sec-h{font-family:"PMingLiU","Noto Serif TC",serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:12pt;letter-spacing:1px;margin-bottom:8px;} ';
+  h+='table{page-break-inside:auto;} tr{page-break-inside:avoid;} svg{page-break-inside:avoid;} ';
+  h+='</style></head><body>';
+  h+='<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
+  h+='<div class="title">班級學習統整報告</div>';
+  h+='<div class="sub">共 '+students.length+' 位學生　·　產製時間：'+now+(appVer?'　·　系統版本：'+appVer:'')+'</div></div>';
+  secs.forEach(function(sec,i){
+    h+='<div class="sec'+(i>0?' brk':'')+'"><div class="sec-h">'+_cohEsc(sec.title)+'</div>'+sec.html+'</div>';
+  });
+  h+='</body></html>';
+  var auto='<scr'+'ipt>window.addEventListener("load",function(){setTimeout(function(){document.title="班級學習統整報告_"+(new Date().toISOString().slice(0,10));window.print();},400);});</scr'+'ipt>';
+  h=h.replace('</body>', auto+'</body>');
+  var w=window.open('','_blank');
+  if(!w){ toast('⚠ 瀏覽器阻擋了彈出視窗，請允許後再試'); return; }
+  w.document.open(); w.document.write(h); w.document.close();
+  toast('✓ 列印對話框即將開啟，請選擇「另存為 PDF」');
 }
 
 
