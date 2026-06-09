@@ -12211,15 +12211,24 @@ function buildDOPS(f,d,canT,fkey,canS){
         return;
       }
       var key=f.id+'_i'+(++itemIdx);
-      // 一般 item：依編號層級縮排
+      // 一般 item：依編號層級縮排 + 懸掛縮排（換行時對齊編號後的第一個字）
       var lines = String(item).split('\n');
       var renderedLines = lines.map(function(ln){
         var lv = _calcLevel(ln);
         var pad = lv * 18;
-        if(pad === 0) return ln;
-        return '<span style="display:inline-block;padding-left:'+pad+'px;">'+ln+'</span>';
+        // 拆出開頭編號（如 4. / 7.1 / 7.4.1）與其後文字，讓編號獨立一欄、
+        // 文字另成一欄；文字換行時自然對齊到編號後的第一個字（懸掛縮排）。
+        var m = String(ln).match(/^(\d+(?:\.\d+)*\.?)[ \u3000]*([\s\S]*)$/);
+        if(m && m[2] !== ''){
+          return '<span style="display:flex;align-items:flex-start;padding-left:'+pad+'px;">'
+               +   '<span style="flex:0 0 auto;white-space:nowrap;padding-right:.35em;">'+m[1]+'</span>'
+               +   '<span style="flex:1 1 auto;min-width:0;overflow-wrap:break-word;">'+m[2]+'</span>'
+               + '</span>';
+        }
+        // 無法解析編號者：整行為一個區塊，保留原本的階層縮排
+        return '<span style="display:block;padding-left:'+pad+'px;">'+ln+'</span>';
       });
-      var itemDisplay = renderedLines.join('<br>');
+      var itemDisplay = renderedLines.join('');
       h+='<tr><td class="item-cell">'+itemDisplay+'</td>';
       [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
         var sel=(d[key]==v||d[key]===String(v))?'sel':'';
