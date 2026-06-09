@@ -14769,14 +14769,10 @@ function cohortSections(students){
     }
     var cols=[
       {key:'F02',  label:'臨床表現(自評)',  get:function(s){return f02Score(s.sid);}},
-      {key:'F06M', label:'CbD 內科',        get:function(s){return cbdScore('F06M',s.sid);}},
-      {key:'F06S', label:'CbD 外科',        get:function(s){return cbdScore('F06S',s.sid);}},
-      {key:'F07M', label:'360 內科',        get:function(s){return f07Score('F07M',s.sid);}},
-      {key:'F07S', label:'360 外科',        get:function(s){return f07Score('F07S',s.sid);}},
       {key:'F15',  label:'實習總評值',      get:function(s){return f15Score(s.sid);}}
     ];
     var html='';
-    html+=_cohNote('彙整各份「教師評分型」表單的總分。臨床表現為學生自評（滿分 50，無及格線）；CbD 每張 7 項各 1–9（滿分 63，UGY 每項需 ≥5）；360 度換算總分滿分 100、<b style="color:#DC2626;">及格 ≥70</b>；實習總評值滿分 105、<b style="color:#DC2626;">及格 ≥60</b>。低於及格線以紅字標示。');
+    html+=_cohNote('臨床表現為學生自評（滿分 50，無及格線）；實習總評值滿分 105、<b style="color:#DC2626;">及格 ≥60</b>。低於及格線以紅字標示。<br>CbD 與 360 度因各分內、外科，已另闢專屬區塊（見下方 ⑧、⑨）逐項呈現。');
     var head='<tr>'+_cohTh('學生','text-align:left;')+cols.map(function(c){return _cohTh(c.label);}).join('')+'</tr>';
     var body='';
     students.forEach(function(s){
@@ -14799,10 +14795,93 @@ function cohortSections(students){
     });
     body+=avgRow+'</tr>';
     html+=_cohTbl(head,body);
-    secs.push({id:'tscores', title:'⑦ 教師評分型表單總覽', html:html});
+    secs.push({id:'tscores', title:'⑦ 臨床表現／實習總評值總覽', html:html});
   })();
 
-  /* 8) 核心技能自評 / 指導者評核（F01A 學前、F01B 學後） */
+  /* 8) CbD 病例導向討論評估（內科 / 外科，逐項呈現，仿評估總表） */
+  (function(){
+    var items=['病例紀錄','臨床評估','檢查評估','治療處置','追蹤及未來計畫','專業素質','整體表現'];
+    function cbdBlock(fid, subjLabel){
+      var head='<tr>'+_cohTh(subjLabel+' · 學生','text-align:left;')
+        + items.map(function(it){return _cohTh(it,'font-size:10px;');}).join('')
+        + _cohTh('平均')+'</tr>';
+      var body='';
+      students.forEach(function(s){
+        var d=cohortForm(fid,s.sid);
+        var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
+        var vals=[];
+        items.forEach(function(_,i){
+          var v=d['f06_'+i];
+          if(v!==undefined&&v!==''&&v!=null){
+            var n=parseInt(v,10); if(!isNaN(n)) vals.push(n);
+            var fail=(!isNaN(n)&&n<5); // UGY 每項需 ≥5
+            row+=_cohTd('<b style="color:'+(fail?'#DC2626':'#0f172a')+';">'+_cohEsc(v)+'</b>','text-align:center;');
+          } else {
+            row+=_cohTd('—','text-align:center;color:#bbb;');
+          }
+        });
+        var avg = vals.length ? (vals.reduce(function(a,b){return a+b;},0)/vals.length) : null;
+        row+=_cohTd(avg==null?'—':'<b>'+avg.toFixed(2)+'</b>','text-align:center;background:#F1F5FB;');
+        body+=row+'</tr>';
+      });
+      // 每項全班平均
+      var avgRow='<tr style="background:#EEF2F8;">'+_cohTd('<b>各項全班平均</b>','font-size:11px;');
+      items.forEach(function(_,i){
+        var col=students.map(function(s){var v=cohortForm(fid,s.sid)['f06_'+i];var n=parseInt(v,10);return (v!==undefined&&v!==''&&v!=null&&!isNaN(n))?n:null;});
+        var a=col.filter(function(x){return x!=null;});
+        avgRow+=_cohTd(a.length?(a.reduce(function(x,y){return x+y;},0)/a.length).toFixed(1):'—','text-align:center;font-size:11px;');
+      });
+      avgRow+=_cohTd('','background:#F1F5FB;')+'</tr>';
+      return '<div style="font-size:13px;font-weight:700;color:#1E40AF;margin:10px 0 4px;">'+_cohEsc(subjLabel)+'</div>'+_cohTbl(head,body+avgRow);
+    }
+    var html='';
+    html+=_cohNote('CbD（病例導向討論）共 7 項評核，每項 1–9 分（1–3 有待加強／4–6 合乎標準／7–9 優良；<b>UGY 每項需 ≥5</b>，低於 5 以紅字標示）。內、外科分開呈現，最右欄為該生平均、最下列為各項全班平均。');
+    html+=cbdBlock('F06M','CbD 內科');
+    html+=cbdBlock('F06S','CbD 外科');
+    secs.push({id:'cbd', title:'⑧ CbD 評估（內科／外科）', html:html});
+  })();
+
+  /* 9) 360 度評估（內科 / 外科，態度／臨床智能／換算總分，仿 360 評估表） */
+  (function(){
+    function f360(fid,sid){
+      var d=cohortForm(fid,sid), any=false;
+      var att=80; for(var i=0;i<8;i++){var v=d['f07_'+i]; if(v!==undefined&&v!==''&&v!=null){any=true;att+=parseInt(v,10)||0;}}
+      var clin=75; for(var j=8;j<14;j++){var v2=d['f07_'+j]; if(v2!==undefined&&v2!==''&&v2!=null){any=true;clin+=parseInt(v2,10)||0;}}
+      if(!any) return null;
+      return {att:att, clin:clin, total:Math.round(att*0.5+clin*0.5)};
+    }
+    function f360Block(fid, subjLabel){
+      var head='<tr>'+_cohTh(subjLabel+' · 學生','text-align:left;')
+        +_cohTh('態度分數')+_cohTh('臨床智能分數')+_cohTh('換算總分')+'</tr>';
+      var body='';
+      students.forEach(function(s){
+        var r=f360(fid,s.sid);
+        var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
+        if(!r){
+          row+=_cohTd('未評','text-align:center;color:#bbb;')+_cohTd('未評','text-align:center;color:#bbb;')+_cohTd('未評','text-align:center;color:#bbb;');
+        } else {
+          row+=_cohTd('<b style="color:'+(r.att>=80?'#0f172a':'#DC2626')+';">'+r.att+'</b><span style="color:#94a3b8;font-size:10px;"> /100</span>','text-align:center;');
+          row+=_cohTd('<b style="color:'+(r.clin>=75?'#0f172a':'#DC2626')+';">'+r.clin+'</b><span style="color:#94a3b8;font-size:10px;"> /100</span>','text-align:center;');
+          row+=_cohTd('<b style="color:'+(r.total>=70?'#059669':'#DC2626')+';">'+r.total+'</b>','text-align:center;background:#F1F5FB;');
+        }
+        body+=row+'</tr>';
+      });
+      // 全班平均
+      var aA=_cohAvg(students.map(function(s){var r=f360(fid,s.sid);return r?r.att:null;}));
+      var aC=_cohAvg(students.map(function(s){var r=f360(fid,s.sid);return r?r.clin:null;}));
+      var aT=_cohAvg(students.map(function(s){var r=f360(fid,s.sid);return r?r.total:null;}));
+      body+='<tr style="background:#EEF2F8;">'+_cohTd('<b>全班平均</b>')+_cohTd(aA==null?'—':'<b>'+aA+'</b>','text-align:center;')+_cohTd(aC==null?'—':'<b>'+aC+'</b>','text-align:center;')+_cohTd(aT==null?'—':'<b>'+aT+'</b>','text-align:center;background:#F1F5FB;')+'</tr>';
+      return '<div style="font-size:13px;font-weight:700;color:#1E40AF;margin:10px 0 4px;">'+_cohEsc(subjLabel)+'</div>'+_cohTbl(head,body);
+    }
+    var html='';
+    html+=_cohNote('360 度評估分態度與臨床智能兩面向：態度基本分 80（<b>及格 ≥80</b>）、臨床智能基本分 75（<b>及格 ≥75</b>），換算總分為兩者各半、<b style="color:#DC2626;">及格 ≥70</b>。內、外科分開呈現，未達標以紅字標示。');
+    html+=f360Block('F07M','360 度 內科');
+    html+=f360Block('F07S','360 度 外科');
+    secs.push({id:'f360', title:'⑨ 360 度評估（內科／外科）', html:html});
+  })();
+
+
+  /* 10) 核心技能自評 / 指導者評核（F01A 學前、F01B 學後） */
   (function(){
     var skillCount=28;
     function countCat(fid,sid,prefix){ // 回 {佳,可,差,NA,done}
@@ -14832,7 +14911,7 @@ function cohortSections(students){
       body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(pre)+cell(post)+cell(tut)+'</tr>';
     });
     html+=_cohTbl(head,body);
-    secs.push({id:'skills', title:'⑧ 核心技能自評／指導者評核', html:html});
+    secs.push({id:'skills', title:'⑩ 核心技能自評／指導者評核', html:html});
   })();
 
   /* 9) 其他紀錄表（完成度與重點摘要） */
@@ -14867,7 +14946,7 @@ function cohortSections(students){
       body+=tr+'</tr>';
     });
     html+=_cohTbl(head,body);
-    secs.push({id:'records', title:'⑨ 其他紀錄表（完成度與重點）', html:html});
+    secs.push({id:'records', title:'⑪ 其他紀錄表（完成度與重點）', html:html});
   })();
 
 
@@ -14902,7 +14981,7 @@ function cohortSections(students){
       });
     });
     html+=_cohTbl(head,body);
-    secs.push({id:'matrix', title:'⑩ 所有表單狀態矩陣', html:html});
+    secs.push({id:'matrix', title:'⑫ 所有表單狀態矩陣', html:html});
   })();
 
   return secs;
