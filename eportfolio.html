@@ -12335,7 +12335,9 @@ function setDOPS(fid,key,val,btn){
       const v=b.dataset.rval;
       const match=(!isToggleOff && (v==val||v===String(val)));
       b.classList.toggle('sel',match);
-      b.textContent=match?'●':'';
+      // ★ 每一格永遠顯示自己的數字（1-9 / NA），選取與否僅由 .sel class 控制紅底白字高亮。
+      //   先前改寫成 '●' / '' 會把同列其他格的數字清空，且取消選取後整列變空白。
+      b.textContent=v;
     });
   }
   // 清除時跳 toast 提示
