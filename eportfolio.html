@@ -14382,12 +14382,21 @@ async function loadCohortData(){
       if(!data.ok || !data.forms) continue;
       Object.keys(data.forms).forEach(function(fkey){
         var item = data.forms[fkey] || {};
-        if(!item.formData) return;
-        try{
-          var loaded = JSON.parse(item.formData);
-          // 整份覆蓋該 formKey（統計需要雲端最新版；不影響其他 key）
-          APP.formData[fkey] = loaded;
-        }catch(e){}
+        if(item.formData){
+          try{
+            var loaded = JSON.parse(item.formData);
+            // 整份覆蓋該 formKey（統計需要雲端最新版；不影響其他 key）
+            APP.formData[fkey] = loaded;
+          }catch(e){}
+        }
+        // ★ 一併載入「儲存紀錄」：getStatus 以是否有 historyLog 判斷表單是否真的存過。
+        //   若只載入欄位值卻沒載入紀錄，已完成的表單會卡在「草稿中」，永遠不會顯示「完成」。
+        if(item.history){
+          try{
+            var hist = JSON.parse(item.history);
+            if(Array.isArray(hist) && hist.length) APP.historyLog[fkey] = hist;
+          }catch(e){}
+        }
       });
     }catch(e){ /* 單一學生失敗就略過，續抓其他人 */ }
   }
