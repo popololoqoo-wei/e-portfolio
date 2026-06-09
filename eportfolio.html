@@ -97,9 +97,9 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 /* ─── LOGIN ─── 方案B：白底卡 + 深藍頂條，靠左排版（醫療文件感） ─── */
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;background:#F4F6FA;}
 .login-card{background:var(--paper);border:1px solid #E5EAF1;border-radius:var(--r2);box-shadow:0 1px 3px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);width:100%;max-width:460px;overflow:hidden;}
-.login-header{background:#FFFFFF;border-top:4px solid #1E3A8A;padding:2rem 2rem 1.5rem;text-align:left;position:relative;}
+.login-header{background:#FFFFFF;border-top:4px solid #1E40AF;padding:2rem 2rem 1.5rem;text-align:left;position:relative;}
 .login-header::after{display:none;}
-.login-header .hosp{font-size:11px;color:#1E3A8A;letter-spacing:2px;margin-bottom:8px;font-family:var(--ff-sans);font-weight:600;}
+.login-header .hosp{font-size:11px;color:#1E40AF;letter-spacing:2px;margin-bottom:8px;font-family:var(--ff-sans);font-weight:600;}
 .login-header .title{font-family:var(--ff-serif);font-size:22px;color:#1A2332;font-weight:600;line-height:1.4;text-shadow:none;letter-spacing:.5px;}
 .login-header .sub{font-size:11px;color:#6B7689;margin-top:8px;letter-spacing:.5px;}
 .login-body{padding:2rem;}
@@ -129,7 +129,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ─── MAIN APP ─── */
 #app-screen{min-height:100vh;}
-.topbar{background:#1E3A8A;color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(15,23,42,.15);}
+.topbar{background:linear-gradient(100deg,#1E40AF 0%,#2563EB 100%);color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(15,23,42,.15);}
 .topbar-left{display:flex;align-items:center;gap:12px;}
 .topbar-title{font-family:var(--ff-serif);font-size:15px;font-weight:600;letter-spacing:.3px;}
 .topbar-sub{font-size:11px;color:rgba(255,255,255,.7);margin-top:1px;}
@@ -371,7 +371,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ─── FORM DETAIL ─── */
 .form-detail-view{padding:1.5rem;max-width:900px;}
-.form-detail-header{background:#1E3A8A;color:#fff;border-radius:var(--r2);padding:1.4rem 1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:var(--shadow);}
+.form-detail-header{background:linear-gradient(120deg,#1E40AF 0%,#2563EB 100%);color:#fff;border-radius:var(--r2);padding:1.4rem 1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:var(--shadow);}
 .form-detail-header::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(194,138,44,.7);}
 .form-detail-header::after{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none;}
 .form-detail-header h1{font-family:var(--ff-serif);font-size:18px;font-weight:600;letter-spacing:.5px;}
@@ -399,7 +399,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 /* ─── 統一配色標準 ───
    學生區（藍）：邊框 #93C5FD、底色 #F0F7FF、標題列漸層 #3B82F6→#1D4ED8（白字）
-   老師區（紅）：邊框 #FCA5A5、底色 #FFF5F5、標題列漸層 #DC2626→#991B1B（白字）
+   老師區（紅）：邊框 #FCA5A5、底色 #FEF2F2、標題列漸層 #DC2626→#991B1B（白字）
    這個色組是全站基準，所有「學生／老師」區塊都遵循，避免深淺不一。 */
 
 /* 學生卡片 */
@@ -408,12 +408,12 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .card.s-card .card-head-title{color:#fff;}
 
 /* 老師卡片（手動加 class） */
-.card.t-card{background:#FFF5F5;border:2px solid #FCA5A5;}
+.card.t-card{background:#FEF2F2;border:2px solid #FCA5A5;}
 .card.t-card .card-head{background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);border-bottom:none;}
 .card.t-card .card-head-title{color:#fff;}
 
 /* 混合卡片（共同填寫） */
-.card.m-card{background:linear-gradient(180deg,#F0F7FF 0%,#FFF5F5 100%);}
+.card.m-card{background:linear-gradient(180deg,#F0F7FF 0%,#FEF2F2 100%);}
 .card.m-card .card-head{background:linear-gradient(90deg,#DBEAFE 0%,#FEE2E2 100%);}
 .card.m-card .card-head-title{color:#1F2937;}
 
@@ -421,7 +421,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
    不論 build 函式是否手動加上 .t-card class，只要標題列寫了 <span class="t-badge">老師</span>
    就會自動上紅色配色。這樣未來新增的卡片不需特別處理。 */
 .card:not(.s-card):not(.m-card):has(.card-head .t-badge){
-  background:#FFF5F5;
+  background:#FEF2F2;
   border:2px solid #FCA5A5;
 }
 .card:not(.s-card):not(.m-card):has(.card-head .t-badge) > .card-head{
@@ -442,7 +442,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 /* 混合卡片內的學生／老師子區塊 */
 .s-block{background:#F0F7FF;border:1px solid #93C5FD;border-radius:var(--r);padding:12px 14px;margin:10px 0;}
 .s-block-title{font-size:12px;font-weight:700;color:#1E40AF;margin-bottom:8px;letter-spacing:.2px;}
-.t-block{background:#FFF5F5;border:1px solid #FCA5A5;border-radius:var(--r);padding:12px 14px;margin:10px 0;}
+.t-block{background:#FEF2F2;border:1px solid #FCA5A5;border-radius:var(--r);padding:12px 14px;margin:10px 0;}
 .t-block-title{font-size:12px;font-weight:700;color:#991B1B;margin-bottom:8px;letter-spacing:.2px;}
 
 /* ─── FIELDS ─── */
@@ -472,7 +472,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .form-progress-label .fp-num{color:var(--primary2);font-weight:700;font-size:13px;}
 .form-progress-label .fp-pct{color:var(--ink3);font-size:11px;margin-left:6px;font-weight:500;}
 .form-progress-track{flex:1;height:8px;background:#EEF2F7;border-radius:999px;overflow:hidden;position:relative;}
-.form-progress-fill{height:100%;background:linear-gradient(90deg,#3B82F6 0%,#1E3A8A 100%);border-radius:999px;transition:width .3s ease;width:0%;}
+.form-progress-fill{height:100%;background:linear-gradient(90deg,#3B82F6 0%,#1E40AF 100%);border-radius:999px;transition:width .3s ease;width:0%;}
 .form-progress.is-done .form-progress-fill{background:linear-gradient(90deg,#22C55E 0%,#059669 100%);}
 .form-progress.is-done .form-progress-label .fp-num{color:#059669;}
 @media(max-width:560px){
@@ -531,7 +531,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
   background:#FFFFFF;
 }
 .f16-strategy-head{
-  background:linear-gradient(135deg,#C0392B 0%,#922B21 100%);
+  background:linear-gradient(135deg,#DC2626 0%,#991B1B 100%);
   color:#fff;
   padding:10px 16px;
   font-size:13px;
@@ -543,17 +543,17 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .f16-strategy-section{margin-bottom:12px;}
 .f16-strategy-section:last-child{margin-bottom:0;}
 .f16-strategy-section-title{
-  font-size:12px;font-weight:700;color:#1E3A8A;
+  font-size:12px;font-weight:700;color:#1E40AF;
   margin-bottom:6px;padding-bottom:4px;
   border-bottom:1px solid #E5E7EB;
   display:flex;align-items:center;gap:6px;
 }
 .f16-strategy-style-block{
-  background:#FFF5F5;border-left:3px solid #C0392B;
+  background:#FEF2F2;border-left:3px solid #DC2626;
   border-radius:4px;padding:8px 12px;margin-bottom:8px;
 }
 .f16-strategy-style-block:last-child{margin-bottom:0;}
-.f16-strategy-style-name{font-weight:700;color:#C0392B;font-size:12.5px;margin-bottom:4px;}
+.f16-strategy-style-name{font-weight:700;color:#DC2626;font-size:12.5px;margin-bottom:4px;}
 .f16-strategy-list{margin:4px 0 0 0;padding-left:18px;}
 .f16-strategy-list li{margin-bottom:3px;color:#374151;}
 .f16-weak-block{
@@ -588,16 +588,16 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .r-btn:not(:disabled){cursor:pointer;}
 
 /* ─── DOPS TABLE ─── */
-.dops-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;border:1px solid #1E40AF;border-radius:var(--r);overflow:hidden;}
-.dops-tbl th{background:linear-gradient(180deg,#2563EB 0%,#1E40AF 100%);color:#fff;border-right:1px solid #1E3A8A;padding:7px 5px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.2px;}
+.dops-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;border:1px solid #991B1B;border-radius:var(--r);overflow:hidden;}
+.dops-tbl th{background:linear-gradient(180deg,#DC2626 0%,#991B1B 100%);color:#fff;border-right:1px solid #991B1B;padding:7px 5px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.2px;}
 .dops-tbl th:last-child{border-right:none;}
 .dops-tbl td{padding:6px 5px;border-right:1px solid var(--border2);border-bottom:1px solid var(--border2);vertical-align:middle;background:#fff;}
 .dops-tbl td:last-child{border-right:none;}
 .dops-tbl tr:last-child td{border-bottom:none;}
-.dops-tbl .item-cell{font-size:11px;color:var(--primary2);background:linear-gradient(90deg,#EFF6FF 0%,#DBEAFE 100%);padding:6px 10px;font-weight:500;}
-.d-btn{width:26px;height:26px;border-radius:6px;border:1.5px solid var(--blue-line);background:var(--blue-soft);font-size:12px;cursor:pointer;color:var(--primary2);transition:all .15s;font-weight:600;}
-.d-btn:not(:disabled):hover{background:var(--primary);color:#fff;border-color:var(--primary);transform:translateY(-1px);}
-.d-btn.sel{background:var(--primary);color:#fff;border-color:var(--primary2);font-weight:700;box-shadow:0 2px 4px rgba(37,99,235,.3);}
+.dops-tbl .item-cell{font-size:11px;color:#991B1B;background:linear-gradient(90deg,#FEF2F2 0%,#FEE2E2 100%);padding:6px 10px;font-weight:500;}
+.d-btn{width:28px;height:28px;border-radius:6px;border:2px solid #F87171;background:#FEF2F2;font-size:12px;cursor:pointer;color:#991B1B;transition:all .15s;font-weight:600;}
+.d-btn:not(:disabled):hover{background:#FEE2E2;color:#7F1D1D;border-color:#DC2626;transform:translateY(-1px);}
+.d-btn.sel{background:#DC2626;color:#fff;border-color:#991B1B;font-weight:800;box-shadow:0 2px 5px rgba(220,38,38,.4);}
 .d-btn:disabled{cursor:not-allowed;opacity:.4;}
 
 /* ─── EPA levels ─── */
@@ -8087,7 +8087,7 @@ function downloadPDF(id){
   function row(label,key,isTeacher){
     var v=val(key);
     if(!v) return '';
-    var bg=isTeacher?'#FFF5F5':'#FAFBFF';
+    var bg=isTeacher?'#FEF2F2':'#FAFBFF';
     return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:11pt;">'+label+'</td><td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:11pt;white-space:pre-wrap;">'+v+'</td></tr>';
   }
   function section(title,color){ return '<tr><td colspan="2" style="background:'+color+';color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;">'+title+'</td></tr>'; }
@@ -8098,19 +8098,19 @@ function downloadPDF(id){
   html+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:11pt;color:#1A1612;margin:0;} ';
   html+='.serif{font-family:"Microsoft JhengHei","PMingLiU","Noto Serif TC","Source Han Serif TC",serif;} ';
   html+='table{width:100%;border-collapse:collapse;margin-bottom:12px;} ';
-  html+='.header{text-align:center;border-bottom:2px solid #1E3A8A;padding-bottom:10px;margin-bottom:15px;} ';
-  html+='.hosp{font-size:10pt;color:#1E3A8A;letter-spacing:1.5px;margin-bottom:4px;font-weight:600;} ';
+  html+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:15px;} ';
+  html+='.hosp{font-size:10pt;color:#1E40AF;letter-spacing:1.5px;margin-bottom:4px;font-weight:600;} ';
   /* 表單主標題:serif、加大字距 */
   html+='.title{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;font-size:17pt;font-weight:600;color:#1A1612;margin:8px 0 4px;letter-spacing:2px;} ';
   html+='.sub{font-size:10pt;color:#888;} ';
   html+='.info-bar{font-size:9pt;color:#666;margin-top:6px;} ';
   /* 章節標題:serif、深藍底白字 */
-  html+='.section-head{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E3A8A;color:#fff;font-weight:600;padding:6px 12px;font-size:11.5pt;margin-top:12px;margin-bottom:0;letter-spacing:1px;} ';
+  html+='.section-head{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:11.5pt;margin-top:12px;margin-bottom:0;letter-spacing:1px;} ';
   html+='.rating-grid{display:grid;border:1px solid #DDD;} ';
   html+='.r-cell{border:1px solid #DDD;padding:4px 6px;text-align:center;font-size:9pt;} ';
-  html+='.r-head{background:#2471A3;color:#fff;font-weight:600;} ';
-  html+='.r-sel-s{background:#2471A3;color:#fff;font-weight:700;} ';
-  html+='.r-sel-t{background:#C0392B;color:#fff;font-weight:700;} ';
+  html+='.r-head{background:#2563EB;color:#fff;font-weight:600;} ';
+  html+='.r-sel-s{background:#2563EB;color:#fff;font-weight:700;} ';
+  html+='.r-sel-t{background:#DC2626;color:#fff;font-weight:700;} ';
   /* 簽名區:serif、金線下框 */
   html+='.sign-box{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;border-top:1px solid #B8860B;padding-top:10px;margin-top:10px;letter-spacing:1px;} ';
   html+='</style></head><body>';
@@ -8250,7 +8250,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
 
   // ── 統一輔助：直接接受 value，兩條呼叫路徑皆適用 ──
   function pdfR(label,v,isT){
-    var bg=isT?'#FFF5F5':'#FAFBFF';
+    var bg=isT?'#FEF2F2':'#FAFBFF';
     var disp=(v===undefined||v===null||v==='')?'—':String(v);
     // 【安全】HTML escape 防 XSS（學生/老師輸入的回饋、評語等不可信內容）
     var safeLabel = (typeof esc==='function') ? esc(label) : String(label||'');
@@ -8295,17 +8295,17 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<div class="section-head">學生學前自評</div>';
     html+='<table style="font-size:9pt;"><tr>';
-    html+='<th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能學習目標</th>';
-    html+='<th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">佳</th>';
-    html+='<th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">可</th>';
-    html+='<th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">差</th>';
+    html+='<th style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能學習目標</th>';
+    html+='<th style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">佳</th>';
+    html+='<th style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">可</th>';
+    html+='<th style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">差</th>';
     html+='<th style="background:#7F8C8D;color:#fff;padding:5px;border:1px solid #DDD;width:44px;text-align:center;">NA</th></tr>';
     skills.forEach(function(skill,i){
       var pre=d['f01_pre_'+i]||'';
       html+='<tr><td style="padding:4px 8px;border:1px solid #DDD;font-size:9pt;">'+(i+1)+'. '+skill+'</td>';
       ['佳','可','差','NA'].forEach(function(v){
         var sel=pre===v;
-        var bg=sel?(v==='NA'?'#7F8C8D':'#2471A3'):'#fff';
+        var bg=sel?(v==='NA'?'#7F8C8D':'#2563EB'):'#fff';
         html+='<td style="text-align:center;border:1px solid #DDD;background:'+bg+';font-size:13pt;color:'+(sel?'#fff':'transparent')+';">✓</td>';
       });
       html+='</tr>';
@@ -8332,10 +8332,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">核心技能評核（學後）</div>';
     html+='<table style="font-size:9pt;"><tr>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">核心技能</th>';
-    html+='<th colspan="4" style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">學後自評</th>';
-    html+='<th colspan="4" style="background:#C0392B;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(1)</th></tr>';
+    html+='<th colspan="4" style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">學後自評</th>';
+    html+='<th colspan="4" style="background:#DC2626;color:#fff;padding:5px;border:1px solid #DDD;text-align:center;">指導者評核(1)</th></tr>';
     html+='<tr><th style="border:1px solid #DDD;background:var(--cream);"></th>';
-    var bgs=['#D6EAF8','#D6EAF8','#D6EAF8','#D6EAF8','#FADBD8','#FADBD8','#FADBD8','#FADBD8'];
+    var bgs=['#DBEAFE','#DBEAFE','#DBEAFE','#DBEAFE','#FEE2E2','#FEE2E2','#FEE2E2','#FEE2E2'];
     ['佳','可','差','NA','佳','可','差','NA'].forEach(function(v,i){
       html+='<th style="background:'+bgs[i]+';border:1px solid #DDD;width:40px;text-align:center;padding:3px 2px;">'+v+'</th>';
     });
@@ -8343,8 +8343,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     skills.forEach(function(skill,i){
       var post=d['f01_post_'+i]||'',p1=d['f01_p1_'+i]||'';
       html+='<tr><td style="padding:3px 6px;border:1px solid #DDD;font-size:9pt;">'+(i+1)+'. '+skill+'</td>';
-      ['佳','可','差','NA'].forEach(function(v){var s=post===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#2471A3'):'#fff')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
-      ['佳','可','差','NA'].forEach(function(v){var s=p1===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#C0392B'):'#FEF9F9')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
+      ['佳','可','差','NA'].forEach(function(v){var s=post===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#2563EB'):'#fff')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
+      ['佳','可','差','NA'].forEach(function(v){var s=p1===v;html+='<td style="text-align:center;border:1px solid #DDD;background:'+(s?(v==='NA'?'#7F8C8D':'#DC2626'):'#FEF2F2')+';font-size:12pt;color:'+(s?'#fff':'transparent')+';">✓</td>';});
       html+='</tr>';
     });
     html+='</table>';
@@ -8367,7 +8367,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     // 直接輸出 HTML 的輔助，不依賴外部 row()
     function f04row(label,v,isT){
       if(!v&&v!==0) return '';
-      var bg=isT?'#FFF5F5':'#FAFBFF';
+      var bg=isT?'#FEF2F2':'#FAFBFF';
       return '<tr><td style="background:'+bg+';font-weight:600;padding:6px 10px;border:1px solid #DDD;width:35%;font-size:10pt;">'+label+'</td>'
            +'<td style="background:'+bg+';padding:6px 10px;border:1px solid #DDD;font-size:10pt;white-space:pre-wrap;">'+v+'</td></tr>';
     }
@@ -8453,7 +8453,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table><tr><td colspan="2" style="border:1px solid #DDD;padding:5px 8px;"><b>呼吸器機型：</b>';
     allVent.forEach(function(vt){
       var checked=ventArr.indexOf(vt)>=0;
-      html+='<span style="margin-right:12px;font-size:10pt;color:'+(checked?'#2471A3':'#888')+';font-weight:'+(checked?'700':'400')+';">'+(checked?'☑':'☐')+' '+vt+'</span>';
+      html+='<span style="margin-right:12px;font-size:10pt;color:'+(checked?'#2563EB':'#888')+';font-weight:'+(checked?'700':'400')+';">'+(checked?'☑':'☐')+' '+vt+'</span>';
     });
     html+='</td></tr>';
     html+='<tr>';
@@ -8531,7 +8531,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     f09profs.forEach(function(prof,i){
       var checked=d['prof_'+prof]===true||d['prof_'+prof]==='true'||d['prof_'+prof]===1;
       html+='<td style="border:1px solid #DDD;padding:4px 7px;font-size:9pt;white-space:nowrap;">';
-      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+prof+'</td>';
+      html+='<span style="color:'+(checked?'#2563EB':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+prof+'</td>';
       if(i===7||i===f09profs.length-1) html+='</tr><tr>';
     });
     html+='</tr></table>';
@@ -8664,7 +8664,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     f08profs.forEach(function(prof,i){
       var checked=d['prof_'+prof]===true||d['prof_'+prof]==='true'||d['prof_'+prof]===1;
       html+='<td style="border:1px solid #DDD;padding:4px 7px;font-size:9pt;white-space:nowrap;">';
-      html+='<span style="color:'+(checked?'#2471A3':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+prof+'</td>';
+      html+='<span style="color:'+(checked?'#2563EB':'#ccc')+';font-weight:700;margin-right:3px;">'+(checked?'☑':'☐')+'</span>'+prof+'</td>';
       if(i===7||i===f08profs.length-1) html+='</tr><tr>';
     });
     html+='</tr></table>';
@@ -8728,10 +8728,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
     html+='<div class="section-head">臨床表現評估（非常好5 / 好4 / 普通3 / 不好2 / 非常差1）</div>';
-    html+='<table><tr><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評估項目</th><th style="background:#2471A3;color:#fff;padding:5px;border:1px solid #DDD;width:60px;text-align:center;">分數</th></tr>';
+    html+='<table><tr><th style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;text-align:left;">評估項目</th><th style="background:#2563EB;color:#fff;padding:5px;border:1px solid #DDD;width:60px;text-align:center;">分數</th></tr>';
     items.forEach(function(item,i){
       var score=val('f02_'+i);
-      html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td><td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#2471A3;">'+(score||'—')+'</td></tr>';
+      html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td><td style="text-align:center;border:1px solid #DDD;font-size:12pt;font-weight:700;color:#2563EB;">'+(score||'—')+'</td></tr>';
     });
     html+='</table>';
     html+='<div class="section-head">學生心得與簽名</div>';
@@ -8766,10 +8766,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     items.forEach(function(item,i){
       var score=val('f06_'+i);
       var scoreNum=parseInt(score);
-      var scoreColor=scoreNum>=7?'#27AE60':scoreNum>=4?'#F39C12':'#E74C3C';
+      var scoreColor=scoreNum>=7?'#27AE60':scoreNum>=4?'#F39C12':'#DC2626';
       var scoreLabel=scoreNum>=7?'優良':scoreNum>=4?'合乎標準':'有待加強';
       html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;font-size:10pt;">'+(i+1)+'. '+item+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF9F9;">';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF2F2;">';
       if(score==='NA'||score==='na'){html+='<span style="color:#888;">NA</span>';}
       else if(score){html+='<span style="font-size:14pt;font-weight:700;color:'+scoreColor+';">'+score+'</span><br><span style="font-size:8pt;color:'+scoreColor+';">'+scoreLabel+'</span>';}
       html+='</td></tr>';
@@ -8831,7 +8831,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;width:10%;">面向</th>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:left;">評核細項</th>';
     ['優','良','可','劣','差'].forEach(function(lbl){
-      html+='<th style="background:#C0392B;color:#fff;padding:4px 6px;border:1px solid #DDD;width:8%;text-align:center;">'+lbl+'</th>';
+      html+='<th style="background:#DC2626;color:#fff;padding:4px 6px;border:1px solid #DDD;width:8%;text-align:center;">'+lbl+'</th>';
     });
     html+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;width:8%;text-align:center;">得分</th>';
     html+='</tr>';
@@ -8844,10 +8844,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='<td style="padding:3px 5px;border:1px solid #DDD;font-size:9pt;">'+r[2]+'</td>';
       opts.forEach(function(v){
         var sel=(score===v||score===String(v));
-        html+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+(sel?'#C0392B':'#FEF9F9')+';font-size:9pt;color:'+(sel?'#fff':'#888')+';font-weight:'+(sel?'700':'400')+';white-space:nowrap;">';
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+(sel?'#DC2626':'#FEF2F2')+';font-size:9pt;color:'+(sel?'#fff':'#888')+';font-weight:'+(sel?'700':'400')+';white-space:nowrap;">';
         html+=(sel?'✓ ':'')+v+'</td>';
       });
-      html+='<td style="text-align:center;border:1px solid #DDD;font-size:11pt;font-weight:700;color:'+(score?'#C0392B':'#ccc')+';background:#FFF5F5;">'+(score||'—')+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;font-size:11pt;font-weight:700;color:'+(score?'#DC2626':'#ccc')+';background:#FEF2F2;">'+(score||'—')+'</td>';
       html+='</tr>';
     });
     html+='</table>';
@@ -8861,11 +8861,11 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<div class="section-head">分數計算結果</div>';
     html+='<table>';
     html+='<tr><td style="border:1px solid #DDD;padding:6px 10px;font-weight:600;width:35%;">態度分數（及格≥80）</td>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:13pt;font-weight:700;color:'+(attOk?'#27AE60':'#E74C3C')+';">'+attScore+' / 100 '+(attOk?'✓ 合格':'✗ 未達標')+'</td></tr>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:13pt;font-weight:700;color:'+(attOk?'#27AE60':'#DC2626')+';">'+attScore+' / 100 '+(attOk?'✓ 合格':'✗ 未達標')+'</td></tr>';
     html+='<tr><td style="border:1px solid #DDD;padding:6px 10px;font-weight:600;">臨床智能分數（及格≥75）</td>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:13pt;font-weight:700;color:'+(clinOk?'#27AE60':'#E74C3C')+';">'+clinScore+' / 100 '+(clinOk?'✓ 合格':'✗ 未達標')+'</td></tr>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:13pt;font-weight:700;color:'+(clinOk?'#27AE60':'#DC2626')+';">'+clinScore+' / 100 '+(clinOk?'✓ 合格':'✗ 未達標')+'</td></tr>';
     html+='<tr style="background:#F0F8FF;"><td style="border:1px solid #DDD;padding:6px 10px;font-weight:700;font-size:11pt;">總分（及格≥70）</td>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:16pt;font-weight:700;color:'+(totalOk?'#27AE60':'#E74C3C')+';">'+f07total+' 分 '+(totalOk?'✓ 通過':'✗ 未通過')+'</td></tr>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;font-size:16pt;font-weight:700;color:'+(totalOk?'#27AE60':'#DC2626')+';">'+f07total+' 分 '+(totalOk?'✓ 通過':'✗ 未通過')+'</td></tr>';
     html+='</table>';
     // ── 臨床老師評語（老師：優點/建議/簽名/簽名日期/職稱）──
     html+='<div class="section-head">臨床老師評語</div>';
@@ -8936,10 +8936,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     tqs.forEach(function(q){
       var ans=val(q[0]);
       html+='<tr>';
-      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+q[1]+'</td>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FEF2F2;font-size:10pt;">'+q[1]+'</td>';
       ['是','否'].forEach(function(opt){
         var sel=ans===opt;
-        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#C0392B':'#FEF9F9')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓ '+opt:opt)+'</td>';
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#DC2626':'#FEF2F2')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓ '+opt:opt)+'</td>';
       });
       html+='</tr>';
     });
@@ -8970,7 +8970,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;">'+q[1]+'</td>';
       opts.forEach(function(opt){
         var sel=ans===opt;
-        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#2471A3':'#FAFBFF')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓ '+opt:opt)+'</td>';
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#2563EB':'#FAFBFF')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓ '+opt:opt)+'</td>';
       });
       html+='</tr>';
     });
@@ -9008,16 +9008,16 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+='<tr><th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:60%;">評核項目</th>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">滿分</th>';
-    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">得分</th></tr>';
+    html+='<th style="background:#DC2626;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:20%;">得分</th></tr>';
     var f13total=0;
     f13items.forEach(function(it){
       var sc=parseInt(d[it[0]]||0)||0;
       if(sc>it[2])sc=it[2]; if(sc<0)sc=0;
       f13total+=sc;
       html+='<tr>';
-      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+it[1]+'</td>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FEF2F2;font-size:10pt;">'+it[1]+'</td>';
       html+='<td style="text-align:center;border:1px solid #DDD;background:#FAFAF8;font-size:10pt;color:var(--ink3);">'+it[2]+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;background:#FFF5F5;font-size:12pt;font-weight:700;color:#C0392B;">'+sc+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF2F2;font-size:12pt;font-weight:700;color:#DC2626;">'+sc+'</td>';
       html+='</tr>';
     });
     html+='</table>';
@@ -9025,10 +9025,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     var f13pass=f13total>=60;
     html+='<div class="section-head">書面報告總分</div>';
     html+='<table>';
-    html+='<tr><td style="border:1px solid #DDD;padding:8px 12px;background:linear-gradient(135deg,#EBF5FB,#E8F8F5);text-align:center;">';
-    html+='<span style="font-size:24pt;font-weight:700;color:'+(f13pass?'#27AE60':'#C0392B')+';">'+f13total+'</span>';
+    html+='<tr><td style="border:1px solid #DDD;padding:8px 12px;background:linear-gradient(135deg,#DBEAFE,#E8F8F5);text-align:center;">';
+    html+='<span style="font-size:24pt;font-weight:700;color:'+(f13pass?'#27AE60':'#DC2626')+';">'+f13total+'</span>';
     html+='<span style="font-size:12pt;color:#888;"> / 100</span>';
-    html+=' &nbsp;<span style="font-size:11pt;font-weight:600;color:'+(f13pass?'#27AE60':'#C0392B')+';">'+(f13pass?'✓ 合格':'✗ 未達 60 分')+'</span>';
+    html+=' &nbsp;<span style="font-size:11pt;font-weight:600;color:'+(f13pass?'#27AE60':'#DC2626')+';">'+(f13pass?'✓ 合格':'✗ 未達 60 分')+'</span>';
     html+='</td></tr>';
     html+='</table>';
     // ── 綜合意見與簽名 ──
@@ -9084,7 +9084,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:18%;">評分項目</th>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:left;width:50%;">報告評分內容</th>';
     html+='<th style="background:#1A3A5C;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:14%;">配分</th>';
-    html+='<th style="background:#C0392B;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:18%;">評分</th>';
+    html+='<th style="background:#DC2626;color:#fff;padding:5px 8px;border:1px solid #DDD;text-align:center;width:18%;">評分</th>';
     html+='</tr>';
 
     // 計算每個分類的列數，使用 rowspan 合併儲存格（與網頁版一致）
@@ -9102,15 +9102,15 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         html+='<td rowspan="'+catSpans[it.cat]+'" style="vertical-align:middle;text-align:center;font-weight:700;background:#FAFBFF;border:1px solid #DDD;padding:5px 8px;font-size:10pt;">'+it.cat+'</td>';
         catRendered[it.cat]=true;
       }
-      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;">'+it.label+'</td>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:#FEF2F2;font-size:10pt;">'+it.label+'</td>';
       html+='<td style="text-align:center;border:1px solid #DDD;background:#FAFAF8;font-size:10pt;color:#666;">'+it.max+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;background:#FFF5F5;font-size:12pt;font-weight:700;color:#C0392B;">'+sc+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;background:#FEF2F2;font-size:12pt;font-weight:700;color:#DC2626;">'+sc+'</td>';
       html+='</tr>';
     });
     // 報告總分列
     html+='<tr>';
     html+='<td colspan="3" style="text-align:right;background:#1A3A5C;color:#fff;font-weight:700;padding:6px 10px;font-size:11pt;border:1px solid #DDD;">報告總分</td>';
-    html+='<td style="text-align:center;background:#FFF5F5;font-size:14pt;font-weight:700;color:#C0392B;border:1px solid #DDD;">'+f14total+' / '+f14max+'</td>';
+    html+='<td style="text-align:center;background:#FEF2F2;font-size:14pt;font-weight:700;color:#DC2626;border:1px solid #DDD;">'+f14total+' / '+f14max+'</td>';
     html+='</tr>';
     html+='</table>';
     // ── 學生填寫（學生回饋 → 學生簽名 → 學生簽名日期）──
@@ -9136,7 +9136,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     var dopsData=(typeof DOPS_DATA!=='undefined'&&DOPS_DATA[id])?DOPS_DATA[id]:null;
     // ── 標題與主題 ──
     if(dopsData&&dopsData.topic){
-      html+='<div style="background:#EAF2FB;border-left:4px solid #1A5276;padding:6px 10px;margin:6px 0;font-size:11pt;font-weight:700;color:#1A5276;">技術主題：'+dopsData.topic+'</div>';
+      html+='<div style="background:#F0F7FF;border-left:4px solid #1E40AF;padding:6px 10px;margin:6px 0;font-size:11pt;font-weight:700;color:#1E40AF;">技術主題：'+dopsData.topic+'</div>';
     }
     // ── 基本資料 ──
     html+='<div class="section-head">基本資料</div>';
@@ -9154,7 +9154,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     var dopsItemIdx=0;
     if(dopsData&&dopsData.groups){
       dopsData.groups.forEach(function(g){
-        html+='<div class="section-head" style="background:linear-gradient(90deg,#1A5276,#2471A3);">'+g.hd+'</div>';
+        html+='<div class="section-head" style="background:linear-gradient(90deg,#1E40AF,#2563EB);">'+g.hd+'</div>';
         // 合格標準提醒（每個 group 都顯示一次，與網頁版位置對齊）
         html+='<div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:4px;padding:5px 10px;margin:4px 0;font-size:10pt;font-weight:700;color:#8B6914;">⚠ 合格標準（任一項目不得低於）UGY：5分</div>';
         html+='<table style="font-size:9pt;">';
@@ -9187,7 +9187,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
           if(itText && typeof itText === 'object' && itText.h){
             var titleLv = _lvl(itText.h);
             var titlePad = titleLv * 14;
-            html+='<tr><td colspan="11" style="padding:4px 6px;padding-left:'+(6+titlePad)+'px;border:1px solid #DDD;background:#E8F1FB;font-size:9pt;font-weight:600;color:#1A5276;">'+itText.h+'</td></tr>';
+            html+='<tr><td colspan="11" style="padding:4px 6px;padding-left:'+(6+titlePad)+'px;border:1px solid #DDD;background:#E8F1FB;font-size:9pt;font-weight:600;color:#1E40AF;">'+itText.h+'</td></tr>';
             return;
           }
           dopsItemIdx++;
@@ -9205,7 +9205,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
             var isSel=(sel==v||sel===String(v));
             // 區段配色：1-3 藍、4-6 綠、7-9 黃、NA 灰
             var grpBg='#fff', grpC='#bbb';
-            if(v===1||v===2||v===3){grpBg=isSel?'#1A5276':'#fff'; grpC=isSel?'#fff':'#bbb';}
+            if(v===1||v===2||v===3){grpBg=isSel?'#1E40AF':'#fff'; grpC=isSel?'#fff':'#bbb';}
             else if(v===4||v===5||v===6){grpBg=isSel?'#27AE60':'#fff'; grpC=isSel?'#fff':'#bbb';}
             else if(v===7||v===8||v===9){grpBg=isSel?'#B8860B':'#fff'; grpC=isSel?'#fff':'#bbb';}
             else {grpBg=isSel?'#7F8C8D':'#fff'; grpC=isSel?'#fff':'#bbb';}
@@ -9228,7 +9228,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<tr><th colspan="2" style="background:#1A3A5C;color:#fff;padding:5px 10px;border:1px solid #DDD;font-size:10pt;text-align:left;">評分等級（老師勾選）</th></tr>';
     dopsGradeOpts.forEach(function(g){
       var isSel=(dopsSelGrade===g);
-      var bg=isSel?'#C0392B':'#FFF5F5';
+      var bg=isSel?'#DC2626':'#FEF2F2';
       var color=isSel?'#fff':'#666';
       var weight=isSel?'700':'400';
       var marker=isSel?'<span style="font-size:13pt;font-weight:700;">✓</span>':'<span style="color:#ccc;">○</span>';
@@ -9264,7 +9264,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     // ── 任務說明 ──
     html+='<div class="section-head">任務說明</div>';
     html+='<table>';
-    html+='<tr><td colspan="2" style="background:#EBF5FB;border:1px solid #AED6F1;padding:8px 12px;font-size:11pt;font-weight:700;color:#1A5276;">'+epaName+'</td></tr>';
+    html+='<tr><td colspan="2" style="background:#DBEAFE;border:1px solid #93C5FD;padding:8px 12px;font-size:11pt;font-weight:700;color:#1E40AF;">'+epaName+'</td></tr>';
     if(epaTask.trustNote){
       html+='<tr><td colspan="2" style="background:#FFF3CD;border:1px solid #F0C040;padding:6px 12px;font-size:10pt;font-weight:600;color:#8B6914;">⭐ '+epaTask.trustNote+'</td></tr>';
     }
@@ -9275,7 +9275,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='<tr><td colspan="2" style="background:#FAFBFF;border:1px solid #DDD;padding:8px 12px;">'+stepsHtml+'</td></tr>';
     }
     if(epaTask.limit){
-      html+='<tr><td colspan="2" style="background:#FDEDEC;border:1px solid #F1948A;padding:6px 12px;font-size:10pt;font-weight:600;color:#C0392B;">⚠ 限制：'+epaTask.limit+'</td></tr>';
+      html+='<tr><td colspan="2" style="background:#FEF2F2;border:1px solid #FCA5A5;padding:6px 12px;font-size:10pt;font-weight:600;color:#DC2626;">⚠ 限制：'+epaTask.limit+'</td></tr>';
     }
     html+='</table>';
     // ── 基本資料 ──
@@ -9298,12 +9298,12 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       epaTask.scenarios.forEach(function(sc){
         var picked=scSaved.indexOf(sc)>=0;
         html+='<tr>';
-        html+='<td style="padding:5px 8px;border:1px solid #DDD;background:'+(picked?'#EBF5FB':'#FAFBFF')+';font-size:10pt;">'+sc;
+        html+='<td style="padding:5px 8px;border:1px solid #DDD;background:'+(picked?'#DBEAFE':'#FAFBFF')+';font-size:10pt;">'+sc;
         if(sc==='其他'&&picked&&scOthersText){
-          html+='<span style="margin-left:6px;color:#1A5276;">：'+scOthersText+'</span>';
+          html+='<span style="margin-left:6px;color:#1E40AF;">：'+scOthersText+'</span>';
         }
         html+='</td>';
-        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(picked?'#1A5276':'#FAFBFF')+';color:'+(picked?'#fff':'#bbb')+';font-weight:'+(picked?'700':'400')+';font-size:11pt;">'+(picked?'✓':'')+'</td>';
+        html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(picked?'#1E40AF':'#FAFBFF')+';color:'+(picked?'#fff':'#bbb')+';font-weight:'+(picked?'700':'400')+';font-size:11pt;">'+(picked?'✓':'')+'</td>';
         html+='</tr>';
       });
       html+='</table>';
@@ -9328,8 +9328,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       var lv=pair[0],desc=pair[1];
       var sel=(pickedLv===lv||pickedLv==lv);
       html+='<tr>';
-      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:'+(sel?'#EBF5FB':'#FAFBFF')+';font-size:10pt;'+(sel?'font-weight:700;color:#1A5276;':'')+'">Level '+lv+' — '+desc.replace(/^Level \d+：/,'')+'</td>';
-      html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#1A5276':'#FAFBFF')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓':'')+'</td>';
+      html+='<td style="padding:5px 8px;border:1px solid #DDD;background:'+(sel?'#DBEAFE':'#FAFBFF')+';font-size:10pt;'+(sel?'font-weight:700;color:#1E40AF;':'')+'">Level '+lv+' — '+desc.replace(/^Level \d+：/,'')+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#1E40AF':'#FAFBFF')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:11pt;">'+(sel?'✓':'')+'</td>';
       html+='</tr>';
     });
     html+='</table>';
@@ -9364,7 +9364,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       sec+='<tr>';
       sec+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:left;">評值項目（每項最高 5 分，最低 1 分）</th>';
       ['優(5)','良(4)','普(3)','差(2)','劣(1)'].forEach(function(lbl){
-        sec+='<th style="background:#C0392B;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:9%;font-size:9pt;">'+lbl+'</th>';
+        sec+='<th style="background:#DC2626;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:9%;font-size:9pt;">'+lbl+'</th>';
       });
       sec+='<th style="background:#1A3A5C;color:#fff;padding:4px 6px;border:1px solid #DDD;text-align:center;width:9%;">得分</th>';
       sec+='</tr>';
@@ -9376,15 +9376,15 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         sec+='<td style="padding:4px 6px;border:1px solid #DDD;background:#FAFBFF;font-size:9pt;">'+(i+1)+'. '+it+'</td>';
         [5,4,3,2,1].forEach(function(v){
           var sel=(d[key]==v||d[key]===String(v));
-          sec+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+(sel?'#C0392B':'#FEF9F9')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:9pt;">'+(sel?'✓':'')+'</td>';
+          sec+='<td style="text-align:center;border:1px solid #DDD;padding:3px;background:'+(sel?'#DC2626':'#FEF2F2')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:9pt;">'+(sel?'✓':'')+'</td>';
         });
-        sec+='<td style="text-align:center;border:1px solid #DDD;font-size:11pt;font-weight:700;color:'+(sc?'#C0392B':'#ccc')+';background:#FFF5F5;">'+(sc||'—')+'</td>';
+        sec+='<td style="text-align:center;border:1px solid #DDD;font-size:11pt;font-weight:700;color:'+(sc?'#DC2626':'#ccc')+';background:#FEF2F2;">'+(sc||'—')+'</td>';
         sec+='</tr>';
       });
       // 小計列
-      sec+='<tr style="background:#EBF5FB;">';
-      sec+='<td colspan="6" style="padding:5px 8px;border:1px solid #DDD;text-align:right;font-weight:700;font-size:10pt;color:#1A5276;">小計（滿分 '+maxScore+'）</td>';
-      sec+='<td style="text-align:center;border:1px solid #DDD;font-size:13pt;font-weight:700;color:#1A5276;">'+sum+'</td>';
+      sec+='<tr style="background:#DBEAFE;">';
+      sec+='<td colspan="6" style="padding:5px 8px;border:1px solid #DDD;text-align:right;font-weight:700;font-size:10pt;color:#1E40AF;">小計（滿分 '+maxScore+'）</td>';
+      sec+='<td style="text-align:center;border:1px solid #DDD;font-size:13pt;font-weight:700;color:#1E40AF;">'+sum+'</td>';
       sec+='</tr>';
       sec+='</table>';
       return {html:sec,sum:sum};
@@ -9400,10 +9400,10 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     var bonusScore=(bonusVal&&bonusVal.indexOf('+5')>=0)?5:0;
     html+='<div class="section-head">加分項目</div>';
     html+='<table>';
-    html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;background:#FFF5F5;font-size:10pt;width:70%;">臨床專業能力可獨立負責一般治療師 1/2 以上工作量</td>';
+    html+='<tr><td style="padding:5px 8px;border:1px solid #DDD;background:#FEF2F2;font-size:10pt;width:70%;">臨床專業能力可獨立負責一般治療師 1/2 以上工作量</td>';
     ['是（+5分）','否（+0分）'].forEach(function(opt){
       var sel=bonusVal===opt;
-      html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#27AE60':'#FEF9F9')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:10pt;width:15%;">'+(sel?'✓ '+opt:opt)+'</td>';
+      html+='<td style="text-align:center;border:1px solid #DDD;padding:4px;background:'+(sel?'#27AE60':'#FEF2F2')+';color:'+(sel?'#fff':'#bbb')+';font-weight:'+(sel?'700':'400')+';font-size:10pt;width:15%;">'+(sel?'✓ '+opt:opt)+'</td>';
     });
     html+='</tr>';
     html+='</table>';
@@ -9416,11 +9416,11 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     html+='<table>';
     html+='<tr>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#EBF5FB;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">學習態度</div><div style="font-size:14pt;font-weight:700;color:#1A5276;">'+attRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 30</div></td>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#EBF5FB;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">專業知識技能</div><div style="font-size:14pt;font-weight:700;color:#1A5276;">'+sklRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 50</div></td>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#EBF5FB;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">溝通協調</div><div style="font-size:14pt;font-weight:700;color:#1A5276;">'+comRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 20</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#DBEAFE;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">學習態度</div><div style="font-size:14pt;font-weight:700;color:#1E40AF;">'+attRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 30</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#DBEAFE;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">專業知識技能</div><div style="font-size:14pt;font-weight:700;color:#1E40AF;">'+sklRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 50</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#DBEAFE;text-align:center;width:20%;"><div style="font-size:9pt;color:#666;">溝通協調</div><div style="font-size:14pt;font-weight:700;color:#1E40AF;">'+comRes.sum+'</div><div style="font-size:9pt;color:#888;">/ 20</div></td>';
     html+='<td style="border:1px solid #DDD;padding:6px 10px;background:#E8F8F5;text-align:center;width:15%;"><div style="font-size:9pt;color:#666;">加分</div><div style="font-size:14pt;font-weight:700;color:#27AE60;">+'+bonusScore+'</div></td>';
-    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:linear-gradient(135deg,#FFF5F5,#FDEDEC);text-align:center;width:25%;"><div style="font-size:9pt;color:#666;">實習總分</div><div style="font-size:18pt;font-weight:700;color:'+(f15Pass?'#27AE60':'#C0392B')+';">'+f15Total+'</div><div style="font-size:9pt;color:#888;">/ 105 '+(f15Pass?'✓ 及格':'✗ 未及格')+'</div></td>';
+    html+='<td style="border:1px solid #DDD;padding:6px 10px;background:linear-gradient(135deg,#FEF2F2,#FEF2F2);text-align:center;width:25%;"><div style="font-size:9pt;color:#666;">實習總分</div><div style="font-size:18pt;font-weight:700;color:'+(f15Pass?'#27AE60':'#DC2626')+';">'+f15Total+'</div><div style="font-size:9pt;color:#888;">/ 105 '+(f15Pass?'✓ 及格':'✗ 未及格')+'</div></td>';
     html+='</tr>';
     html+='</table>';
     // ── 請假紀錄 ──
@@ -10064,7 +10064,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='</table>';
     // ── 70 題作答 ──
     html+='<div class="section-head">學習風格自我評估（共 70 題）</div>';
-    html+='<div style="background:#EEF2F8;border-radius:4px;padding:5px 10px;margin:6px 0;font-size:9pt;color:#1A5276;">'
+    html+='<div style="background:#EEF2F8;border-radius:4px;padding:5px 10px;margin:6px 0;font-size:9pt;color:#1E40AF;">'
         + '<strong>0 分</strong> = 陳述不像你　　<strong>1 分</strong> = 有點像　　<strong>2 分</strong> = 很像</div>';
     html+='<table style="font-size:9pt;">';
     html+='<tr>';
@@ -10082,8 +10082,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         html+='<tr style="background:'+rowBg+';">';
         html+='<td style="padding:3px 6px;border:1px solid #DDD;text-align:center;font-weight:700;color:#666;font-size:9pt;">'+qnum+'</td>';
         html+='<td style="padding:3px 8px;border:1px solid #DDD;font-size:9pt;color:#1A2530;">'+qtext+'</td>';
-        var dispColor = (displayed==='—') ? '#ccc' : '#C0392B';
-        html+='<td style="padding:3px;border:1px solid #DDD;text-align:center;font-size:11pt;font-weight:700;color:'+dispColor+';background:#FFF5F5;">'+displayed+'</td>';
+        var dispColor = (displayed==='—') ? '#ccc' : '#DC2626';
+        html+='<td style="padding:3px;border:1px solid #DDD;text-align:center;font-size:11pt;font-weight:700;color:'+dispColor+';background:#FEF2F2;">'+displayed+'</td>';
         html+='</tr>';
       });
     }
@@ -10101,7 +10101,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         var sc = f16scores[code];
         var isTop = f16top.indexOf(code)>=0 && sc>0;
         var bg = isTop ? '#FEF3C7' : '#FAFBFF';
-        var color = isTop ? '#C0392B' : '#1A5276';
+        var color = isTop ? '#DC2626' : '#1E40AF';
         var weight = isTop ? '700' : '500';
         html+='<tr style="background:'+bg+';">';
         html+='<td style="padding:5px 10px;border:1px solid #DDD;font-size:10pt;color:'+color+';font-weight:'+weight+';">'+F16_STYLES[code].zh+(isTop?' ★':'')+'</td>';
@@ -10125,9 +10125,9 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
       html+='<tr><td style="padding:10px 12px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;color:#888;">尚未完成評估</td></tr>';
     } else {
       var topNames = f16top.map(function(c){ return F16_STYLES[c].zh; }).join('、');
-      html+='<tr><td style="padding:8px 12px;border:1px solid #DDD;background:#FFF5F5;font-size:11pt;font-weight:700;color:#C0392B;">主要學習風格：'+topNames+(f16top.length>1?'（並列）':'')+'</td></tr>';
+      html+='<tr><td style="padding:8px 12px;border:1px solid #DDD;background:#FEF2F2;font-size:11pt;font-weight:700;color:#DC2626;">主要學習風格：'+topNames+(f16top.length>1?'（並列）':'')+'</td></tr>';
       f16top.forEach(function(c){
-        html+='<tr><td style="padding:8px 12px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;color:#1A2530;line-height:1.7;"><strong style="color:#C0392B;">'+F16_STYLES[c].zh+'：</strong>'+F16_STYLES[c].desc+'</td></tr>';
+        html+='<tr><td style="padding:8px 12px;border:1px solid #DDD;background:#FAFBFF;font-size:10pt;color:#1A2530;line-height:1.7;"><strong style="color:#DC2626;">'+F16_STYLES[c].zh+'：</strong>'+F16_STYLES[c].desc+'</td></tr>';
       });
     }
     html+='</table>';
@@ -10135,18 +10135,18 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     // ── 個人化學習策略推薦 ──
     if(f16scores && f16top.length>0 && typeof F16_STRATEGIES!=='undefined'){
       html+='<div class="section-head">個人化學習策略推薦</div>';
-      html+='<div style="background:#FAFBFF;border:1px solid #C0392B;border-radius:4px;padding:0;margin:6px 0;">';
-      html+='<div style="background:#C0392B;color:#fff;padding:6px 12px;font-size:11pt;font-weight:700;">💡 根據你的學習風格，推薦的學習策略</div>';
+      html+='<div style="background:#FAFBFF;border:1px solid #DC2626;border-radius:4px;padding:0;margin:6px 0;">';
+      html+='<div style="background:#DC2626;color:#fff;padding:6px 12px;font-size:11pt;font-weight:700;">💡 根據你的學習風格，推薦的學習策略</div>';
       html+='<div style="padding:10px 14px;font-size:10pt;line-height:1.75;">';
       // 主要風格策略
-      html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E3A8A;font-size:10.5pt;margin-bottom:6px;">🎯 主要學習風格 — 重點發揮</div>';
+      html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E40AF;font-size:10.5pt;margin-bottom:6px;">🎯 主要學習風格 — 重點發揮</div>';
       f16top.forEach(function(c){
         var st = F16_STRATEGIES[c];
         var sInfo = F16_STYLES[c];
         if(!st || !sInfo) return;
         var sc = f16scores[c]||0;
-        html+='<div style="background:#FFF5F5;border-left:3px solid #C0392B;border-radius:4px;padding:8px 12px;margin-bottom:6px;">';
-        html+='<div style="font-weight:700;color:#C0392B;font-size:10.5pt;margin-bottom:3px;">'+sInfo.zh+'（'+sc+'/20 分）</div>';
+        html+='<div style="background:#FEF2F2;border-left:3px solid #DC2626;border-radius:4px;padding:8px 12px;margin-bottom:6px;">';
+        html+='<div style="font-weight:700;color:#DC2626;font-size:10.5pt;margin-bottom:3px;">'+sInfo.zh+'（'+sc+'/20 分）</div>';
         html+='<div style="color:#6B5050;font-size:9.5pt;margin-bottom:4px;">'+sInfo.desc+'</div>';
         html+='<ol style="margin:4px 0 0 0;padding-left:20px;color:#374151;font-size:10pt;">';
         st.strategies.forEach(function(s){ html+='<li style="margin-bottom:3px;">'+s+'</li>'; });
@@ -10160,7 +10160,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         var st2 = F16_STRATEGIES[second];
         var s2Info = F16_STYLES[second];
         if(st2 && s2Info){
-          html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E3A8A;font-size:10.5pt;margin-bottom:6px;">🔆 次強風格 — 輔助運用</div>';
+          html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E40AF;font-size:10.5pt;margin-bottom:6px;">🔆 次強風格 — 輔助運用</div>';
           html+='<div style="background:#FFF8E1;border-left:3px solid #D97706;border-radius:4px;padding:8px 12px;">';
           html+='<div style="font-weight:700;color:#92400E;font-size:10.5pt;margin-bottom:3px;">'+s2Info.zh+'（'+f16scores[second]+'/20 分）</div>';
           html+='<div style="color:#78350F;font-size:9.5pt;margin-bottom:4px;">'+s2Info.desc+'</div>';
@@ -10176,7 +10176,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         var sLowInfo = F16_STYLES[lowest];
         if(stLow && sLowInfo){
           var ctxHint = {VS:'看圖表、看 SOP、看波形',SC:'晨會討論、團隊合作、口頭交班',PS:'動手操作、模型練習、儀器設定',AL:'聆聽口頭講解、聽老師交班',VB:'寫日誌、做 case report、口頭報告',SL:'獨立預習、自我複習、寫反思',LG:'邏輯推理、參數推算、鑑別診斷'};
-          html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E3A8A;font-size:10.5pt;margin-bottom:6px;">⚠️ 較弱風格 — 注意補強</div>';
+          html+='<div style="margin-bottom:10px;"><div style="font-weight:700;color:#1E40AF;font-size:10.5pt;margin-bottom:6px;">⚠️ 較弱風格 — 注意補強</div>';
           html+='<div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;padding:8px 12px;color:#78350F;font-size:10pt;">';
           html+='<strong style="color:#92400E;">'+sLowInfo.zh+'（'+f16scores[lowest]+'/20 分）：</strong>這是你目前較不擅長的學習方式。實習中遇到偏向此風格的學習情境（例如：'+(ctxHint[lowest]||'相關情境')+'）時，請特別放慢腳步、多花時間。建議：';
           html+='<ul style="margin:6px 0 0 0;padding-left:20px;">';
@@ -10185,7 +10185,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         }
       }
       // 結語
-      html+='<div style="margin-top:8px;padding:8px 12px;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;font-size:9.5pt;color:#1E3A8A;line-height:1.7;">';
+      html+='<div style="margin-top:8px;padding:8px 12px;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;font-size:9.5pt;color:#1E40AF;line-height:1.7;">';
       html+='<strong>📌 提醒：</strong>學習風格沒有好壞之分，每個人都是多種風格的綜合體。這份推薦只是「順著你的優勢」的學習切入點，實習中仍鼓勵嘗試各種方式，找出最適合自己的節奏。';
       html+='</div>';
       html+='</div></div>';
@@ -10510,7 +10510,7 @@ function refreshFormUI(formKey){
         var isTeacher = b.getAttribute('data-teacher')==='1';
         var v = b.getAttribute('data-rval');
         var isNA = v==='NA';
-        var selBg = isNA?'#7F8C8D':(isTeacher?'#C0392B':'#2471A3');
+        var selBg = isNA?'#7F8C8D':(isTeacher?'#DC2626':'#2563EB');
         // 雲端有值且等於此按鈕的 rval 才選中;否則全部回到未選
         var shouldSel = (curVal!==undefined && curVal!==null && curVal!=='' && curVal===v);
         b.style.background = shouldSel?selBg:'#fff';
@@ -10718,7 +10718,7 @@ function f01Click(btn){
   }
 
   // 更新 inline style(F01A/F01B 按鈕用 inline style 不是 CSS class)
-  var selBg=isTeacher?'#C0392B':'#2471A3';
+  var selBg=isTeacher?'#DC2626':'#2563EB';
   document.querySelectorAll('[data-rkey="'+key+'"]').forEach(function(b){
     // 清除時所有按鈕都回到未選樣式;否則只有對應 val 的按鈕變色
     var shouldSel = (!isToggleOff && b.getAttribute('data-rval')===val);
@@ -11036,7 +11036,7 @@ function buildF01A(f,d,canT,fkey,canS){
     var cur=d[key2]||'';
     var isSel=cur===v;
     var isNA=v==='NA';
-    var selBg=isNA?'#7F8C8D':(isTeacher?'#C0392B':'#2471A3');
+    var selBg=isNA?'#7F8C8D':(isTeacher?'#DC2626':'#2563EB');
     var bg=isSel?selBg:'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
@@ -11052,7 +11052,7 @@ function buildF01A(f,d,canT,fkey,canS){
   h+='<div class="card"><div class="card-head"><div class="card-head-title">學生學前自評<span class="s-badge">學生填寫</span></div></div><div class="card-body" style="overflow-x:auto;">';
   h+='<table class="rating-table f01b-table"><tr>';
   h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:80px;max-width:120px;">核心技能學習目標</th>';
-  h+='<th colspan="4" style="background:#EBF5FB;">學生學前自評</th></tr>';
+  h+='<th colspan="4" style="background:#DBEAFE;">學生學前自評</th></tr>';
   h+='<tr><th></th><th>佳</th><th>可</th><th>差</th><th>NA</th></tr>';
   skills.forEach(function(skill,i){
     var kp='f01_pre_'+i;
@@ -11083,7 +11083,7 @@ function buildF01B(f,d,canT,fkey,canS){
     var cur=d[key2]||'';
     var isSel=cur===v;
     var isNA=v==='NA';
-    var selBg=isNA?'#7F8C8D':(isTeacher?'#C0392B':'#2471A3');
+    var selBg=isNA?'#7F8C8D':(isTeacher?'#DC2626':'#2563EB');
     var bg=isSel?selBg:'#fff';
     var col=isSel?'#fff':'#7A706A';
     var fw=isSel?'700':'400';
@@ -11099,17 +11099,17 @@ function buildF01B(f,d,canT,fkey,canS){
   h+='<div class="card"><div class="card-head"><div class="card-head-title">核心技能評核<span class="t-badge">指導者欄位需老師填寫</span></div></div><div class="card-body" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">';
   h+='<table class="rating-table f01b-table"><tr>';
   h+='<th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--cream);min-width:90px;max-width:120px;">核心技能學習目標</th>';
-  h+='<th colspan="4" style="background:#EBF5FB;">學後自評</th>';
-  h+='<th colspan="4" style="background:#FDEDEC;">指導者評核(1)<span class="t-badge">老師</span></th></tr>';
+  h+='<th colspan="4" style="background:#DBEAFE;">學後自評</th>';
+  h+='<th colspan="4" style="background:#FEF2F2;">指導者評核(1)<span class="t-badge">老師</span></th></tr>';
   h+='<tr>';
   h+='<th style="position:sticky;left:0;z-index:2;background:var(--cream);"></th>';
-  h+='<th style="background:#EBF5FB;">佳</th><th style="background:#EBF5FB;">可</th><th style="background:#EBF5FB;">差</th><th style="background:#EBF5FB;">NA</th>';
-  h+='<th style="background:#FDEDEC;">佳</th><th style="background:#FDEDEC;">可</th><th style="background:#FDEDEC;">差</th><th style="background:#FDEDEC;">NA</th></tr>';
+  h+='<th style="background:#DBEAFE;">佳</th><th style="background:#DBEAFE;">可</th><th style="background:#DBEAFE;">差</th><th style="background:#DBEAFE;">NA</th>';
+  h+='<th style="background:#FEF2F2;">佳</th><th style="background:#FEF2F2;">可</th><th style="background:#FEF2F2;">差</th><th style="background:#FEF2F2;">NA</th></tr>';
   skills.forEach(function(skill,i){
     var k1='f01_p1_'+i,kpo='f01_post_'+i;
     h+='<tr><td class="row-label f01b-label" style="position:sticky;left:0;background:#FAFAF8;z-index:1;max-width:120px;word-break:break-all;font-size:10px;">'+(i+1)+'. '+skill+'</td>';
-    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#F5F9FF;">'+mkBtn(kpo,v,false)+'</td>';});
-    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#FFF5F5;">'+mkBtn(k1,v,true)+'</td>';});
+    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#F0F7FF;">'+mkBtn(kpo,v,false)+'</td>';});
+    ['佳','可','差','NA'].forEach(function(v){h+='<td style="text-align:center;background:#FEF2F2;">'+mkBtn(k1,v,true)+'</td>';});
     h+='</tr>';
   });
   h+='</table></div></div>';
@@ -11525,7 +11525,7 @@ function buildCbD(f,d,canT,fkey,canS){
   let h=basicInfoCard(fid,d,'<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">'+cxBtns+'</div></div><div class="field"><label>主診斷（不限字數）</label>'+ta(fid,'case_dx',4,false)+'</div></div>');
   // 評量說明列
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評量項目<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
-  h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:11px;color:var(--blue);">📊 評分標準：<strong>1～3分 = 有待加強</strong>　<strong>4～6分 = 合乎標準</strong>　<strong>7～9分 = 優良</strong>　UGY ≥ 5分合格</div>';
+  h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:11px;color:#991B1B;">📊 評分標準：<strong>1～3分 = 有待加強</strong>　<strong>4～6分 = 合乎標準</strong>　<strong>7～9分 = 優良</strong>　UGY ≥ 5分合格</div>';
   h+='<table class="rating-table"><tr><th style="text-align:left;min-width:140px;">評量項目</th>';
   // 分組標題
   h+='<th colspan="3" style="background:#C8D8F0;color:#1A3A5C;">有待加強(1-3)</th>';
@@ -11852,7 +11852,7 @@ function buildF13(f,d,canT,fkey,canS){
   h+=`</div></div>`;
 
   // 分數顯示卡（在評分表下方）
-  h+=`<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">
+  h+=`<div class="card" style="background:linear-gradient(135deg,#DBEAFE,#E8F8F5);">
     <div class="card-body" style="text-align:center;padding:16px;">
       <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">書面報告總分</div>
       <div id="f13_total_${fid}" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / 100</span></div>
@@ -12004,7 +12004,7 @@ function buildF14(f,d,canT,fkey,canS){
   h+='</table></div></div>';
 
   // 分數顯示卡（在評分表下方）
-  h+='<div class="card" style="background:linear-gradient(135deg,#EBF5FB,#E8F8F5);">';
+  h+='<div class="card" style="background:linear-gradient(135deg,#DBEAFE,#E8F8F5);">';
   h+='<div class="card-body" style="text-align:center;padding:16px;">';
   h+='<div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">報告總分</div>';
   h+='<div id="f14_total_'+fid+'" style="margin:4px 0;"><span style="font-size:36px;font-weight:700;">0</span><span style="font-size:14px;color:var(--ink3);"> / '+totalMax+'</span></div>';
@@ -12189,8 +12189,8 @@ function buildDOPS(f,d,canT,fkey,canS){
   let h=basicInfoCard(fid,d,'','評核日期',true);
   let itemIdx=0;
   data.groups.forEach(g=>{
-    h+='<div class="card"><div class="card-head" style="background:linear-gradient(90deg,#EAF2FB,#F5F9FC);"><div class="card-head-title" style="color:#1A5276;">'+g.hd+'<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">';
-    h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:6px 10px;margin-bottom:6px;font-size:10px;color:var(--blue);">📊 <strong>1-3分=有待加強</strong>　<strong>4-6分=符合標準</strong>　<strong>7-9分=優良</strong></div>';
+    h+='<div class="card"><div class="card-head" style="background:linear-gradient(90deg,#FEF2F2,#FEF6F6);"><div class="card-head-title" style="color:#991B1B;">'+g.hd+'<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">';
+    h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:6px 10px;margin-bottom:6px;font-size:10px;color:#991B1B;">📊 <strong>1-3分=有待加強</strong>　<strong>4-6分=符合標準</strong>　<strong>7-9分=優良</strong></div>';
     h+='<div style="background:#FFF3CD;border:1px solid #F0C040;border-radius:var(--r);padding:6px 10px;margin-bottom:8px;font-size:11px;font-weight:700;color:#8B6914;">⚠ 合格標準（任一項目不得低於）UGY：5分</div>';
     h+='<table class="dops-tbl"><thead><tr><th style="text-align:left;min-width:160px;">評核內容</th><th colspan="3" style="background:#C8D8F0;color:#1A3A5C;font-size:9px;">有待加強</th><th colspan="3" style="background:#D8ECD8;color:#2D5A27;font-size:9px;">符合標準</th><th colspan="3" style="background:#F0E8C8;color:#8B6914;font-size:9px;">優良</th><th style="background:#EEE;font-size:9px;">未評</th></tr><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>NA</th></tr></thead><tbody>';
     g.items.forEach(item=>{
@@ -12206,7 +12206,7 @@ function buildDOPS(f,d,canT,fkey,canS){
       if(item && typeof item === 'object' && item.h){
         var titleLv = _calcLevel(item.h);
         var titlePad = titleLv * 18;
-        var titleStyle = 'padding-left:'+(titlePad)+'px;font-weight:600;color:#1A5276;background:#E8F1FB;';
+        var titleStyle = 'padding-left:'+(titlePad)+'px;font-weight:600;color:#1E40AF;background:#E8F1FB;';
         h+='<tr><td class="item-cell" style="'+titleStyle+'" colspan="11">'+item.h+'</td></tr>';
         return;
       }
@@ -12224,7 +12224,7 @@ function buildDOPS(f,d,canT,fkey,canS){
       [1,2,3,4,5,6,7,8,9,'NA'].forEach(function(v){
         var sel=(d[key]==v||d[key]===String(v))?'sel':'';
         var dis=!canT?'disabled':'';
-        var dot=(d[key]==v||d[key]===String(v))?'●':'';
+        var dot=String(v);
         // 用單引號包裹數值，避免 JSON.stringify 對 'NA' 產生雙引號與外層 onclick 雙引號衝突
         var vArg=(typeof v==='number')?String(v):"'"+v+"'";
         var oc="setDOPS('"+f.id+"','"+key+"',"+vArg+",this)";
@@ -12298,7 +12298,7 @@ function setDOPS(fid,key,val,btn){
     if(!existing){
       existing=document.createElement('div');
       existing.id='dops-warn-toast';
-      existing.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#C0392B;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3);';
+      existing.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#DC2626;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3);';
       document.body.appendChild(existing);
     }
     existing.textContent='⚠ UGY 合格標準：任一項目不得低於 5 分！';
@@ -12395,7 +12395,7 @@ function buildEPA(f,d,canT,fkey,canS){
   lvls.forEach(function(pair){
     var lv=pair[0],desc=pair[1];
     var sel=(d['epa_level']===lv||d['epa_level']==lv);
-    var selStyle=sel?'border-color:var(--blue);background:#EBF5FB;':'';
+    var selStyle=sel?'border-color:var(--blue);background:#DBEAFE;':'';
     // 鎖定時用 data-locked 控制，解鎖時移除，不寫死 onclick 內容
     // 鎖定時用 data-locked（CSS 控制），始終綁定正確 onclick
     var lockedAttr=canT?'':' data-locked="1"';
@@ -12461,7 +12461,7 @@ function setEPA(fid,lv,fid2){
     var isSel = (!isToggleOff && thisLv===String(lv));
     // 更新外框樣式
     el.style.borderColor=isSel?'var(--blue)':'var(--border)';
-    el.style.background=isSel?'#EBF5FB':'';
+    el.style.background=isSel?'#DBEAFE':'';
     // 更新圓形圖示（第一個子元素）
     var circle=el.querySelector('div:first-child');
     if(circle){
@@ -12911,10 +12911,10 @@ function buildF16RadarSVG(scores, size){
     dataPoly += (i===0?'M':'L') + p[0].toFixed(2) + ',' + p[1].toFixed(2) + ' ';
   }
   dataPoly += 'Z';
-  svg += '<path d="'+dataPoly+'" fill="rgba(192,57,43,0.25)" stroke="#C0392B" stroke-width="2.5"/>';
+  svg += '<path d="'+dataPoly+'" fill="rgba(220,38,38,0.25)" stroke="#DC2626" stroke-width="2.5"/>';
   // 資料點
   for(var i=0; i<n; i++){
-    svg += '<circle cx="'+dataPts[i][0].toFixed(2)+'" cy="'+dataPts[i][1].toFixed(2)+'" r="4" fill="#C0392B"/>';
+    svg += '<circle cx="'+dataPts[i][0].toFixed(2)+'" cy="'+dataPts[i][1].toFixed(2)+'" r="4" fill="#DC2626"/>';
   }
   svg += '</svg>';
   return svg;
@@ -12936,14 +12936,14 @@ function calcF16AndRender(fid){
       var pct = (sc/20*100).toFixed(0);
       var isTop = top.indexOf(code)>=0 && sc>0;
       var bg = isTop ? '#FEF3C7' : '#FAFBFF';
-      var color = isTop ? '#C0392B' : '#1A5276';
+      var color = isTop ? '#DC2626' : '#1E40AF';
       var weight = isTop ? '700' : '500';
       rows += '<tr style="background:'+bg+';">';
       rows += '<td style="padding:5px 10px;border:1px solid #DDD;font-size:12px;color:'+color+';font-weight:'+weight+';">'+F16_STYLES[code].zh+(isTop?' ★':'')+'</td>';
       rows += '<td style="padding:5px 10px;border:1px solid #DDD;text-align:center;font-size:13px;font-weight:700;color:'+color+';">'+sc+' / 20</td>';
       rows += '<td style="padding:5px 10px;border:1px solid #DDD;font-size:11px;color:#555;">';
       rows += '<div style="background:#E5E7EB;border-radius:3px;height:8px;overflow:hidden;">';
-      rows += '<div style="width:'+pct+'%;height:100%;background:'+(isTop?'#C0392B':'#3B82F6')+';"></div>';
+      rows += '<div style="width:'+pct+'%;height:100%;background:'+(isTop?'#DC2626':'#3B82F6')+';"></div>';
       rows += '</div></td>';
       rows += '</tr>';
     });
@@ -12958,8 +12958,8 @@ function calcF16AndRender(fid){
     if(top.length===0){
       topEl.innerHTML = '<span style="color:var(--ink3);">尚未完成評估</span>';
     } else {
-      var topNames = top.map(function(c){ return '<strong style="color:#C0392B;">'+F16_STYLES[c].zh+'</strong>'; }).join('、');
-      var topDescs = top.map(function(c){ return '<div style="margin-top:6px;padding:8px 12px;background:#FFF5F5;border-left:3px solid #C0392B;border-radius:4px;font-size:12px;color:#555;line-height:1.7;"><strong style="color:#C0392B;">'+F16_STYLES[c].zh+'：</strong>'+F16_STYLES[c].desc+'</div>'; }).join('');
+      var topNames = top.map(function(c){ return '<strong style="color:#DC2626;">'+F16_STYLES[c].zh+'</strong>'; }).join('、');
+      var topDescs = top.map(function(c){ return '<div style="margin-top:6px;padding:8px 12px;background:#FEF2F2;border-left:3px solid #DC2626;border-radius:4px;font-size:12px;color:#555;line-height:1.7;"><strong style="color:#DC2626;">'+F16_STYLES[c].zh+'：</strong>'+F16_STYLES[c].desc+'</div>'; }).join('');
       topEl.innerHTML = '<div style="font-size:14px;margin-bottom:6px;">您的主要學習風格：'+topNames+'</div>'+topDescs;
     }
   }
@@ -13055,7 +13055,7 @@ function buildF16StrategyHTML(scores, topStyles){
   }
 
   // 5. 結語
-  html += '<div style="margin-top:10px;padding:8px 12px;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;font-size:11.5px;color:#1E3A8A;line-height:1.7;">';
+  html += '<div style="margin-top:10px;padding:8px 12px;background:#EFF6FF;border-left:3px solid #1E40AF;border-radius:4px;font-size:11.5px;color:#1E40AF;line-height:1.7;">';
   html += '<strong>📌 提醒:</strong>學習風格沒有好壞之分,每個人都是多種風格的綜合體。這份推薦只是「順著你的優勢」的學習切入點,實習中仍鼓勵嘗試各種方式,找出最適合自己的節奏。';
   html += '</div>';
 
@@ -13095,11 +13095,11 @@ function buildF16(f,d,canT,fkey,canS){
 
   // ── 說明卡 ──
   h+='<div class="card"><div class="card-head"><div class="card-head-title">填寫說明</div></div><div class="card-body" style="font-size:12px;color:#555;line-height:1.8;">';
-  h+='<div style="background:#EBF5FB;border-left:3px solid #2471A3;padding:8px 12px;border-radius:4px;">';
+  h+='<div style="background:#DBEAFE;border-left:3px solid #2563EB;padding:8px 12px;border-radius:4px;">';
   h+='請依照以下計分方式針對 70 個敘述進行自我評估：<br>';
-  h+='<strong style="color:#1A5276;">0 分</strong> = 陳述不像你　　';
-  h+='<strong style="color:#1A5276;">1 分</strong> = 有點像　　';
-  h+='<strong style="color:#1A5276;">2 分</strong> = 很像';
+  h+='<strong style="color:#1E40AF;">0 分</strong> = 陳述不像你　　';
+  h+='<strong style="color:#1E40AF;">1 分</strong> = 有點像　　';
+  h+='<strong style="color:#1E40AF;">2 分</strong> = 很像';
   h+='</div></div></div>';
 
   // ── 70 道題目 ──
@@ -13125,7 +13125,7 @@ function buildF16(f,d,canT,fkey,canS){
       var sel = (cur==v || cur===String(v));
       h+='<td style="padding:5px;border:1px solid #DDD;text-align:center;">';
       h+='<label style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:100%;">';
-      h+='<input type="radio" name="f16_q_'+qnum+'_'+fid+'" value="'+v+'" data-fid="'+fid+'" data-key="'+key+'" '+(sel?'checked':'')+' onchange="saveDraftField(\''+fid+'\',\''+key+'\','+v+');calcF16AndRender(\''+fid+'\')" style="accent-color:#C0392B;transform:scale(1.2);">';
+      h+='<input type="radio" name="f16_q_'+qnum+'_'+fid+'" value="'+v+'" data-fid="'+fid+'" data-key="'+key+'" '+(sel?'checked':'')+' onchange="saveDraftField(\''+fid+'\',\''+key+'\','+v+');calcF16AndRender(\''+fid+'\')" style="accent-color:#DC2626;transform:scale(1.2);">';
       h+='</label></td>';
     });
     h+='</tr>';
@@ -13638,7 +13638,7 @@ function _buildExamCommon(f, d, fid, mode){
     }
     // 後測：顯示完整正解對照（已送出才顯示）
     if(mode==='post'){
-      h += '<div style="margin-top:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:13px;color:#1E3A8A;">'+
+      h += '<div style="margin-top:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:13px;color:#1E40AF;">'+
         '<b>📖 正確答案（後測完成後揭露）</b>'+
         '<div style="margin-top:6px;font-size:12px;color:#1E40AF;">完整作答對照請見下方題目區，正解會以綠色框標示。</div>'+
         '</div>';
@@ -14065,7 +14065,7 @@ function buildCourseTest(f, d, canT, fkey, canS){
       '<div><b>狀態：</b><span style="color:'+bd+';font-weight:700;">'+label+'</span>（及格標準 '+passLine+' 分）</div>'+
       (d.submit_time?'<div><b>送出時間：</b>'+d.submit_time+'</div>':'')+
       '</div>';
-    h += '<div style="margin-top:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:13px;color:#1E3A8A;">'+
+    h += '<div style="margin-top:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:13px;color:#1E40AF;">'+
          '<b>📖 正確答案與解析（送出後揭露）</b>'+
          '<div style="margin-top:6px;font-size:12px;color:#1E40AF;">完整作答對照請見下方題目區，正解會以綠色框標示，並提供逐題解析。</div>'+
          '</div>';
@@ -16337,18 +16337,18 @@ function batchDownloadPDF(){
   allHtml+='.history{page-break-inside:avoid;break-inside:avoid;}';
   /* 螢幕預覽時也用視覺分隔線顯示分頁位置 */
   allHtml+='@media screen{.form-page{border-bottom:3px double #B8860B;margin-bottom:24px;padding-bottom:20px;}.form-page:last-child{border-bottom:none;}}';
-  allHtml+='.header{text-align:center;border-bottom:2px solid #1E3A8A;padding-bottom:10px;margin-bottom:12px;}';
-  allHtml+='.hosp{font-size:9pt;color:#1E3A8A;letter-spacing:1.5px;font-weight:600;}';
+  allHtml+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:12px;}';
+  allHtml+='.hosp{font-size:9pt;color:#1E40AF;letter-spacing:1.5px;font-weight:600;}';
   /* 表單主標題:serif、加大字距 */
   allHtml+='.title{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;font-size:16pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;}';
   allHtml+='.sub{font-size:9pt;color:#888;}';
   allHtml+='.info-bar{font-size:9pt;color:#555;margin-top:5px;background:#F5F5F0;padding:4px 8px;border-radius:3px;}';
   /* 章節標題:serif */
-  allHtml+='.sec{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E3A8A;color:#fff;font-weight:600;padding:6px 12px;margin-top:10px;letter-spacing:1px;}';
-  allHtml+='.t-row td{background:#FFF5F5;}';
-  allHtml+='.s-row td{background:#F5F9FF;}';
-  allHtml+='.r-sel-s{background:#2471A3!important;color:#fff!important;font-weight:700;}';
-  allHtml+='.r-sel-t{background:#C0392B!important;color:#fff!important;font-weight:700;}';
+  allHtml+='.sec{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;margin-top:10px;letter-spacing:1px;}';
+  allHtml+='.t-row td{background:#FEF2F2;}';
+  allHtml+='.s-row td{background:#F0F7FF;}';
+  allHtml+='.r-sel-s{background:#2563EB!important;color:#fff!important;font-weight:700;}';
+  allHtml+='.r-sel-t{background:#DC2626!important;color:#fff!important;font-weight:700;}';
   allHtml+='.history{border-top:2px solid #DDD;margin-top:12px;padding-top:8px;font-size:9pt;color:#666;}';
   allHtml+='.history-row{padding:2px 0;border-bottom:1px dashed #EEE;}';
   allHtml+='</style></head><body>';
