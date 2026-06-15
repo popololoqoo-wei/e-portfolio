@@ -14723,7 +14723,11 @@ function cohortSections(students){
     html+=_cohTbl(dHead,dBody);
     // EPA 表
     html+='<div style="font-size:13px;font-weight:700;color:#991B1B;margin:12px 0 4px;">EPA 可信賴專業活動（信賴等級 1–5；UGY 上限 Level 2）</div>';
-    var eHead='<tr>'+_cohTh('學生','text-align:left;')+epas.map(function(f){return _cohTh(f.name.replace(/：.*/,'').replace('EPA ',''));}).join('')+'</tr>';
+    var eHead='<tr>'+_cohTh('學生','text-align:left;')+epas.map(function(f){
+      var parts=f.name.replace('EPA ','').split('：');   // 例:['(6)','侵襲性呼吸器初始設定']
+      var label='<b>'+parts[0]+'</b>'+(parts[1]?'<br><span style="font-weight:400;font-size:11px;">'+parts[1]+'</span>':'');
+      return '<th style="background:#1E40AF;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;font-weight:600;">'+label+'</th>';
+    }).join('')+'</tr>';
     var eBody='';
     students.forEach(function(s){
       var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
