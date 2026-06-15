@@ -15053,6 +15053,45 @@ function downloadCohortPDF(sectionId){
   var appVer=(document.querySelector('meta[name="version"]')||{}).content||'';
   var now=new Date().toLocaleString('zh-TW');
 
+  // ── 蒐集學校 / 實習日期 / 學期，供 PDF 表頭顯示 ──
+  var cohortInfo = (function(){
+    // 學校：取學生資料中不重複的實習學校
+    var schools=[];
+    students.forEach(function(s){
+      var sc=(s.school||'').trim();
+      if(sc && schools.indexOf(sc)<0) schools.push(sc);
+    });
+    // 實習日期：掃描全部學生、全部表單的 s_date，取最早起日與最晚迄日
+    var minD=null, maxD=null;
+    students.forEach(function(s){
+      (typeof FORMS!=='undefined'?FORMS:[]).forEach(function(f){
+        var d=APP.formData[f.id+'_'+s.sid];
+        if(!d || !d.s_date) return;
+        var found=String(d.s_date).match(/\d{4}[\/-]\d{2}[\/-]\d{2}/g);
+        if(!found) return;
+        found.forEach(function(ds){
+          var norm=ds.replace(/-/g,'/');
+          if(minD===null || norm<minD) minD=norm;
+          if(maxD===null || norm>maxD) maxD=norm;
+        });
+      });
+    });
+    var dateStr = (minD&&maxD) ? (minD===maxD ? minD : (minD+' ～ '+maxD)) : '—';
+    // 學期：依最早起日推算台灣學年度與學期（8月起為新學年；8–翌年1月為第1學期，2–7月為第2學期）
+    var termStr='';
+    if(minD){
+      var p=minD.split('/'), y=+p[0], mo=+p[1];
+      var ay=(mo>=8)?(y-1911):(y-1912);
+      var sem=(mo>=8||mo===1)?'第1學期':'第2學期';
+      termStr=ay+'學年度'+sem;
+    }
+    return {schools:schools, dateStr:dateStr, termStr:termStr};
+  })();
+  var cohortMetaParts=[];
+  if(cohortInfo.schools.length) cohortMetaParts.push('實習學校：'+_cohEsc(cohortInfo.schools.join('、')));
+  cohortMetaParts.push('實習日期：'+_cohEsc(cohortInfo.dateStr));
+  if(cohortInfo.termStr) cohortMetaParts.push('學期：'+_cohEsc(cohortInfo.termStr));
+
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_cohEsc(docTitle)+'</title><style>';
   h+='@page{size:A4 landscape;margin:1.2cm;} ';
   h+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;color:#1A1612;margin:0;font-size:11pt;} ';
@@ -15066,6 +15105,7 @@ function downloadCohortPDF(sectionId){
   h+='</style></head><body>';
   h+='<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
   h+='<div class="title">'+_cohEsc(docTitle)+'</div>';
+  h+='<div class="sub" style="font-size:10pt;color:#374151;margin-bottom:3px;">'+cohortMetaParts.join('　·　')+'</div>';
   h+='<div class="sub">共 '+students.length+' 位學生　·　產製時間：'+now+(appVer?'　·　系統版本：'+appVer:'')+'</div></div>';
   secs.forEach(function(sec,i){
     h+='<div class="sec'+(i>0?' brk':'')+'"><div class="sec-h">'+_cohEsc(sec.title)+'</div>'+sec.html+'</div>';
