@@ -15173,6 +15173,12 @@ function downloadCohortPDF(sectionId){
       var sc=(s.school||'').trim();
       if(sc && schools.indexOf(sc)<0) schools.push(sc);
     });
+    // 實習類別：取學生資料中不重複的實習類別（供檔名使用）
+    var cats=[];
+    students.forEach(function(s){
+      var c=(s.intern_cat||'').trim();
+      if(c && cats.indexOf(c)<0) cats.push(c);
+    });
     // 實習日期：以「後台帳號設定的實習起迄」為準（權威來源）。
     //   ⚠ 不再直接掃所有表單的 s_date，因為 DOPS/EPA 等表單的 s_date 是「評核日期」(單一日期)，
     //     會把評核日期誤當成實習起日，造成日期區間錯誤。
@@ -15213,7 +15219,7 @@ function downloadCohortPDF(sectionId){
       var sem=(mo>=8||mo===1)?'第1學期':'第2學期';
       termStr=ay+'學年度'+sem;
     }
-    return {schools:schools, dateStr:dateStr, termStr:termStr};
+    return {schools:schools, cats:cats, dateStr:dateStr, termStr:termStr};
   })();
   var cohortMetaParts=[];
   if(cohortInfo.schools.length) cohortMetaParts.push('實習學校：'+_cohEsc(cohortInfo.schools.join('、')));
@@ -15234,12 +15240,26 @@ function downloadCohortPDF(sectionId){
   h+='<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
   h+='<div class="title">'+_cohEsc(docTitle)+'</div>';
   h+='<div class="sub" style="font-size:10pt;color:#374151;margin-bottom:3px;">'+cohortMetaParts.join('　·　')+'</div>';
-  h+='<div class="sub">共 '+students.length+' 位學生　·　產製時間：'+now+(appVer?'　·　系統版本：'+appVer:'')+'</div></div>';
+  h+='<div class="sub">共 '+students.length+' 位學生</div></div>';
   secs.forEach(function(sec,i){
     h+='<div class="sec'+(i>0?' brk':'')+'"><div class="sec-h">'+_cohEsc(sec.title)+'</div>'+sec.html+'</div>';
   });
+  // 頁尾：產製時間／系統版本（小字、靠右、淡灰，不搶標題焦點）
+  h+='<div style="margin-top:16px;padding-top:5px;border-top:1px solid #E5E7EB;text-align:right;font-size:7.5pt;color:#9CA3AF;letter-spacing:.3px;">產製時間：'+_cohEsc(now)+(appVer?'　·　系統版本：'+_cohEsc(appVer):'')+'</div>';
   h+='</body></html>';
-  var auto='<scr'+'ipt>window.addEventListener("load",function(){setTimeout(function(){document.title='+JSON.stringify(docTitle+'_'+new Date().toISOString().slice(0,10))+';window.print();},400);});</scr'+'ipt>';
+  // ── 另存檔名：學年度 學校-實習類別-標頭名稱（例：114學年度暑期實習 長庚科技大學(嘉義分部)-重症呼吸照護實習-Learning Style 四人總匯）──
+  var _fnTitle = sectionId ? secs[0].title.replace(/^[①-⑩]\s*/,'').trim() : '班級學習統整報告';
+  var _fnSchool = (cohortInfo.schools && cohortInfo.schools.length) ? cohortInfo.schools.join('、') : '';
+  var _fnCat    = (cohortInfo.cats && cohortInfo.cats.length) ? cohortInfo.cats.join('、') : '';
+  var _fnMid = [];
+  if(_fnSchool) _fnMid.push(_fnSchool);
+  if(_fnCat) _fnMid.push(_fnCat);
+  _fnMid.push(_fnTitle);
+  var _fnTerm = (cohortInfo.termStr||'').trim();
+  var _pdfFileName = (_fnTerm ? _fnTerm+' ' : '') + _fnMid.join('-');
+  // 移除 Windows/瀏覽器檔名不允許的字元
+  _pdfFileName = _pdfFileName.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim() || docTitle;
+  var auto='<scr'+'ipt>window.addEventListener("load",function(){setTimeout(function(){document.title='+JSON.stringify(_pdfFileName)+';window.print();},400);});</scr'+'ipt>';
   h=h.replace('</body>', auto+'</body>');
   var w=window.open('','_blank');
   if(!w){ toast('⚠ 瀏覽器阻擋了彈出視窗，請允許後再試'); return; }
