@@ -11584,7 +11584,8 @@ function buildCbD(f,d,canT,fkey,canS){
     return '<label class="check-item"><input type="radio" name="f06_cx_'+fid+'" '+chk+' onchange="'+oc+'" style="accent-color:var(--gold);"> '+v+'</label>';
   }).join('');
   // CbD 加入 basicInfoCard（含實習學校、日期、類別）
-  let h=basicInfoCard(fid,d,'<div class="g2"><div class="field"><label>病情複雜度</label><div class="check-group">'+cxBtns+'</div></div><div class="field"><label>主診斷（不限字數）</label>'+ta(fid,'case_dx',4,false)+'</div></div>');
+  // 病情複雜度、主診斷改為全寬、垂直堆疊（主診斷在病情複雜度下方），與基本資料區欄寬一致
+  let h=basicInfoCard(fid,d,'<div class="field"><label>病情複雜度</label><div class="check-group">'+cxBtns+'</div></div><div class="field"><label>主診斷</label>'+ta(fid,'case_dx',4,false)+'</div>');
   // 評量說明列
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評量項目<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
   h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:11px;color:#991B1B;">📊 評分標準：<strong>1～3分 = 有待加強</strong>　<strong>4～6分 = 合乎標準</strong>　<strong>7～9分 = 優良</strong>　UGY ≥ 5分合格</div>';
