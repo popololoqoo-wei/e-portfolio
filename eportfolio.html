@@ -14796,9 +14796,9 @@ function cohortSections(students){
     var f14=students.map(function(s){return cohortF14Score(s.sid);});
     var matrix=students.map(function(s,i){return [f13[i],f14[i]];});
     var html='';
-    html+=_cohNote('書面（F13）與口頭 PPT（F14）皆滿分 100，<b style="color:#DC2626;">60 分及格</b>。');
-    html+=_cohChartBox(cohortGroupedBarSVG(names, ['書面 F13','口頭 F14'], matrix, 100, {height:300, threshold:60, thresholdLabel:'及格線 60', valueLabels:true}));
-    var head='<tr>'+_cohTh('學生')+_cohTh('書面 F13')+_cohTh('口頭 F14')+'</tr>';
+    html+=_cohNote('書面報告與口頭報告（PPT）皆滿分 100，<b style="color:#DC2626;">60 分及格</b>。');
+    html+=_cohChartBox(cohortGroupedBarSVG(names, ['書面報告','口頭報告'], matrix, 100, {height:300, threshold:60, thresholdLabel:'及格線 60', valueLabels:true}));
+    var head='<tr>'+_cohTh('學生')+_cohTh('書面報告')+_cohTh('口頭報告')+'</tr>';
     var body='';
     function cell(v){ if(v==null) return _cohTd('<span style="color:#bbb;">未完成</span>','text-align:center;'); return _cohTd(v+' / 100','text-align:center;font-weight:700;color:'+(v>=60?'#059669':'#DC2626')+';'); }
     students.forEach(function(s,i){ body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(f13[i])+cell(f14[i])+'</tr>'; });
