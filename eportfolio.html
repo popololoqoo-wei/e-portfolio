@@ -11055,7 +11055,7 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate,noDate){
   //   改由獨立的「評核日期」老師區塊呈現。
   var dateBlock = noDate ? '' :
     '<div class="field"><label>'+(dateLabel||'實習日期')+'</label>'+dateField+'</div>';
-  return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body">'+
+  return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料<span class="s-badge">學生填寫</span></div></div><div class="card-body">'+
     '<div class="field"><label>學生姓名</label>'+snField+'</div>'+
     '<div class="field"><label>實習學校</label>'+schoolField+'</div>'+
     dateBlock+
@@ -11389,7 +11389,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   h+='</div></div>';
 
   // 基本資料（學生）
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生資料</div></div><div class="card-body">';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">學生資料<span class="s-badge">學生填寫</span></div></div><div class="card-body">';
   h+='<div class="g2">';
   // 學生姓名 / 簽名統一規則(學生登入 / 老師查看 都自動帶入,唯讀,且強制覆蓋舊污染)
   var sn=d['s_name']||'';
@@ -11761,8 +11761,8 @@ function buildF08(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   const profs=['西醫','牙醫','中醫','藥事','醫事放射','醫事檢驗','牙體技術','護理','營養','助產','聽力','語言','物理','職能','臨床心理','諮商心理','呼吸治療'];
-  let h=basicInfoCard(fid,d,`<div class="g2"><div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
-    <div class="field"><label>主診斷</label>${fi(fid,'diagnosis','text',false)}</div></div>
+  let h=basicInfoCard(fid,d,`<div class="field"><label>會議類別</label><div class="check-group">${['高齡','安寧療護'].map(v=>`<label class="check-item"><input type="radio" name="f08_cat" ${d['cat']===v?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['cat']='${v}'" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>
+    <div class="field"><label>主診斷</label>${fi(fid,'diagnosis','text',false)}</div>
     <div class="field"><label>參加職類</label><div class="check-group">${profs.map(v=>`<label class="check-item"><input type="checkbox" ${d['prof_'+v]?'checked':''} onchange="APP.formData['${fid}']=APP.formData['${fid}']||{};APP.formData['${fid}']['prof_${v}']=this.checked" style="accent-color:var(--gold);"> ${v}</label>`).join('')}</div></div>`);
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">全人討論（包含2個以上面向）<span style="font-size:11px;font-weight:600;color:#FEF3C7;background:rgba(245,158,11,.35);padding:2px 8px;border-radius:10px;margin-left:8px;border:1px solid rgba(254,243,199,.5);">⚠ 若無建議，請填寫「無」</span></div></div><div class="card-body">
     ${[['生理(Body)','疾病之檢查、檢驗、診斷與治療'],['心理(Mind)','對疾病的認知、自我照護的技能與態度'],['靈性(Spirit)','信仰、心靈關懷，精神上的支持與安慰'],['社會(Social)','家人協助、轉介服務、出院準備']].map(([t,hint])=>`<div class="field"><label>${t}<span style="font-size:10px;color:var(--ink3);margin-left:4px;">${hint}</span></label>${ta(fid,'discuss_'+t[0],2,false)}</div>`).join('')}
@@ -13164,7 +13164,7 @@ function buildF16(f,d,canT,fkey,canS){
 
   let h='';
   // ── 基本資料 ──
-  h+='<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body"><div class="g2">';
+  h+='<div class="card"><div class="card-head"><div class="card-head-title">基本資料<span class="s-badge">學生填寫</span></div></div><div class="card-body"><div class="g2">';
   h+='<div class="field"><label>學生姓名</label><input type="text" value="'+(d['s_name']||'')+'" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);font-size:13px;"></div>';
   h+='<div class="field"><label>實習學校</label><select data-fid="'+fid+'" data-key="school" onchange="saveDraftField(\''+fid+'\',\'school\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習學校</option>'+schOpts+'</select></div>';
   h+='<div class="field"><label>實習類別</label><select data-fid="'+fid+'" data-key="intern_cat" onchange="saveDraftField(\''+fid+'\',\'intern_cat\',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習類別</option>'+catOpts+'</select></div>';
