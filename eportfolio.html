@@ -11883,7 +11883,7 @@ function buildF11(f,d,canT,fkey,canS){
   //   否則 ta() 會讀寫 APP.formData['F11'](裸 id)，但 openForm 流程中會主動刪除裸 id，
   //   導致使用者切到別張表單再回來時，剛剛填的內容消失。
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">個人化學習計畫（學生填寫）</div></div><div class="card-body">
-    ${flds.map(([k,l,r])=>`<div class="field"><label>${l}</label>${ta(fid,k,r,false)}</div>`).join('')}
+    ${flds.map(([k,l,r])=>`<div class="field"><label>${l}</label>${k==='timeline'?`<input type="date" value="${((d['timeline']||'').split(' - ')[0]||'').replace(/\//g,'-')}" data-fid="${fid}" data-key="timeline" onchange="saveDraftField('${fid}','timeline',this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;">`:ta(fid,k,r,false)}</div>`).join('')}
   </div></div>`;
   h+=`<div class="card"><div class="card-head"><div class="card-head-title">實習總指導教師回饋<span class="t-badge">老師</span></div></div><div class="card-body">
     <div class="field">${ta(fid,'t_fb',4,!canT)}</div>
@@ -14713,13 +14713,15 @@ function cohortSections(students){
       var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
       var top='—';
       if(sc){
-        var maxv=-1, topCode=null;
-        dims.forEach(function(c){ if(sc[c]>maxv){maxv=sc[c];topCode=c;} });
+        // 先找最高分，再把所有「同為最高分」的向度都視為主要風格（同分併列，與個人詳細頁一致）
+        var maxv=-1;
+        dims.forEach(function(c){ if(sc[c]>maxv){maxv=sc[c];} });
+        var topCodes=dims.filter(function(c){ return sc[c]===maxv; });
         dims.forEach(function(c){
-          var isTop=(c===topCode);
+          var isTop=(topCodes.indexOf(c)>=0);
           row+=_cohTd(sc[c],'text-align:center;'+(isTop?'background:#DBEAFE;font-weight:700;color:#1E40AF;':''));
         });
-        top = topCode ? F16_STYLES[topCode].zh : '—';
+        top = (maxv>0 && topCodes.length>0) ? topCodes.map(function(c){return F16_STYLES[c].zh;}).join('、') : '—';
       } else {
         dims.forEach(function(){ row+=_cohTd('—','text-align:center;color:#bbb;'); });
         top='<span style="color:#bbb;">未完成</span>';
