@@ -1329,6 +1329,9 @@ let APP={
 APP.courseTopics=['洗手技術','無菌操作','動脈血液氣體分析判讀','呼吸器初始設定'];
 APP.courseSpeakers=['陳正美','卓瓊美','黃培琦','傅偉菱'];
 
+// 實習類別選項（基本資料 / F04 / 管理員後台 共用，確保字串一致可正確對應）
+const INTERN_CATEGORIES=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
+
 /* ═══════════ HELPERS ═══════════ */
 
 /* ─── 【資安修補 v18】alias for compatibility ─── 
@@ -1542,7 +1545,10 @@ async function doLogin(role){
     if(result.ok){
       matched = true;
       acc = result.user;  // 後端回傳 {sid, name, school}
-      APP.students[sid] = acc;  // 快取到記憶體（不含密碼）
+      // ★ 合併而非覆蓋:保留設定檔(autoLoadConfig)帶入的實習資料等欄位,
+      //   避免後端 auth 只回 {sid,name,school} 時把 intern_* 洗掉。
+      APP.students[sid] = Object.assign({}, APP.students[sid]||{}, acc);
+      acc = APP.students[sid];
     } else if(result.error && result.error.indexOf('連線')>=0){
       // 後端連線失敗 → 退回本地快取驗證（離線降級）
       const localAcc = APP.students[sid];
@@ -1563,7 +1569,8 @@ async function doLogin(role){
     clearFails(lockKey);
     errEl.style.display='none';
     APP.currentRole='student';
-    APP.currentUser={sid, name:acc.name, school:acc.school};
+    APP.currentUser={sid, name:acc.name, school:acc.school,
+      intern_cat: acc.intern_cat||'', intern_start: acc.intern_start||'', intern_end: acc.intern_end||''};
     enterApp();
   } else if(role==='teacher'){
     const card=clipInput(document.getElementById('t-card').value.trim(), MAX_SHORT_LENGTH);
@@ -1807,7 +1814,10 @@ async function doRegister(){
     }
     // 登入狀態
     APP.currentRole='student';
-    APP.currentUser={sid:sid, name:name, school:school};
+    APP.currentUser={sid:sid, name:name, school:school,
+      intern_cat:(APP.students[sid]&&APP.students[sid].intern_cat)||'',
+      intern_start:(APP.students[sid]&&APP.students[sid].intern_start)||'',
+      intern_end:(APP.students[sid]&&APP.students[sid].intern_end)||''};
     enterApp();
   }catch(e){
     err.textContent='⚠ 連線失敗:'+(e.message||e);err.style.display='block';
@@ -11019,6 +11029,7 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate,noDate){
   var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
   var schoolOC="saveDraftField('"+fid+"','school',this.value)";
   var schoolOpts=schools.map(function(s){return '<option value="'+s+'" '+(sc===s?'selected':'')+'>'+s+'</option>';}).join('');
+  if(sc && schools.indexOf(sc)<0){ schoolOpts='<option value="'+sc+'" selected>'+sc+'</option>'+schoolOpts; }
   var schoolField='<select data-fid="'+fid+'" data-key="school" onchange="'+schoolOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇學校</option>'+schoolOpts+'</select>';
 
   // 實習日期
@@ -11402,6 +11413,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   var sc=d['school']||'';
   var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
   var schoolOpts=schools.map(function(s){return '<option value="'+s+'" '+(sc===s?'selected':'')+'>'+s+'</option>';}).join('');
+  if(sc && schools.indexOf(sc)<0){ schoolOpts='<option value="'+sc+'" selected>'+sc+'</option>'+schoolOpts; }
   var schoolOC="saveDraftField('"+fid+"','school',this.value)";
   h+='<div class="field"><label>實習學校</label><select data-fid="'+fid+'" data-key="school" onchange="'+schoolOC+'" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇</option>'+schoolOpts+'</select></div>';
   h+='</div>';
@@ -15339,6 +15351,13 @@ function renderAdmin(){
           <input id="ns-expiry" type="date" title="帳號到期日(預設新增日 +90 天)" style="max-width:140px;">
           <button class="btn-add" onclick="addStudent()">＋ 新增</button>
         </div>
+        <div class="admin-row" style="margin-top:6px;align-items:center;flex-wrap:wrap;gap:6px;">
+          <span style="font-size:11px;color:var(--ink3);white-space:nowrap;">實習資料(選填，會自動帶入學生表單)：</span>
+          <select id="ns-cat" style="max-width:180px;"><option value="">實習類別</option>${INTERN_CATEGORIES.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('')}</select>
+          <input id="ns-start" type="date" title="實習起始日" style="max-width:150px;">
+          <span style="font-size:11px;color:var(--ink3);">～</span>
+          <input id="ns-end" type="date" title="實習結束日" style="max-width:150px;">
+        </div>
         <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">💡 拖曳左側 ⋮⋮ 圖示可排序　｜　黃色「自助註冊」標籤代表學生自行建立的帳號　｜　🛡 帳號到期日:不填則自動帶入 90 天後</div>
 
         <!-- ★ 批次操作工具列(可摺疊) -->
@@ -15374,7 +15393,7 @@ function renderAdmin(){
             </div>
           </div>
         </details>
-        <table class="accounts-table" id="student-table"></table>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="accounts-table" id="student-table"></table></div>
       </div>
     </div>
 
@@ -16215,6 +16234,10 @@ async function addStudent(){
   const sid=clipInput((document.getElementById('ns-sid').value||'').trim(), MAX_SHORT_LENGTH);
   const name=clipInput((document.getElementById('ns-name').value||'').trim(), MAX_NAME_LENGTH);
   const school=clipInput((document.getElementById('ns-school').value||'').trim(), MAX_NAME_LENGTH);
+  // 實習資料（選填）：實習類別 / 起始 / 結束日期 → 之後學生登入會自動帶入表單
+  const internCat=clipInput(((document.getElementById('ns-cat')||{}).value||'').trim(), MAX_NAME_LENGTH);
+  const internStart=((document.getElementById('ns-start')||{}).value||'').trim();
+  const internEnd=((document.getElementById('ns-end')||{}).value||'').trim();
   // ★ 防呆:讀取期限欄位,沒填則套用 90 天預設
   var expiryEl = document.getElementById('ns-expiry');
   var expiry = (expiryEl && expiryEl.value) ? expiryEl.value : computeDefaultExpiry(90);
@@ -16229,12 +16252,17 @@ async function addStudent(){
     return;
   }
   // 【資安修補 v18.1】呼叫後端 API（密碼會在後端雜湊化）
-  const result = await callBackend('addStudent', {sid, name, school, expiry, pwd:'123'});
+  // 附帶實習資料三欄(intern_cat / intern_start / intern_end)；後端若尚未支援會自動忽略，
+  // 待後端新增對應欄位後即會一併寫入 Google Sheets。
+  const result = await callBackend('addStudent', {sid, name, school, expiry, pwd:'123', intern_cat:internCat, intern_start:internStart, intern_end:internEnd});
   if(!result.ok){ toast('⚠ '+(result.error||'新增失敗'),false); return; }
   // 後端成功 → 更新本地快取(同步保留 pwdPlain 讓表格 👁 圖示可顯示)
-  APP.students[sid]={name,school,pwd:'h2:(remote)',pwdPlain:'123',expiry,mustChangePwd:true};
+  APP.students[sid]={name,school,pwd:'h2:(remote)',pwdPlain:'123',expiry,mustChangePwd:true,intern_cat:internCat,intern_start:internStart,intern_end:internEnd};
   refreshStudentTable();
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
+  var _nc=document.getElementById('ns-cat'); if(_nc)_nc.value='';
+  var _nst=document.getElementById('ns-start'); if(_nst)_nst.value='';
+  var _nen=document.getElementById('ns-end'); if(_nen)_nen.value='';
   if(expiryEl) expiryEl.value='';
   toast('✓ 已新增學生（預設密碼:123 · 期限至 '+expiry+')');
 }
@@ -16421,7 +16449,7 @@ function refreshStudentTable(){
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
-  var rows = '<tr><th style="width:32px;text-align:center;"><input type="checkbox" id="batch-th-checkbox" onchange="batchToggleAll(this.checked)" style="cursor:pointer;width:14px;height:14px;" title="全選"></th><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
+  var rows = '<tr><th style="width:32px;text-align:center;"><input type="checkbox" id="batch-th-checkbox" onchange="batchToggleAll(this.checked)" style="cursor:pointer;width:14px;height:14px;" title="全選"></th><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>實習資料</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
   orderedSids.forEach(function(sid){
     var acc = APP.students[sid]; if(!acc) return;
     var expired = acc.expiry && new Date(acc.expiry) < new Date();
@@ -16449,7 +16477,18 @@ function refreshStudentTable(){
       'ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" style="cursor:move;">'+
       '<td style="text-align:center;"><input type="checkbox" class="batch-row-checkbox" data-sid="'+escAttr(sid)+'" onchange="batchUpdateCount()" style="cursor:pointer;width:14px;height:14px;"></td>'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
-      '<td>'+esc(sid)+'</td><td>'+esc(acc.name)+selfReg+'</td><td>'+esc(acc.school||'—')+'</td><td>'+pwdCell+'</td>'+
+      '<td>'+esc(sid)+'</td><td>'+esc(acc.name)+selfReg+'</td><td>'+esc(acc.school||'—')+'</td>'+
+      '<td style="min-width:210px;">'+
+        '<select id="si-cat-'+escAttr(sid)+'" onchange="updateStudentIntern(\''+escAttr(sid)+'\')" style="width:100%;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:10px;margin-bottom:3px;"><option value="">—實習類別—</option>'+
+          INTERN_CATEGORIES.map(function(c){return '<option value="'+escAttr(c)+'" '+(acc.intern_cat===c?'selected':'')+'>'+esc(c)+'</option>';}).join('')+
+        '</select>'+
+        '<div style="display:flex;gap:3px;align-items:center;">'+
+          '<input type="date" id="si-start-'+escAttr(sid)+'" value="'+escAttr(_normalizeDateStr(acc.intern_start))+'" title="實習起始日" onchange="updateStudentIntern(\''+escAttr(sid)+'\')" style="flex:1 1 0;min-width:0;padding:2px 3px;border:1px solid var(--border);border-radius:4px;font-size:10px;">'+
+          '<span style="font-size:9px;color:var(--ink3);">~</span>'+
+          '<input type="date" id="si-end-'+escAttr(sid)+'" value="'+escAttr(_normalizeDateStr(acc.intern_end))+'" title="實習結束日" onchange="updateStudentIntern(\''+escAttr(sid)+'\')" style="flex:1 1 0;min-width:0;padding:2px 3px;border:1px solid var(--border);border-radius:4px;font-size:10px;">'+
+        '</div>'+
+      '</td>'+
+      '<td>'+pwdCell+'</td>'+
       '<td style="'+expiryColor+'">'+
         '<input type="date" value="'+escAttr(_normalizeDateStr(acc.expiry))+'" style="padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:120px;" onchange="updateStudentExpiry(\''+escAttr(sid)+'\',this.value)">'+
         (expired?'<span style="color:var(--red);font-size:10px;display:block;">已失效</span>':'')+
@@ -16800,6 +16839,30 @@ function updateStudentExpiry(sid, date) {
   }
 }
 
+/* ── 更新學生「實習資料」(實習類別 / 起始 / 結束日期) ──
+   走權威的逐筆後端 API(updateStudent，與 editStudent 一致)，確保 v19 後端能寫進 Sheet。
+   學生登入後，這三項會由 autoFillInternInfo() 自動帶入各表單基本資料區。
+   ※ 後端 updateStudent 需支援儲存 intern_cat / intern_start / intern_end 三欄(見檔末說明)。 */
+async function updateStudentIntern(sid){
+  var acc = APP.students[sid];
+  if(!acc) return;
+  var catEl   = document.getElementById('si-cat-'+sid);
+  var startEl = document.getElementById('si-start-'+sid);
+  var endEl   = document.getElementById('si-end-'+sid);
+  var cat   = catEl   ? (catEl.value||'')   : (acc.intern_cat||'');
+  var start = startEl ? (startEl.value||'') : (acc.intern_start||'');
+  var end   = endEl   ? (endEl.value||'')   : (acc.intern_end||'');
+  // 先更新本機快取(畫面即時反映)
+  acc.intern_cat=cat; acc.intern_start=start; acc.intern_end=end;
+  // 送後端(附帶現有 name/school，避免被清空)
+  var result = await callBackend('updateStudent', {sid:sid, name:acc.name, school:acc.school||'', intern_cat:cat, intern_start:start, intern_end:end});
+  if(!result || !result.ok){
+    toast('⚠ 實習資料已暫存本機，但後端未確認（可能需先更新後端欄位）', false);
+  }else{
+    toast('✓ 實習資料已更新（學生登入將自動帶入）');
+  }
+}
+
 /* ── 一鍵套用「90 天後」到指定學生 ──
    用於「⚠ 永久有效」舊帳號的快速防呆補修 */
 function applyDefaultExpiry(sid) {
@@ -16944,7 +17007,10 @@ async function editStudent(sid) {
       pwd: cleanPwd !== null ? 'h2:(remote)' : acc.pwd,
       expiry: acc.expiry,
       selfRegistered: acc.selfRegistered,
-      registeredAt: acc.registeredAt
+      registeredAt: acc.registeredAt,
+      intern_cat: acc.intern_cat||'',
+      intern_start: acc.intern_start||'',
+      intern_end: acc.intern_end||''
     };
     delete APP.students[sid];
     if (APP.studentOrder && APP.studentOrder.indexOf(sid) >= 0) {
