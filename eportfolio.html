@@ -9146,7 +9146,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',val('s_name')||studentName,false);
     html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('評核日期',singleDateOnly(val('s_date')),false);
+    html+=pdfR('評核日期',singleDateOnly(val('s_date')),true);
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
     // ── D03 額外的呼吸器機型欄位 ──
@@ -9286,7 +9286,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',val('s_name')||studentName,false);
     html+=pdfR('實習學校',val('school'),false);
-    html+=pdfR('評核日期',singleDateOnly(val('s_date')),false);
+    html+=pdfR('評核日期',singleDateOnly(val('s_date')),true);
     html+=pdfR('實習類別',val('intern_cat'),false);
     html+='</table>';
     // ── 臨床情境（複選） ──
@@ -10912,10 +10912,11 @@ function dateRangeField(fid,key,disabled){
     +"var r=(s?s.replace(/-/g,'/'):'')+(s&&e?' - ':s||e?' - ':'')+(e?e.replace(/-/g,'/'):'');"
     +"saveDraftField('"+fid+"','"+key+"',r);"
     +"})(this)";
-  return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-    +'<input type="date" id="'+sid+'" data-fid="'+fid+'" data-key="'+key+'_start" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'
-    +'<span style="color:var(--ink3);font-size:12px;">～</span>'
-    +'<input type="date" id="'+eid+'" data-fid="'+fid+'" data-key="'+key+'_end" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="padding:7px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';flex:1;">'
+  // 起迄日期固定同一行（不換行），兩框等寬等大，視覺一致
+  return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;width:100%;">'
+    +'<input type="date" id="'+sid+'" data-fid="'+fid+'" data-key="'+key+'_start" value="'+startVal+'"'+dis+' onchange="'+updateFn+'" style="flex:1 1 0;min-width:0;width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';">'
+    +'<span style="flex:0 0 auto;color:var(--ink3);font-size:12px;">～</span>'
+    +'<input type="date" id="'+eid+'" data-fid="'+fid+'" data-key="'+key+'_end" value="'+endVal+'"'+dis+' onchange="'+updateFn+'" style="flex:1 1 0;min-width:0;width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:'+bg+';">'
     +'</div>';
 }
 
@@ -10958,7 +10959,28 @@ function saveDraftField(fid, key, val){
   if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
 
-function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
+/* 需求5：依登入學生的後台帳號資料，自動帶入「實習學校 / 實習類別 / 實習日期(起迄)」。
+ *   ─ 僅在後端有提供且此表單該欄尚未填寫時帶入（同時寫入記憶體 d 與 APP.formData[fid]）。
+ *   ─ 後端未提供時維持空白，因此後台即使尚未新增這些欄位也不會出錯，
+ *     待後台補上「實習類別 / 起始 / 結束日期」欄位（並由後端隨帳號回傳）後即自動生效。
+ *   ─ 後端可回傳 s_date（已組好的「起 - 迄」字串）或 intern_start / intern_end，皆相容。 */
+function autoFillInternInfo(fid,d){
+  if(APP.currentRole!=='student'||!APP.currentUser) return;
+  if(!APP.formData[fid]) APP.formData[fid]={};
+  var _cu=APP.currentUser;
+  if(!d['school']&&_cu.school){ APP.formData[fid]['school']=_cu.school; d['school']=_cu.school; }
+  var _cuCat=_cu.intern_cat||_cu.category||'';
+  if(!d['intern_cat']&&_cuCat){ APP.formData[fid]['intern_cat']=_cuCat; d['intern_cat']=_cuCat; }
+  if(!d['s_date']){
+    var _s=_cu.intern_start||_cu.s_date_start||'';
+    var _e=_cu.intern_end||_cu.s_date_end||'';
+    var _r=_cu.s_date||'';
+    if(!_r&&(_s||_e)){ _r=(_s?String(_s).replace(/-/g,'/'):'')+' - '+(_e?String(_e).replace(/-/g,'/'):''); }
+    if(_r){ APP.formData[fid]['s_date']=_r; d['s_date']=_r; }
+  }
+}
+
+function basicInfoCard(fid,d,extraFields,dateLabel,singleDate,noDate){
   // 學生姓名統一規則:
   //   - 學生登入   → 強制覆蓋為本人姓名(避免舊污染殘留),唯讀
   //   - 老師/管理員 → 跟著左側 sidebar 選的學生(APP.currentStudentId)自動帶入,唯讀
@@ -10986,10 +11008,8 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
       APP.formData[fid]['s_sign']=sn;
       d['s_sign']=sn;
     }
-    // 學生登入時若 user 有預設學校,也僅帶入記憶體(不寫草稿)
-    if(APP.currentRole==='student'&&APP.currentUser&&!d['school']&&APP.currentUser.school){
-      APP.formData[fid]['school']=APP.currentUser.school;
-    }
+    // 學生登入時，依後台帳號資料自動帶入「實習學校 / 類別 / 日期(起迄)」(僅記憶體，不寫草稿)
+    autoFillInternInfo(fid,d);
   }
   // 學生姓名一律唯讀文字框(學生登入 / 老師登入皆同)
   var snField='<input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;">';
@@ -11017,16 +11037,35 @@ function basicInfoCard(fid,d,extraFields,dateLabel,singleDate){
   var catVal=d['intern_cat']||'';
   var catOpts=cats.map(function(c){return '<option value="'+c+'" '+(catVal===c?'selected':'')+'>'+c+'</option>';}).join('');
   var catOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['intern_cat']=this.value;saveDraftField('"+fid+"','intern_cat',this.value)";
-  var catHtml='<select data-fid="'+fid+'" data-key="intern_cat" onchange="'+catOC+'" style="width:100%;max-width:300px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習類別</option>'+catOpts+'</select>';
+  var catHtml='<select data-fid="'+fid+'" data-key="intern_cat" onchange="'+catOC+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:#fff;"><option value="">請選擇實習類別</option>'+catOpts+'</select>';
 
+  // ─── 版面：所有欄位統一全寬、垂直排列，視覺一致 ───
+  //   實習日期固定置於「實習類別」上方；EPA/DOPS(noDate=true)則不在此顯示日期，
+  //   改由獨立的「評核日期」老師區塊呈現。
+  var dateBlock = noDate ? '' :
+    '<div class="field"><label>'+(dateLabel||'實習日期')+'</label>'+dateField+'</div>';
   return '<div class="card"><div class="card-head"><div class="card-head-title">基本資料</div></div><div class="card-body">'+
-    '<div class="g3">'+
     '<div class="field"><label>學生姓名</label>'+snField+'</div>'+
     '<div class="field"><label>實習學校</label>'+schoolField+'</div>'+
-    '<div class="field"><label>'+(dateLabel||'實習日期')+'</label>'+dateField+'</div>'+
-    '</div>'+
-    '<div class="field" style="margin-top:8px;"><label>實習類別</label>'+catHtml+'</div>'+
+    dateBlock+
+    '<div class="field"><label>實習類別</label>'+catHtml+'</div>'+
     (extraFields||'')+'</div></div>';
+}
+
+/* ─── 評核日期：獨立「老師填寫」區塊（紅色，學生鎖定不可填，老師可填）───
+ *   用於所有 EPA / DOPS 表單。資料仍存於 s_date（沿用原欄位，PDF/雲端皆相容），
+ *   只是改以獨立卡片＋data-teacher="1" 呈現，並套用老師欄位的鎖定機制。 */
+function evalDateCard(fid,canT){
+  var d=APP.formData[fid]||{};
+  var v=d['s_date']||'';
+  var dateVal=v?String(v).split(' ')[0].replace(/\//g,'-'):'';
+  var dis=canT?'':' disabled';
+  var bg=canT?'#fff':'var(--cream)';
+  var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['s_date']=this.value;saveDraftField('"+fid+"','s_date',this.value)";
+  return '<div class="card t-card"><div class="card-head"><div class="card-head-title">評核日期<span class="t-badge">老師填寫</span></div></div><div class="card-body">'+
+    '<div class="field"><label>評核日期<span class="t-badge">老師</span></label>'+
+    '<input type="date" value="'+dateVal+'" data-teacher="1"'+dis+' data-fid="'+fid+'" data-key="s_date" onchange="'+oc+'" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';color:var(--ink);font-size:13px;"></div>'+
+    '</div></div>';
 }
 
 /* ─── F01A 核心課程內容自我學前評值表 ─── */
@@ -11357,6 +11396,8 @@ function buildF04Bedside(f,d,canT,fkey,canS){
     if(d['s_sign']!==sn){APP.formData[fid]['s_sign']=sn;d['s_sign']=sn;}
   }
   h+='<div class="field"><label>學生姓名</label><input type="text" value="'+sn+'" data-fid="'+fid+'" data-key="s_name" readonly style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--cream);color:var(--ink);font-size:13px;"></div>';
+  // 需求5：自動帶入實習學校 / 類別 / 日期(起迄)（學生登入且後台有提供時）
+  autoFillInternInfo(fid,d);
   // 實習學校下拉
   var sc=d['school']||'';
   var schools=(APP.config&&APP.config.schools)||['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
@@ -11409,6 +11450,12 @@ function buildF04Bedside(f,d,canT,fkey,canS){
 
   // 呼吸器設定參數（完整依Word原稿）
   h+='<div style="font-size:12px;font-weight:600;margin:10px 0 6px;">目前呼吸器設定：</div>';
+  // ── Mode 欄位：獨立全寬大框，字可一眼看到，超過約 10 字寬度自動換到第二行 ──
+  var modeOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_mode']=this.value;saveDraftField('"+fid+"','vent_mode',this.value)";
+  h+='<div style="display:flex;align-items:flex-start;gap:8px;margin:0 0 8px;">';
+  h+='<label style="font-size:12px;font-weight:600;white-space:nowrap;padding-top:7px;">Mode：</label>';
+  h+='<textarea rows="1" data-fid="'+fid+'" data-key="vent_mode" onchange="'+modeOC+'" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" placeholder="例：PC-SIMV + PSV" style="flex:1 1 auto;min-width:120px;max-width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:12px;line-height:1.5;resize:vertical;overflow:hidden;font-family:var(--ff-sans);box-sizing:border-box;">'+(d['vent_mode']||'')+'</textarea>';
+  h+='</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
 
   function paramCell(label,key,unit){
@@ -11422,9 +11469,9 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   }
 
   h+='<tr>';
-  h+=paramCell('Mode','vent_mode','');
   h+=paramCell('FiO₂','fio2','%');
   h+=paramCell('PEEP','peep','cmH₂O');
+  h+='<td style="border:1px solid var(--border);padding:4px 6px;"></td>';
   h+='</tr><tr>';
   h+=paramCell2('Vt set/exp','vt_set','vt_exp','mL');
   h+=paramCell('Flow','flow','L');
@@ -11747,9 +11794,9 @@ function buildF10(f,d,canT,fkey,canS){
   // 學生姓名 / 簽名自動帶入由 basicInfoCard 統一處理(學生登入 + 老師查看皆涵蓋)
   // ★ 改用通用 basicInfoCard:把「輔導日期」放在 extraFields 內
   var dateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['date']=this.value;saveDraftField('"+fid+"','date',this.value)";
-  var dateExtra='<div class="field" style="margin-top:8px;"><label>輔導日期</label>'+
+  var dateExtra='<div class="field"><label>輔導日期</label>'+
     '<input type="date" value="'+(d['date']||'')+'" data-fid="'+fid+'" data-key="date" onchange="'+dateOC+'" '+
-    'style="width:100%;max-width:300px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
+    'style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
   let h=basicInfoCard(fid,d,dateExtra);
 
   const tqs=[['q_basic','學生基本資料是否填寫？'],['q_self','學生自我評量是否填寫？'],['q_progress','表單填寫是否符合進度？'],['q_detail','表單內容是否詳細？'],['q_t_sign','老師是否評分並簽名？'],['q_feeling','學生有無填寫心得？'],['q_t_fb','老師有無回饋並簽名？'],['q_all_sign','老師是否都已簽名？']];
@@ -12189,7 +12236,7 @@ function buildDOPS(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   const data=DOPS_DATA[f.id];if(!data)return buildGeneric(f,d,canT);
-  let h=basicInfoCard(fid,d,'','評核日期',true);
+  let h=basicInfoCard(fid,d,'','',false,true)+evalDateCard(fid,canT);
   let itemIdx=0;
   data.groups.forEach(g=>{
     h+='<div class="card"><div class="card-head" style="background:linear-gradient(90deg,#FEF2F2,#FEF6F6);"><div class="card-head-title" style="color:#991B1B;">'+g.hd+'<span class="t-badge">老師評分 1-9 / NA</span></div></div><div class="card-body" style="overflow-x:auto;">';
@@ -12374,7 +12421,7 @@ function buildEPA(f,d,canT,fkey,canS){
   if(task.limit) taskHtml+='<div style="font-size:11px;color:var(--red);font-weight:600;">⚠ 限制：'+task.limit+'</div>';
   taskHtml+='</div></div>';
 
-  let h=basicInfoCard(fid,d,taskHtml,'評核日期',true);
+  let h=basicInfoCard(fid,d,taskHtml,'',false,true)+evalDateCard(fid,canT);
 
   // 臨床情境複選
   if(task.scenarios&&task.scenarios.length>0){
