@@ -8947,7 +8947,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+='<table>';
     html+=pdfR('學生姓名',val('s_name')||studentName||'—',false);
     html+=pdfR('實習類別',val('intern_cat')||val('cat')||'—',false);
-    html+=pdfR('輔導日期',val('date')||'—',false);
+    html+=pdfR('輔導日期',val('date')||'—',true);
     html+=pdfR('實習學校',val('school')||'—',false);
     html+='</table>';
     // ── 實習總指導教師查核 ──
@@ -11099,6 +11099,22 @@ function evalDateCard(fid,canT){
     '</div></div>';
 }
 
+/* ─── 輔導日期：獨立「老師填寫」區塊（紅色，學生鎖定不可填，老師可填）───
+ *   用於輔導記錄表(1)/(2)（F10A/F10B）。資料仍存於 'date'（沿用原欄位，PDF/雲端皆相容），
+ *   只是改以獨立卡片＋data-teacher="1" 呈現，並套用老師欄位的鎖定機制。 */
+function counselDateCard(fid,canT){
+  var d=APP.formData[fid]||{};
+  var v=d['date']||'';
+  var dateVal=v?String(v).split(' ')[0].replace(/\//g,'-'):'';
+  var dis=canT?'':' disabled';
+  var bg=canT?'#fff':'var(--cream)';
+  var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['date']=this.value;saveDraftField('"+fid+"','date',this.value)";
+  return '<div class="card t-card"><div class="card-head"><div class="card-head-title">輔導日期<span class="t-badge">老師填寫</span></div></div><div class="card-body">'+
+    '<div class="field"><label>輔導日期<span class="t-badge">老師</span></label>'+
+    '<input type="date" value="'+dateVal+'" data-teacher="1"'+dis+' data-fid="'+fid+'" data-key="date" onchange="'+oc+'" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';color:var(--ink);font-size:13px;"></div>'+
+    '</div></div>';
+}
+
 /* ─── F01A 核心課程內容自我學前評值表 ─── */
 function buildF01A(f,d,canT,fkey,canS){
   if(canS===undefined)canS=true;
@@ -11825,12 +11841,8 @@ function buildF10(f,d,canT,fkey,canS){
   const fid=fkey||f.id;
   if(canS===undefined)canS=true;
   // 學生姓名 / 簽名自動帶入由 basicInfoCard 統一處理(學生登入 + 老師查看皆涵蓋)
-  // ★ 改用通用 basicInfoCard:把「輔導日期」放在 extraFields 內
-  var dateOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['date']=this.value;saveDraftField('"+fid+"','date',this.value)";
-  var dateExtra='<div class="field"><label>輔導日期</label>'+
-    '<input type="date" value="'+(d['date']||'')+'" data-fid="'+fid+'" data-key="date" onchange="'+dateOC+'" '+
-    'style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;"></div>';
-  let h=basicInfoCard(fid,d,dateExtra);
+  // ★ 輔導日期改為獨立「老師填寫」紅色區塊（counselDateCard），不再放在基本資料內
+  let h=basicInfoCard(fid,d,'')+counselDateCard(fid,canT);
 
   const tqs=[['q_basic','學生基本資料是否填寫？'],['q_self','學生自我評量是否填寫？'],['q_progress','表單填寫是否符合進度？'],['q_detail','表單內容是否詳細？'],['q_t_sign','老師是否評分並簽名？'],['q_feeling','學生有無填寫心得？'],['q_t_fb','老師有無回饋並簽名？'],['q_all_sign','老師是否都已簽名？']];
   const sqs=[['s_q2','臨床實習老師床邊教學是否認真？',['是','否']],['s_q3','老師有無指導或修改呼吸監護記錄？',['有','無']],['s_q4','老師有無指導醫療照護工作？',['有','無']],['s_q5','核心課程學習有無需要再補強？',['有','無']],['s_q6','生活方面有無困難？',['有','無']]];
