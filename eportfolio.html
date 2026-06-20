@@ -1330,6 +1330,9 @@ let APP={
 */
 APP.courseTopics=['洗手技術','無菌操作','動脈血液氣體分析判讀','呼吸器初始設定'];
 APP.courseSpeakers=['陳正美','卓瓊美','黃培琦','傅偉菱'];
+// 班級統整 PDF 表頭「學期」(管理員手動填；留空則自動推算)。本機留底，伺服器有值時以伺服器為準。
+APP.cohortTerm='';
+try{ var _ctLS=localStorage.getItem('cohort_term'); if(_ctLS) APP.cohortTerm=_ctLS; }catch(e){}
 
 // 實習類別選項（基本資料 / F04 / 管理員後台 共用，確保字串一致可正確對應）
 const INTERN_CATEGORIES=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
@@ -14455,14 +14458,15 @@ async function examPostUnlock(){
 function _cohColors(){ return ['#2563EB','#DC2626','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D']; }
 function _cohEsc(s){ return (typeof esc==='function') ? esc(String(s==null?'':s)) : String(s==null?'':s); }
 
-/* 取得全班學生清單 [{sid,name,school}] */
+/* 取得全班學生清單 [{sid,name,school,intern_start,intern_end,intern_cat}] */
 function cohortStudentList(){
   var order = (APP.studentOrder && APP.studentOrder.length) ? APP.studentOrder.slice()
             : Object.keys(APP.students||{});
   return order.filter(function(sid){ return APP.students && APP.students[sid]; })
               .map(function(sid){
                 var s = APP.students[sid] || {};
-                return { sid: sid, name: s.name || sid, school: s.school || '' };
+                return { sid: sid, name: s.name || sid, school: s.school || '',
+                         intern_start: s.intern_start || '', intern_end: s.intern_end || '', intern_cat: s.intern_cat || '' };
               });
 }
 
@@ -15169,25 +15173,41 @@ function downloadCohortPDF(sectionId){
       var sc=(s.school||'').trim();
       if(sc && schools.indexOf(sc)<0) schools.push(sc);
     });
-    // 實習日期：掃描全部學生、全部表單的 s_date，取最早起日與最晚迄日
+    // 實習日期：以「後台帳號設定的實習起迄」為準（權威來源）。
+    //   ⚠ 不再直接掃所有表單的 s_date，因為 DOPS/EPA 等表單的 s_date 是「評核日期」(單一日期)，
+    //     會把評核日期誤當成實習起日，造成日期區間錯誤。
     var minD=null, maxD=null;
+    function _consider(st,en){
+      if(st){ st=String(st).trim().replace(/-/g,'/'); if(/^\d{4}\/\d{2}\/\d{2}$/.test(st)&&(minD===null||st<minD)) minD=st; }
+      if(en){ en=String(en).trim().replace(/-/g,'/'); if(/^\d{4}\/\d{2}\/\d{2}$/.test(en)&&(maxD===null||en>maxD)) maxD=en; }
+    }
+    var _hasAcct=false;
     students.forEach(function(s){
-      (typeof FORMS!=='undefined'?FORMS:[]).forEach(function(f){
-        var d=APP.formData[f.id+'_'+s.sid];
-        if(!d || !d.s_date) return;
-        var found=String(d.s_date).match(/\d{4}[\/-]\d{2}[\/-]\d{2}/g);
-        if(!found) return;
-        found.forEach(function(ds){
-          var norm=ds.replace(/-/g,'/');
-          if(minD===null || norm<minD) minD=norm;
-          if(maxD===null || norm>maxD) maxD=norm;
+      if((s.intern_start||'').trim()||(s.intern_end||'').trim()){ _hasAcct=true; _consider(s.intern_start, s.intern_end); }
+    });
+    // 後備：若帳號完全沒有實習日期，才掃表單，且只取「範圍格式」的 s_date（排除單一評核日期）
+    if(!_hasAcct){
+      students.forEach(function(s){
+        (typeof FORMS!=='undefined'?FORMS:[]).forEach(function(f){
+          var d=APP.formData[f.id+'_'+s.sid];
+          if(!d || !d.s_date) return;
+          var raw=String(d.s_date);
+          if(raw.indexOf(' - ')<0 && raw.indexOf('～')<0 && raw.indexOf('~')<0) return; // 只取範圍格式
+          var found=raw.match(/\d{4}[\/-]\d{2}[\/-]\d{2}/g);
+          if(!found) return;
+          var srt=found.slice().sort();
+          _consider(srt[0], srt[srt.length-1]);
         });
       });
-    });
+    }
     var dateStr = (minD&&maxD) ? (minD===maxD ? minD : (minD+' ～ '+maxD)) : '—';
-    // 學期：依最早起日推算台灣學年度與學期（8月起為新學年；8–翌年1月為第1學期，2–7月為第2學期）
+    // 學期：管理員若在後台手動填了「班級學期」，優先採用；否則依最早起日自動推算
+    //   (台灣學年度規則：8月起為新學年；8–翌年1月為第1學期，2–7月為第2學期)
     var termStr='';
-    if(minD){
+    var _manualTerm=(typeof APP!=='undefined' && APP.cohortTerm)?String(APP.cohortTerm).trim():'';
+    if(_manualTerm){
+      termStr=_manualTerm;
+    } else if(minD){
       var p=minD.split('/'), y=+p[0], mo=+p[1];
       var ay=(mo>=8)?(y-1911):(y-1912);
       var sem=(mo>=8||mo===1)?'第1學期':'第2學期';
@@ -15464,6 +15484,15 @@ function renderAdmin(){
       </div>
     </div>
 
+    <!-- 班級設定：班級統整 PDF 表頭「學期」 -->
+    <div class="admin-card">
+      <div class="admin-card-head">班級設定（班級統整 PDF 表頭「學期」）</div>
+      <div class="admin-card-body">
+        <div class="admin-row"><input id="cohort-term-input" placeholder="例如：114學年度暑期實習" value="${(APP.cohortTerm||'').replace(/"/g,'&quot;')}"><button class="btn-add" onclick="saveCohortTerm()">儲存</button></div>
+        <div style="font-size:11px;color:var(--ink3);">💡 此處填的文字會直接顯示在「班級統整」PDF 表頭的「學期」欄。留空則由系統依實習起日自動推算。</div>
+      </div>
+    </div>
+
     <!-- Course Topics & Speakers -->
     <div class="admin-card">
       <div class="admin-card-head">課程主題管理（課程滿意度下拉選項）</div>
@@ -15583,7 +15612,7 @@ window.addEventListener('load', () => {
 const CONFIG_SHEET='_系統設定';
 
 async function saveConfigToSheets(){
-  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
+  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,cohortTerm:APP.cohortTerm||'',studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
   const configStr = JSON.stringify(config);
 
   // 【安全】只有管理員才把完整 config 存進 localStorage（含所有學生明文密碼）
@@ -15673,6 +15702,7 @@ function applyConfig(cfg){
   if(cfg.examPIN) APP.examPIN=cfg.examPIN;
   if(cfg.courseTopics?.length>0) APP.courseTopics=cfg.courseTopics;
   if(cfg.courseSpeakers?.length>0) APP.courseSpeakers=cfg.courseSpeakers;
+  if(typeof cfg.cohortTerm==='string' && cfg.cohortTerm) { APP.cohortTerm=cfg.cohortTerm; try{ localStorage.setItem('cohort_term', cfg.cohortTerm); }catch(e){} }
   if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
   if(cfg.teacherOrder && cfg.teacherOrder.length>0) APP.teacherOrder=cfg.teacherOrder;
 }
@@ -16722,6 +16752,14 @@ async function updateTeacherPwd(card){
   APP.teachers[card].mustChangePwd = false;  // 既然手動更新就不再強制改
   refreshTeacherTable();
   saveConfigToSheets();
+}
+function saveCohortTerm(){
+  var el=document.getElementById('cohort-term-input');
+  var v=el?(el.value||'').trim():'';
+  APP.cohortTerm=v;
+  try{ localStorage.setItem('cohort_term', v); }catch(e){}
+  if(typeof saveConfigToSheets==='function'){ try{ saveConfigToSheets(); }catch(e){} }
+  if(typeof toast==='function') toast(v?'✓ 班級學期已儲存（將顯示於班級統整 PDF 表頭）':'✓ 已清空，PDF 將自動推算學期');
 }
 function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();saveConfigToSheets();document.getElementById('new-topic').value='';}}
 function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();saveConfigToSheets();}
