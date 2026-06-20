@@ -4776,11 +4776,11 @@ function getStatus(id){
   // ── 層級1：未填 ── 完全沒有實質資料
   // 「自動帶入」欄位不算實質資料：
   // - intern_cat 是預設值
-  // - s_name / s_sign / school 在學生登入時自動帶入，本身不代表使用者「有填寫」
+  // - s_name / s_sign / school / s_date 在登入時自動帶入，本身不代表使用者「有填寫」
   // - order 是筆試前/後測的題序（後測為洗牌結果），表單一渲染就會寫入草稿以維持
   //   「重新進入時題序穩定」，但這只是系統內部狀態,不代表使用者實際開始作答,
   //   故必須排除,否則「只是點進去察看」就會被誤判為「草稿中」。
-  const SKIP_KEYS=['intern_cat','s_name','s_sign','school','order'];
+  const SKIP_KEYS=['intern_cat','s_name','s_sign','school','s_date','order'];
   const hasAnyData=Object.keys(d).some(function(k){
     return SKIP_KEYS.indexOf(k)<0 && hasRealVal(d[k]);
   });
