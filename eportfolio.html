@@ -14717,7 +14717,7 @@ function cohortSections(students){
     var body='';
     students.forEach(function(s,si){
       var sc=stuScores[si];
-      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;');
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
       var top='—';
       if(sc){
         // 先找最高分，再把所有「同為最高分」的向度都視為主要風格（同分併列，與個人詳細頁一致）
@@ -14726,7 +14726,7 @@ function cohortSections(students){
         var topCodes=dims.filter(function(c){ return sc[c]===maxv; });
         dims.forEach(function(c){
           var isTop=(topCodes.indexOf(c)>=0);
-          row+=_cohTd(sc[c],(isTop?'background:#FEE2E2;font-weight:800;color:#B91C1C;':''));
+          row+=_cohTd(sc[c],(isTop?'background:#FCA5A5;font-weight:800;color:#7F1D1D;':''));
         });
         top = (maxv>0 && topCodes.length>0) ? topCodes.map(function(c){return F16_STYLES[c].zh;}).join('、') : '—';
       } else {
@@ -14755,10 +14755,10 @@ function cohortSections(students){
       var diff=(pre[i]!=null&&post[i]!=null)?(post[i]-pre[i]):null;
       var diffTxt = diff==null?'—':((diff>0?'▲ +':diff<0?'▼ ':'')+diff);
       var diffCol = diff==null?'#94a3b8':(diff>0?'#059669':diff<0?'#DC2626':'#64748b');
-      body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;')+cell(pre[i])+cell(post[i])+_cohTd(diffTxt,'text-align:center;font-weight:600;color:'+diffCol+';')+'</tr>';
+      body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(pre[i])+cell(post[i])+_cohTd(diffTxt,'text-align:center;font-weight:600;color:'+diffCol+';')+'</tr>';
     });
     var avgPre=_cohAvg(pre), avgPost=_cohAvg(post);
-    body+='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>','text-align:left;')+_cohTd(avgPre==null?'—':avgPre,'text-align:center;font-weight:700;')+_cohTd(avgPost==null?'—':avgPost,'text-align:center;font-weight:700;')+_cohTd((avgPre!=null&&avgPost!=null)?((avgPost-avgPre>=0?'+':'')+(avgPost-avgPre)):'—','text-align:center;font-weight:700;')+'</tr>';
+    body+='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>')+_cohTd(avgPre==null?'—':avgPre,'text-align:center;font-weight:700;')+_cohTd(avgPost==null?'—':avgPost,'text-align:center;font-weight:700;')+_cohTd((avgPre!=null&&avgPost!=null)?((avgPost-avgPre>=0?'+':'')+(avgPost-avgPre)):'—','text-align:center;font-weight:700;')+'</tr>';
     html+=_cohTbl(head,body);
     secs.push({id:'exam', title:'③ 筆試前／後測成績分布', html:html});
   })();
@@ -14801,9 +14801,9 @@ function cohortSections(students){
     var head='<tr>'+_cohTh('學生')+_cohTh('書面報告')+_cohTh('口頭報告')+'</tr>';
     var body='';
     function cell(v){ if(v==null) return _cohTd('<span style="color:#bbb;">未完成</span>','text-align:center;'); return _cohTd(v+' / 100','text-align:center;font-weight:700;color:'+(v>=60?'#059669':'#DC2626')+';'); }
-    students.forEach(function(s,i){ body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;')+cell(f13[i])+cell(f14[i])+'</tr>'; });
+    students.forEach(function(s,i){ body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(f13[i])+cell(f14[i])+'</tr>'; });
     var a13=_cohAvg(f13),a14=_cohAvg(f14);
-    body+='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>','text-align:left;')+_cohTd(a13==null?'—':a13+' / 100','text-align:center;font-weight:700;')+_cohTd(a14==null?'—':a14+' / 100','text-align:center;font-weight:700;')+'</tr>';
+    body+='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>')+_cohTd(a13==null?'—':a13+' / 100','text-align:center;font-weight:700;')+_cohTd(a14==null?'—':a14+' / 100','text-align:center;font-weight:700;')+'</tr>';
     html+=_cohTbl(head,body);
     secs.push({id:'case', title:'⑤ 個案報告成績總表', html:html});
   })();
@@ -14818,7 +14818,7 @@ function cohortSections(students){
     var dHead='<tr>'+_cohTh('學生')+dops.map(function(f){return _cohTh(f.name.replace('DOPS：',''));}).join('')+'</tr>';
     var dBody='';
     students.forEach(function(s){
-      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;');
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
       dops.forEach(function(f){
         var r=cohortDops(f.id,s.sid);
         var st=getStudentFormStatus(f.id,s.sid);
@@ -14842,7 +14842,7 @@ function cohortSections(students){
     }).join('')+'</tr>';
     var eBody='';
     students.forEach(function(s){
-      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;');
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
       epas.forEach(function(f){
         var lv=cohortEpaLevel(s.sid,f.id);
         var st=getStudentFormStatus(f.id,s.sid);
@@ -14892,7 +14892,7 @@ function cohortSections(students){
     var head='<tr>'+_cohTh('學生')+cols.map(function(c){return _cohTh(c.label);}).join('')+'</tr>';
     var body='';
     students.forEach(function(s){
-      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;');
+      var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
       cols.forEach(function(c){
         var r=c.get(s);
         if(!r){ row+=_cohTd('<span style="color:#bbb;">未評</span>','text-align:center;'); return; }
@@ -14903,7 +14903,7 @@ function cohortSections(students){
       body+=row+'</tr>';
     });
     // 全班平均列
-    var avgRow='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>','text-align:left;');
+    var avgRow='<tr style="background:#F1F5FB;">'+_cohTd('<b>全班平均</b>');
     cols.forEach(function(c){
       var vals=students.map(function(s){var r=c.get(s);return r?r.score:null;});
       var a=_cohAvg(vals);
@@ -14924,7 +14924,7 @@ function cohortSections(students){
       var body='';
       students.forEach(function(s){
         var d=cohortForm(fid,s.sid);
-        var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;');
+        var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
         var vals=[];
         items.forEach(function(_,i){
           var v=d['f06_'+i];
@@ -14972,7 +14972,7 @@ function cohortSections(students){
       var body='';
       students.forEach(function(s){
         var r=f360(fid,s.sid);
-        var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;');
+        var row='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;');
         if(!r){
           row+=_cohTd('未評','text-align:center;color:#bbb;')+_cohTd('未評','text-align:center;color:#bbb;')+_cohTd('未評','text-align:center;color:#bbb;');
         } else {
@@ -14986,7 +14986,7 @@ function cohortSections(students){
       var aA=_cohAvg(students.map(function(s){var r=f360(fid,s.sid);return r?r.att:null;}));
       var aC=_cohAvg(students.map(function(s){var r=f360(fid,s.sid);return r?r.clin:null;}));
       var aT=_cohAvg(students.map(function(s){var r=f360(fid,s.sid);return r?r.total:null;}));
-      body+='<tr style="background:#EEF2F8;">'+_cohTd('<b>全班平均</b>','text-align:left;')+_cohTd(aA==null?'—':'<b>'+aA+'</b>','text-align:center;')+_cohTd(aC==null?'—':'<b>'+aC+'</b>','text-align:center;')+_cohTd(aT==null?'—':'<b>'+aT+'</b>','text-align:center;background:#F1F5FB;')+'</tr>';
+      body+='<tr style="background:#EEF2F8;">'+_cohTd('<b>全班平均</b>')+_cohTd(aA==null?'—':'<b>'+aA+'</b>','text-align:center;')+_cohTd(aC==null?'—':'<b>'+aC+'</b>','text-align:center;')+_cohTd(aT==null?'—':'<b>'+aT+'</b>','text-align:center;background:#F1F5FB;')+'</tr>';
       return '<div style="font-size:13px;font-weight:700;color:#1E40AF;margin:10px 0 4px;">'+_cohEsc(subjLabel)+'</div>'+_cohTbl(head,body);
     }
     var html='';
@@ -15024,7 +15024,7 @@ function cohortSections(students){
         return _cohTd('<span style="color:#059669;font-weight:700;">'+c['佳']+'</span> / <span style="color:#2563EB;">'+c['可']+'</span> / <span style="color:#DC2626;">'+c['差']+'</span>'
           +(c['NA']?'<span style="color:#94a3b8;font-size:10px;"> (NA '+c['NA']+')</span>':''),'text-align:center;');
       }
-      body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','text-align:left;background:#FAFBFF;')+cell(pre)+cell(post)+cell(tut)+'</tr>';
+      body+='<tr>'+_cohTd('<b>'+_cohEsc(s.name)+'</b>','background:#FAFBFF;')+cell(pre)+cell(post)+cell(tut)+'</tr>';
     });
     html+=_cohTbl(head,body);
     secs.push({id:'skills', title:'⑩ 核心技能自評／指導者評核', html:html});
@@ -15051,7 +15051,7 @@ function cohortSections(students){
     rows.forEach(function(r){
       var fid=r[0], nm=r[1], keyField=r[2];
       var f=findForm(fid); if(!f) return;
-      var tr='<tr>'+_cohTd('<b>'+_cohEsc(nm)+'</b>','text-align:left;background:#FAFBFF;font-size:11px;');
+      var tr='<tr>'+_cohTd('<b>'+_cohEsc(nm)+'</b>','background:#FAFBFF;font-size:11px;');
       students.forEach(function(s){
         var st=getStudentFormStatus(fid,s.sid);
         var mk=st==='done'?'<span style="color:#059669;font-weight:700;">✓</span>':st==='draft'?'<span style="color:#D97706;font-weight:700;">◐</span>':'<span style="color:#cbd5e1;">·</span>';
@@ -15087,7 +15087,7 @@ function cohortSections(students){
       grp.ids.forEach(function(id){
         var f=findForm(id); if(!f) return;
         var short=f.name.length>18?f.name.slice(0,18)+'…':f.name;
-        var row='<tr>'+_cohTd(_cohEsc(short),'text-align:left;font-size:11px;');
+        var row='<tr>'+_cohTd(_cohEsc(short),'font-size:11px;');
         students.forEach(function(s){
           var st=getStudentFormStatus(id,s.sid);
           var mk=st==='done'?'<span style="color:#059669;font-weight:700;">✓</span>':st==='draft'?'<span style="color:#D97706;font-weight:700;">◐</span>':'<span style="color:#cbd5e1;">·</span>';
