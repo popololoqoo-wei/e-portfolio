@@ -11357,19 +11357,19 @@ function buildF04Bedside(f,d,canT,fkey,canS){
     var dis=disabled?' disabled':'';
     var bg=disabled?'var(--cream)':'#fff';
     var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
-    return '<textarea rows="'+rows+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:12px;resize:vertical;"'+dis+'>'+v+'</textarea>';
+    return '<textarea rows="'+rows+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;resize:vertical;"'+dis+'>'+v+'</textarea>';
   }
   function inp(key,placeholder,disabled){
     var v=d[key]||'';
     var dis=disabled?' disabled':'';
     var bg=disabled?'var(--cream)':'#fff';
     var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
-    return '<input type="text" value="'+v+'" placeholder="'+(placeholder||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'"'+dis+' style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:12px;">';
+    return '<input type="text" value="'+v+'" placeholder="'+(placeholder||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'"'+dis+' style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);background:'+bg+';font-size:13px;">';
   }
   function numInp(key,placeholder){
     var v=d[key]||'';
     var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
-    return '<input type="text" value="'+v+'" placeholder="'+(placeholder||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center;">';
+    return '<input type="text" value="'+v+'" placeholder="'+(placeholder||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;text-align:center;">';
   }
 
   // 性別
@@ -11377,7 +11377,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   ['男','女'].forEach(function(g){
     var chk=d['gender']===g?'checked':'';
     var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['gender']='"+g+"'";
-    genderHtml+='<label style="margin-right:10px;font-size:12px;"><input type="radio" name="'+fid+'_gender" '+chk+' onchange="'+oc+'"> '+g+'</label>';
+    genderHtml+='<label style="margin-right:10px;font-size:13px;"><input type="radio" name="'+fid+'_gender" '+chk+' onchange="'+oc+'"> '+g+'</label>';
   });
 
   // 呼吸問題確立（Indications of mechanical ventilation）
@@ -11406,11 +11406,11 @@ function buildF04Bedside(f,d,canT,fkey,canS){
       "APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_ind']=JSON.stringify(a);"+
       "saveDraftField('"+fid+"','rt_ind',JSON.stringify(a));";
     var zhLabel=indZh[ind]?'<span style="color:var(--ink3);margin-left:3px;">（'+indZh[ind]+'）</span>':'';
-    indHtml+='<label style="font-size:11px;margin-right:8px;margin-bottom:4px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+ind+zhLabel+'</label>';
+    indHtml+='<label style="font-size:13px;margin-right:8px;margin-bottom:4px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+ind+zhLabel+'</label>';
   });
   // Others 文字框（同步草稿）
   var othersOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['rt_ind_others']=this.value;saveDraftField('"+fid+"','rt_ind_others',this.value)";
-  indHtml+='<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><span style="font-size:11px;">Others<span style="color:var(--ink3);">（其他）</span>：</span><input type="text" value="'+(d['rt_ind_others']||'')+'" data-fid="'+fid+'" data-key="rt_ind_others" onchange="'+othersOC+'" style="width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;"></div>';
+  indHtml+='<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;"><span style="font-size:13px;">Others<span style="color:var(--ink3);">（其他）</span>：</span><input type="text" value="'+(d['rt_ind_others']||'')+'" data-fid="'+fid+'" data-key="rt_ind_others" onchange="'+othersOC+'" style="width:120px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;"></div>';
 
   // 呼吸器機型（複選）
   var ventTypes=['PB840','Servo','Hamilton-G5','Drager','NKV-550'];
@@ -11423,7 +11423,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
       "if(this.checked){if(a.indexOf('"+vt+"')<0)a.push('"+vt+"');}else{a=a.filter(function(x){return x!=='"+vt+"';});}"+
       "APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_type']=JSON.stringify(a);"+
       "saveDraftField('"+fid+"','vent_type',JSON.stringify(a));";
-    ventHtml+='<label style="font-size:11px;margin-right:10px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+vt+'</label>';
+    ventHtml+='<label style="font-size:13px;margin-right:10px;display:inline-flex;align-items:center;gap:3px;"><input type="checkbox" '+chk+' onchange="'+oc+'"> '+vt+'</label>';
   });
   // Servo 和 Drager 有附加說明欄（同步草稿）
   var servoOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_servo_note']=this.value;saveDraftField('"+fid+"','vent_servo_note',this.value)";
@@ -11433,7 +11433,7 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   var isMedical=f.id==='F04M';
   let h='<div class="card" style="border-top:4px solid var(--blue);">';
   h+='<div class="card-body" style="padding:12px 16px;">';
-  h+='<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:1px;text-align:center;">實習學生—床邊教學訓練記錄表（'+(isMedical?'內科':'外科')+'）</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--ink3);letter-spacing:1px;text-align:center;">實習學生—床邊教學訓練記錄表（'+(isMedical?'內科':'外科')+'）</div>';
   h+='</div></div>';
 
   // 基本資料（學生）
@@ -11477,14 +11477,14 @@ function buildF04Bedside(f,d,canT,fkey,canS){
 
   // 病患基本資料
   h+='<div class="card"><div class="card-head"><div class="card-head-title">病患資料</div></div><div class="card-body">';
-  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
   h+='<tr>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病床號</label><br>'+inp('bed','')+'</td>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>病人名</label><br>'+inp('pt_name','')+'</td>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>性別</label><br>'+genderHtml+'</td>';
   h+='<td style="border:1px solid var(--border);padding:6px 8px;width:25%;"><label>出生日期</label><br>';
   var bdOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['birth_date']=this.value";
-  h+='<input type="date" value="'+(d['birth_date']||'')+'" data-fid="'+fid+'" data-key="birth_date" onchange="'+bdOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></td>';
+  h+='<input type="date" value="'+(d['birth_date']||'')+'" data-fid="'+fid+'" data-key="birth_date" onchange="'+bdOC+'" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;"></td>';
   h+='</tr></table>';
   h+='</div></div>';
 
@@ -11501,31 +11501,31 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   // 三、呼吸治療評估
   h+='<div class="card"><div class="card-head"><div class="card-head-title">三、呼吸治療評估<span class="s-badge">學生</span></div></div><div class="card-body">';
   h+='<div style="margin-bottom:10px;">';
-  h+='<label style="font-size:12px;font-weight:600;">呼吸器機型：</label>';
+  h+='<label style="font-size:13px;font-weight:600;">呼吸器機型：</label>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px;">'+ventHtml+'</div>';
   h+='<div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap;">';
-  h+='<span style="font-size:11px;">Servo 型號：</span><input type="text" value="'+(d['vent_servo_note']||'')+'" data-fid="'+fid+'" data-key="vent_servo_note" onchange="'+servoOC+'" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">';
-  h+='<span style="font-size:11px;">Drager 型號：</span><input type="text" value="'+(d['vent_drager_note']||'')+'" data-fid="'+fid+'" data-key="vent_drager_note" onchange="'+dragerOC+'" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">';
+  h+='<span style="font-size:13px;">Servo 型號：</span><input type="text" value="'+(d['vent_servo_note']||'')+'" data-fid="'+fid+'" data-key="vent_servo_note" onchange="'+servoOC+'" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;">';
+  h+='<span style="font-size:13px;">Drager 型號：</span><input type="text" value="'+(d['vent_drager_note']||'')+'" data-fid="'+fid+'" data-key="vent_drager_note" onchange="'+dragerOC+'" style="width:80px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;">';
   h+='</div></div>';
 
   // 呼吸器設定參數（完整依Word原稿）
-  h+='<div style="font-size:12px;font-weight:600;margin:10px 0 6px;">目前呼吸器設定：</div>';
+  h+='<div style="font-size:13px;font-weight:600;margin:10px 0 6px;">目前呼吸器設定：</div>';
   // ── Mode 欄位：獨立全寬大框，字可一眼看到，超過約 10 字寬度自動換到第二行 ──
   var modeOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['vent_mode']=this.value;saveDraftField('"+fid+"','vent_mode',this.value)";
   h+='<div style="display:flex;align-items:flex-start;gap:8px;margin:0 0 8px;">';
-  h+='<label style="font-size:12px;font-weight:600;white-space:nowrap;padding-top:7px;">Mode：</label>';
-  h+='<textarea rows="1" data-fid="'+fid+'" data-key="vent_mode" onchange="'+modeOC+'" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" placeholder="例：PC-SIMV + PSV" style="flex:1 1 auto;min-width:120px;max-width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:12px;line-height:1.5;resize:vertical;overflow:hidden;font-family:var(--ff-sans);box-sizing:border-box;">'+(d['vent_mode']||'')+'</textarea>';
+  h+='<label style="font-size:13px;font-weight:600;white-space:nowrap;padding-top:7px;">Mode：</label>';
+  h+='<textarea rows="1" data-fid="'+fid+'" data-key="vent_mode" onchange="'+modeOC+'" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\';" placeholder="例：PC-SIMV + PSV" style="flex:1 1 auto;min-width:120px;max-width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink);font-size:13px;line-height:1.5;resize:vertical;overflow:hidden;font-family:var(--ff-sans);box-sizing:border-box;">'+(d['vent_mode']||'')+'</textarea>';
   h+='</div>';
-  h+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
 
   function paramCell(label,key,unit){
     var oc="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key+"']=this.value";
-    return '<td style="border:1px solid var(--border);padding:4px 6px;white-space:nowrap;">'+label+'：<input type="text" value="'+(d[key]||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:50px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:11px;"> '+(unit||'')+'</td>';
+    return '<td style="border:1px solid var(--border);padding:4px 6px;white-space:nowrap;">'+label+'：<input type="text" value="'+(d[key]||'')+'" data-fid="'+fid+'" data-key="'+key+'" onchange="'+oc+'" style="width:50px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:13px;"> '+(unit||'')+'</td>';
   }
   function paramCell2(label,key1,key2,unit){
     var oc1="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key1+"']=this.value";
     var oc2="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+key2+"']=this.value";
-    return '<td style="border:1px solid var(--border);padding:4px 6px;white-space:nowrap;">'+label+'：<input type="text" value="'+(d[key1]||'')+'" data-fid="'+fid+'" data-key="'+key1+'" onchange="'+oc1+'" style="width:40px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:11px;">/<input type="text" value="'+(d[key2]||'')+'" data-fid="'+fid+'" data-key="'+key2+'" onchange="'+oc2+'" style="width:40px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:11px;"> '+(unit||'')+'</td>';
+    return '<td style="border:1px solid var(--border);padding:4px 6px;white-space:nowrap;">'+label+'：<input type="text" value="'+(d[key1]||'')+'" data-fid="'+fid+'" data-key="'+key1+'" onchange="'+oc1+'" style="width:40px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:13px;">/<input type="text" value="'+(d[key2]||'')+'" data-fid="'+fid+'" data-key="'+key2+'" onchange="'+oc2+'" style="width:40px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;font-size:13px;"> '+(unit||'')+'</td>';
   }
 
   h+='<tr>';
@@ -11545,12 +11545,12 @@ function buildF04Bedside(f,d,canT,fkey,canS){
   h+=paramCell('MAP','map','cmH₂O');
   h+=paramCell2('Cst/Raw','cst','raw','');
   h+='</tr></table>';
-  h+='<div style="margin-top:8px;"><label style="font-size:12px;">其他：</label>'+area('vent_others',2,false)+'</div>';
+  h+='<div style="margin-top:8px;"><label style="font-size:13px;">其他：</label>'+area('vent_others',2,false)+'</div>';
   h+='</div></div>';
 
   // 四、目前醫療重點
   h+='<div class="card"><div class="card-head"><div class="card-head-title">四、目前醫療重點</div></div><div class="card-body">';
-  h+='<label style="font-size:11px;color:var(--ink3);">醫師意見或其它醫療團隊人員建議：</label>';
+  h+='<label style="font-size:13px;color:var(--ink3);">醫師意見或其它醫療團隊人員建議：</label>';
   h+=area('medical_focus',3,false);
   h+='</div></div>';
 
