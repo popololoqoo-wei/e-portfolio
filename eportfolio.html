@@ -13198,6 +13198,8 @@ function buildF16(f,d,canT,fkey,canS){
     if(!APP.formData[fid])APP.formData[fid]={};
     if(d['s_name']!==_f16Nm){APP.formData[fid]['s_name']=_f16Nm;d['s_name']=_f16Nm;}
   }
+  // ★ 與其他表單一致：自動帶入實習學校／類別／日期（學生本人或老師選定的學生）
+  autoFillInternInfo(fid,d);
   const cats=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
   const schools=['長庚科技大學嘉義分部-呼吸照護系','高雄醫學大學-呼吸治療學系','輔仁大學-呼吸治療學系','長庚大學-呼吸治療學系','台北醫學大學-呼吸治療學系'];
   const catOpts=cats.map(function(v){return '<option value="'+v+'" '+((d['intern_cat']||d['cat'])===v?'selected':'')+'>'+v+'</option>';}).join('');
