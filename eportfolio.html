@@ -6019,6 +6019,9 @@ function applyCardColors(){
     var sl=card.querySelectorAll('[data-key]');
     for(var i=0;i<sl.length;i++){
       var k=sl[i].getAttribute('data-key')||'';
+      // 明確標記 data-teacher="1" 者屬老師欄位，不計為學生內容
+      //（例如「評核日期」用 s_date 但實為老師填，避免被判成混色 m-card）
+      if(sl[i].getAttribute('data-teacher')==='1') continue;
       if(S_KEYS.indexOf(k)>=0) return true;
       // 學生評分欄位
       if(sl[i].getAttribute('data-teacher')==='0') return true;
