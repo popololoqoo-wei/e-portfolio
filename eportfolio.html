@@ -10995,16 +10995,25 @@ function saveDraftField(fid, key, val){
  *     待後台補上「實習類別 / 起始 / 結束日期」欄位（並由後端隨帳號回傳）後即自動生效。
  *   ─ 後端可回傳 s_date（已組好的「起 - 迄」字串）或 intern_start / intern_end，皆相容。 */
 function autoFillInternInfo(fid,d){
-  if(APP.currentRole!=='student'||!APP.currentUser) return;
+  // 自動帶入來源：
+  //   學生登入     → 本人帳號(APP.currentUser)
+  //   老師/管理員  → 左側選定的學生(APP.students[APP.currentStudentId])
+  // 僅寫入記憶體(APP.formData)，不寫草稿；讓「學生尚未填寫時，老師點開也能看到基本資料」。
+  var src=null;
+  if(APP.currentRole==='student'&&APP.currentUser){
+    src=APP.currentUser;
+  } else if((APP.currentRole==='teacher'||APP.currentRole==='admin')&&APP.currentStudentId){
+    src=APP.students&&APP.students[APP.currentStudentId];
+  }
+  if(!src) return;
   if(!APP.formData[fid]) APP.formData[fid]={};
-  var _cu=APP.currentUser;
-  if(!d['school']&&_cu.school){ APP.formData[fid]['school']=_cu.school; d['school']=_cu.school; }
-  var _cuCat=_cu.intern_cat||_cu.category||'';
+  if(!d['school']&&src.school){ APP.formData[fid]['school']=src.school; d['school']=src.school; }
+  var _cuCat=src.intern_cat||src.category||'';
   if(!d['intern_cat']&&_cuCat){ APP.formData[fid]['intern_cat']=_cuCat; d['intern_cat']=_cuCat; }
   if(!d['s_date']){
-    var _s=_cu.intern_start||_cu.s_date_start||'';
-    var _e=_cu.intern_end||_cu.s_date_end||'';
-    var _r=_cu.s_date||'';
+    var _s=src.intern_start||src.s_date_start||'';
+    var _e=src.intern_end||src.s_date_end||'';
+    var _r=src.s_date||'';
     if(!_r&&(_s||_e)){ _r=(_s?String(_s).replace(/-/g,'/'):'')+' - '+(_e?String(_e).replace(/-/g,'/'):''); }
     if(_r){ APP.formData[fid]['s_date']=_r; d['s_date']=_r; }
   }
