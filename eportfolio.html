@@ -8133,23 +8133,23 @@ function downloadPDF(id){
   /* ─── 字型分工:body 用 sans 確保列印清晰,標題/章節/署名用 serif 賦予正式文件感 ─── */
   html+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:11pt;color:#1A1612;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;} ';
   html+='*{-webkit-print-color-adjust:exact;print-color-adjust:exact;} ';
-  html+='.serif{font-family:"Microsoft JhengHei","PMingLiU","Noto Serif TC","Source Han Serif TC",serif;} ';
+  html+='.serif{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;} ';
   html+='table{width:100%;border-collapse:collapse;margin-bottom:12px;} ';
   html+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:15px;} ';
   html+='.hosp{font-size:10pt;color:#1E40AF;letter-spacing:1.5px;margin-bottom:4px;font-weight:600;} ';
   /* 表單主標題:serif、加大字距 */
-  html+='.title{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;font-size:17pt;font-weight:600;color:#1A1612;margin:8px 0 4px;letter-spacing:2px;} ';
+  html+='.title{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:17pt;font-weight:600;color:#1A1612;margin:8px 0 4px;letter-spacing:2px;} ';
   html+='.sub{font-size:10pt;color:#888;} ';
   html+='.info-bar{font-size:9pt;color:#666;margin-top:6px;} ';
   /* 章節標題:serif、深藍底白字 */
-  html+='.section-head{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:11.5pt;margin-top:12px;margin-bottom:0;letter-spacing:1px;} ';
+  html+='.section-head{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:11.5pt;margin-top:12px;margin-bottom:0;letter-spacing:1px;} ';
   html+='.rating-grid{display:grid;border:1px solid #DDD;} ';
   html+='.r-cell{border:1px solid #DDD;padding:4px 6px;text-align:center;font-size:9pt;} ';
   html+='.r-head{background:#2563EB;color:#fff;font-weight:600;} ';
   html+='.r-sel-s{background:#2563EB;color:#fff;font-weight:700;} ';
   html+='.r-sel-t{background:#DC2626;color:#fff;font-weight:700;} ';
   /* 簽名區:serif、金線下框 */
-  html+='.sign-box{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;border-top:1px solid #B8860B;padding-top:10px;margin-top:10px;letter-spacing:1px;} ';
+  html+='.sign-box{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;border-top:1px solid #B8860B;padding-top:10px;margin-top:10px;letter-spacing:1px;} ';
   html+='</style></head><body>';
   
   // ── 頁首 ──
@@ -15229,14 +15229,14 @@ function downloadCohortPDF(sectionId){
 
   var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_cohEsc(docTitle)+'</title><style>';
   h+='@page{size:A4 landscape;margin:1.2cm;} ';
-  h+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;color:#1A1612;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;} ';
+  h+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;color:#1A1612;margin:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;} ';
   h+='*{-webkit-print-color-adjust:exact;print-color-adjust:exact;} ';
   h+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:14px;} ';
   h+='.hosp{font-size:10pt;color:#1E40AF;letter-spacing:1.5px;font-weight:600;} ';
-  h+='.title{font-family:"PMingLiU","Noto Serif TC",serif;font-size:18pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;} ';
+  h+='.title{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:18pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;} ';
   h+='.sub{font-size:9pt;color:#888;} ';
   h+='.sec{margin-top:14px;} .sec.brk{page-break-before:always;} ';
-  h+='.sec-h{font-family:"PMingLiU","Noto Serif TC",serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:12pt;letter-spacing:1px;margin-bottom:8px;} ';
+  h+='.sec-h{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:12pt;letter-spacing:1px;margin-bottom:8px;} ';
   h+='table{page-break-inside:auto;} tr{page-break-inside:avoid;} svg{page-break-inside:avoid;} ';
   h+='</style></head><body>';
   h+='<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
@@ -17348,7 +17348,7 @@ function batchDownloadPDF(){
   allHtml+='body{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:10pt;color:#1A1612;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}';
   allHtml+='*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}';
   /* ─── 字型分工:body 用 sans 確保列印清晰,標題/章節/署名用 serif 賦予正式文件感 ─── */
-  allHtml+='.serif{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;}';
+  allHtml+='.serif{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;}';
   allHtml+='table{width:100%;border-collapse:collapse;margin-bottom:10px;}';
   allHtml+='td,th{border:1px solid #DDD;padding:5px 8px;font-size:10pt;}';
   /* ★ 每張表單獨立成頁:列印時強制下一張表單從新一頁開始 */
@@ -17365,11 +17365,11 @@ function batchDownloadPDF(){
   allHtml+='.header{text-align:center;border-bottom:2px solid #1E40AF;padding-bottom:10px;margin-bottom:12px;}';
   allHtml+='.hosp{font-size:9pt;color:#1E40AF;letter-spacing:1.5px;font-weight:600;}';
   /* 表單主標題:serif、加大字距 */
-  allHtml+='.title{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;font-size:16pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;}';
+  allHtml+='.title{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:16pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;}';
   allHtml+='.sub{font-size:9pt;color:#888;}';
   allHtml+='.info-bar{font-size:9pt;color:#555;margin-top:5px;background:#F5F5F0;padding:4px 8px;border-radius:3px;}';
   /* 章節標題:serif */
-  allHtml+='.sec{font-family:"PMingLiU","Noto Serif TC","Source Han Serif TC",serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;margin-top:10px;letter-spacing:1px;}';
+  allHtml+='.sec{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;margin-top:10px;letter-spacing:1px;}';
   allHtml+='.t-row td{background:#FEF2F2;}';
   allHtml+='.s-row td{background:#F0F7FF;}';
   allHtml+='.r-sel-s{background:#2563EB!important;color:#fff!important;font-weight:700;}';
