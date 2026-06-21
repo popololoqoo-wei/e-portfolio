@@ -14771,7 +14771,7 @@ function cohortSections(students){
     var avgs=cts.map(function(f){ return _cohAvg(students.map(function(s){return cohortQuizScore(f.id,s.sid);})); });
     var html='';
     html+=_cohNote('每堂課後測驗每題 10 分共 10 題，滿分 100，<b style="color:#DC2626;">60 分及格</b>。長條為全班平均；低於及格線者以紅色標示，代表該堂課普遍偏弱、值得加強。');
-    html+=_cohChartBox(cohortHBarSVG(labels, avgs, {max:100, threshold:60, thresholdLabel:'及格 60', labelW:172, rowH:25}));
+    html+=_cohChartBox(cohortHBarSVG(labels, avgs, {max:100, threshold:60, thresholdLabel:'及格 60', labelW:172, rowH:16}));
     // 明細表：各堂 × 各生
     var head='<tr>'+_cohTh('課堂')+names.map(function(n){return _cohTh(n);}).join('')+_cohTh('平均')+_cohTh('及格數')+'</tr>';
     var body='';
@@ -15235,20 +15235,34 @@ function downloadCohortPDF(sectionId){
   h+='.hosp{font-size:10pt;color:#1E40AF;letter-spacing:1.5px;font-weight:600;} ';
   h+='.title{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;font-size:18pt;font-weight:600;margin:6px 0 4px;letter-spacing:2px;} ';
   h+='.sub{font-size:9pt;color:#888;} ';
-  h+='.sec{margin-top:14px;} .sec.brk{page-break-before:always;} ';
+  h+='.sec{margin-top:14px;} .sec.brk{page-break-before:always;} .secpage.brk{page-break-before:always;} ';
   h+='.sec-h{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:12pt;letter-spacing:1px;margin-bottom:8px;} ';
   h+='table{page-break-inside:auto;} tr{page-break-inside:avoid;} svg{page-break-inside:avoid;} ';
   h+='</style></head><body>';
-  h+='<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>';
-  h+='<div class="title">'+_cohEsc(docTitle)+'</div>';
-  h+='<div class="sub" style="font-size:10pt;color:#374151;margin-bottom:3px;">'+cohortMetaParts.join('　·　')+'</div></div>';
-  secs.forEach(function(sec,i){
-    // #2 單區匯出時標頭已大字顯示該區名稱 → 不再重複藍色區段標題；整份報告才保留以區隔各區
-    var secHead = sectionId ? '' : '<div class="sec-h">'+_cohEsc(sec.title)+'</div>';
-    h+='<div class="sec'+(i>0?' brk':'')+'">'+secHead+sec.html+'</div>';
-  });
-  // 頁尾：產製時間／系統版本（小字、靠右、淡灰，不搶標題焦點）
-  h+='<div style="margin-top:16px;padding-top:5px;border-top:1px solid #E5E7EB;text-align:right;font-size:7.5pt;color:#9CA3AF;letter-spacing:.3px;">產製時間：'+_cohEsc(now)+(appVer?'　·　系統版本：'+_cohEsc(appVer):'')+'</div>';
+  // 表頭產生器（可帶入各區標題，與單區匯出外觀一致）
+  function _cohHeader(title){
+    return '<div class="header"><div class="hosp">臺中榮民總醫院 胸腔部 呼吸治療科</div>'
+         + '<div class="title">'+_cohEsc(title)+'</div>'
+         + '<div class="sub" style="font-size:10pt;color:#374151;margin-bottom:3px;">'+cohortMetaParts.join('　·　')+'</div></div>';
+  }
+  var _footer='<div style="margin-top:16px;padding-top:5px;border-top:1px solid #E5E7EB;text-align:right;font-size:7.5pt;color:#9CA3AF;letter-spacing:.3px;">產製時間：'+_cohEsc(now)+(appVer?'　·　系統版本：'+_cohEsc(appVer):'')+'</div>';
+  if(sectionId){
+    // 單區匯出：表頭(大字區名) + 內容(不重複藍色區段標題) + 頁尾
+    h+=_cohHeader(docTitle);
+    h+='<div class="sec">'+secs[0].html+'</div>';
+    h+=_footer;
+  }else{
+    // 整份匯出：排除①整體表單完成率；其餘每區「各自一頁」，外觀與單區匯出一致(每頁有自己的大字標題)
+    var pageSecs=secs.filter(function(s){ return s.id!=='overview'; });
+    pageSecs.forEach(function(sec,i){
+      var clean=sec.title.replace(/^[①-⑩]\s*/,'').trim();
+      h+='<div class="secpage'+(i>0?' brk':'')+'">'
+        + _cohHeader('班級統整－'+clean)
+        + '<div class="sec">'+sec.html+'</div>'
+        + '</div>';
+    });
+    h+=_footer;
+  }
   h+='</body></html>';
   // ── 另存檔名：學年度 學校-實習類別-標頭名稱（例：114學年度暑期實習 長庚科技大學(嘉義分部)-重症呼吸照護實習-Learning Style 四人總匯）──
   var _fnTitle = sectionId ? secs[0].title.replace(/^[①-⑩]\s*/,'').trim() : '班級學習統整報告';
