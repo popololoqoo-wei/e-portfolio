@@ -14771,7 +14771,7 @@ function cohortSections(students){
     var avgs=cts.map(function(f){ return _cohAvg(students.map(function(s){return cohortQuizScore(f.id,s.sid);})); });
     var html='';
     html+=_cohNote('每堂課後測驗每題 10 分共 10 題，滿分 100，<b style="color:#DC2626;">60 分及格</b>。長條為全班平均；低於及格線者以紅色標示，代表該堂課普遍偏弱、值得加強。');
-    html+=_cohChartBox(cohortHBarSVG(labels, avgs, {max:100, threshold:60, thresholdLabel:'及格 60', labelW:172, rowH:16}));
+    html+=_cohChartBox(cohortHBarSVG(labels, avgs, {max:100, threshold:60, thresholdLabel:'及格 60', labelW:172, rowH:14}));
     // 明細表：各堂 × 各生
     var head='<tr>'+_cohTh('課堂')+names.map(function(n){return _cohTh(n);}).join('')+_cohTh('平均')+_cohTh('及格數')+'</tr>';
     var body='';
@@ -14788,7 +14788,7 @@ function cohortSections(students){
       body+=row+'</tr>';
     });
     html+=_cohTbl(head,body);
-    secs.push({id:'cts', title:'④ 核心課程課後測驗分數統計', html:html});
+    secs.push({id:'cts', title:'④ 核心課程課後測驗分數統計', html:'<div class="cts-tight">'+html+'</div>'});
   })();
 
   /* 5) 個案報告成績總表 */
@@ -15238,6 +15238,7 @@ function downloadCohortPDF(sectionId){
   h+='.sec{margin-top:14px;} .sec.brk{page-break-before:always;} .secpage.brk{page-break-before:always;} ';
   h+='.sec-h{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Source Han Sans TC",sans-serif;background:#1E40AF;color:#fff;font-weight:600;padding:6px 12px;font-size:12pt;letter-spacing:1px;margin-bottom:8px;} ';
   h+='table{page-break-inside:auto;} tr{page-break-inside:avoid;} svg{page-break-inside:avoid;} ';
+  h+='.cts-tight td,.cts-tight th{padding-top:2px!important;padding-bottom:2px!important;line-height:1.25;} .cts-tight .note,.cts-tight p{margin:2px 0!important;} ';
   h+='</style></head><body>';
   // 表頭產生器（可帶入各區標題，與單區匯出外觀一致）
   function _cohHeader(title){
