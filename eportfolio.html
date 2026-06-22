@@ -882,6 +882,42 @@ input[type="date"]{
   }
 }
 /* ══════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════
+   平板版面一致化修正（Tablet layout normalization）
+   ────────────────────────────────────────────────
+   問題：原本斷點只有「>768px = 桌機版」與「≤768px = 手機單欄」，
+   中間 769–1024px 的平板（iPad Air≈820、iPad Pro≈834、12.9"直立=1024）
+   仍套用桌機版：側欄續佔 220px、g3 擠成 3 欄、卡片只在「同一列」等高、
+   跨列高度不一，於是看起來「有大有小、有長有短、有寬有窄」。
+   下方規則為「純新增」，未更動任何既有規則，可整段刪除即還原。
+   ══════════════════════════════════════════════════ */
+
+/* (1) 多欄時（≥769px，平板與桌機）卡片每列等高，消除「有長有短」。
+       手機（≤768px）為單欄，刻意不套用，避免短卡片被拉長留白。 */
+@media (min-width:769px){
+  .form-grid{grid-auto-rows:1fr;}
+  .form-grid > .form-card{height:100%;display:flex;flex-direction:column;}
+}
+
+/* (2) 平板區間（769–1024px）：把多欄收斂成整齊欄數、欄位填滿格子 */
+@media (min-width:769px) and (max-width:1024px){
+  /* 三欄表單欄位在平板上過擠 → 收成兩欄，寬度才一致 */
+  .g3{grid-template-columns:1fr 1fr;}
+  /* 兩欄／三欄內的元素允許收縮，避免被內容撐到寬窄不一 */
+  .g2 > *, .g3 > *{min-width:0;}
+  /* 欄位輸入框一律填滿所屬格子，解決「有寬有窄」 */
+  .g2 input, .g2 select, .g2 textarea,
+  .g3 input, .g3 select, .g3 textarea{width:100%;box-sizing:border-box;}
+  /* 卡片總覽：固定下限，讓每列欄數與寬度穩定一致 */
+  .form-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));}
+}
+
+/* (3) 直立平板（769–834px，含 iPad/Air/Pro 11"）：卡片固定兩欄，最整齊 */
+@media (min-width:769px) and (max-width:834px){
+  .form-grid{grid-template-columns:repeat(2,1fr);}
+}
+/* ══════════════════════════════════════════════════ */
 </style>
 </head>
 <body>
