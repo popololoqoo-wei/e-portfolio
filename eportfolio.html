@@ -7319,7 +7319,46 @@ async function saveFormToSheets(id){
   const formKey=id; // saveForm已傳formKey
   // ★ 只用 formKey 的資料上雲;不再 merge 裸 id(裸 id 是跨學生共用空間,
   //   可能含上一位被檢視學生的污染殘留,merge 進來會把錯誤資料推到雲端)
-  const mergedData=Object.assign({},APP.formData[formKey]||{});
+  let mergedData=Object.assign({},APP.formData[formKey]||{});
+
+  // ★★★【防覆蓋修補 v1.6:送出前先抓雲端現有資料再合併】★★★
+  //   根因:任何一方(尤其老師端)儲存時,APP.formData[formKey] 可能只含自己這方的欄位
+  //        — 例如老師只有 t_fb / t_sign,缺學生填的 goal / motivation。直接整包上傳後,
+  //        後端是「整格覆蓋」,於是另一方先前填的欄位被洗掉 → 學生資料憑空消失。
+  //   修法:送出前先讀一次雲端該表單最新 data,用「雲端為底、本次非空值才覆蓋」方式合併,
+  //        確保本次沒碰到的欄位(例如學生欄位)一律原封保留,從此不會互相洗掉。
+  try{
+    var _ctrl = new AbortController();
+    var _tid  = setTimeout(function(){ _ctrl.abort(); }, 10000);
+    var _u    = GAS_URL + '?action=loadForm&formId=' + encodeURIComponent(formKey) + '&t=' + Date.now();
+    var _r    = await fetch(_u, {cache:'no-cache', signal:_ctrl.signal});
+    clearTimeout(_tid);
+    if(_r.ok){
+      var _cloud = await _r.json();
+      if(_cloud && _cloud.formData){
+        var _cloudData = JSON.parse(_cloud.formData);
+        var _m = {};
+        // 1) 先鋪上雲端既有的所有欄位(保住另一方填的)
+        Object.keys(_cloudData).forEach(function(k){ _m[k] = _cloudData[k]; });
+        // 2) 再用本次的「非空值」覆蓋(本方這次真的填/改的欄位才寫進去)
+        Object.keys(mergedData).forEach(function(k){
+          var v = mergedData[k];
+          if(v !== '' && v !== null && v !== undefined) _m[k] = v;
+        });
+        // 3) 尊重本機「再點清除」明確刪除的欄位
+        if(typeof getDeletedKeysFor === 'function'){
+          getDeletedKeysFor(formKey).forEach(function(k){ delete _m[k]; });
+        }
+        mergedData = _m;
+        // 同步回寫記憶體,讓畫面也保有合併後的完整資料(避免緊接著的同步又把畫面清空)
+        APP.formData[formKey] = Object.assign({}, _m);
+      }
+    } else {
+      console.warn('[saveFormToSheets] 送出前抓雲端失敗(HTTP ' + _r.status + '),改用本機資料');
+    }
+  }catch(_e){
+    console.warn('[saveFormToSheets] 送出前抓雲端合併失敗,改用本機資料(此次儲存風險較高):', _e.name || _e);
+  }
 
   // ★★★【v1.5.5 修正:防止空資料覆蓋雲端】★★★
   // 場景:loadFormFromSheets 短暫把 APP.formData[formKey] 清空時,
