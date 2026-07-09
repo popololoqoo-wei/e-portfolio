@@ -9115,6 +9115,8 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
     html+=pdfR('實習學校',val('school'),false);
     html+=pdfR('實習日期',val('s_date'),false);
     html+=pdfR('實習類別',val('intern_cat'),false);
+    html+=pdfR('病床號',val('bed'),false);
+    html+=pdfR('病人名',val('pt_name'),false);
     html+=pdfR('病情複雜度',val('complexity'),false);
     html+=pdfR('主診斷',val('case_dx')||val('diagnosis'),false);
     html+='</table>';
@@ -11967,8 +11969,13 @@ function buildCbD(f,d,canT,fkey,canS){
     return '<label class="check-item"><input type="radio" name="f06_cx_'+fid+'" '+chk+' onchange="'+oc+'" style="accent-color:var(--gold);"> '+v+'</label>';
   }).join('');
   // CbD 加入 basicInfoCard（含實習學校、日期、類別）
-  // 病情複雜度、主診斷改為全寬、垂直堆疊（主診斷在病情複雜度下方），與基本資料區欄寬一致
-  let h=basicInfoCard(fid,d,'<div class="field"><label>病情複雜度</label><div class="check-group">'+cxBtns+'</div></div><div class="field"><label>主診斷</label>'+ta(fid,'case_dx',4,false)+'</div>');
+  // 病床號、病人名置於基本資料區最上方；病情複雜度、主診斷改為全寬、垂直堆疊
+  //（主診斷在病情複雜度下方），與基本資料區欄寬一致
+  let h=basicInfoCard(fid,d,
+    '<div class="field"><label>病床號</label>'+fi(fid,'bed','text',false)+'</div>'+
+    '<div class="field"><label>病人名</label>'+fi(fid,'pt_name','text',false)+'</div>'+
+    '<div class="field"><label>病情複雜度</label><div class="check-group">'+cxBtns+'</div></div>'+
+    '<div class="field"><label>主診斷</label>'+ta(fid,'case_dx',4,false)+'</div>');
   // 評量說明列
   h+='<div class="card"><div class="card-head"><div class="card-head-title">評量項目<span class="t-badge">老師評分</span></div></div><div class="card-body" style="overflow-x:auto;">';
   h+='<div style="background:#EEF2F8;border-radius:var(--r);padding:8px 12px;margin-bottom:8px;font-size:11px;color:#991B1B;">📊 評分標準：<strong>1～3分 = 有待加強</strong>　<strong>4～6分 = 合乎標準</strong>　<strong>7～9分 = 優良</strong>　UGY ≥ 5分合格</div>';
