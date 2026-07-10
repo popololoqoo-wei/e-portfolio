@@ -6087,7 +6087,8 @@ async function openForm(id){
   // 360度評估表：初始化自動計算
   if(APP.currentFormId==='F07M'||APP.currentFormId==='F07S'){
   setTimeout(function(){
-    var fid2=APP.currentFormId;
+    // ★ 用「表單鍵(含學號)」呼叫，與 build360 產生的元素 id 一致
+    var fid2=(typeof getFormKey==='function')?getFormKey(APP.currentFormId):APP.currentFormId;
     calc360Score(fid2);
     setTimeout(function(){calc360Score(fid2);},600);
     setTimeout(function(){calc360Score(fid2);},1500);
@@ -11152,9 +11153,16 @@ function calc360Score(fid){
   // 換算總分（態度佔50%，臨床佔50%）
   var total=Math.round((attScore*0.5)+(clinScore*0.5));
 
-  var attEl=document.getElementById('score-att-'+fid);
-  var clinEl=document.getElementById('score-clin-'+fid);
-  var totEl=document.getElementById('score-total-'+fid);
+  // ★ 修正：畫面上的分數欄位是用「表單鍵(含學號)」當 id 產生的（見 build360），
+  //   但初始化路徑會用「裸表單代號(F07M/F07S)」呼叫本函式，兩者不一致會導致
+  //   getElementById 找不到元素、分數永遠停在「計算中...」。這裡優先用 realFid
+  //   (getFormKey 結果) 查找，找不到再退回 fid，涵蓋所有呼叫路徑。
+  function _score360El(prefix){
+    return document.getElementById(prefix+realFid) || document.getElementById(prefix+fid);
+  }
+  var attEl=_score360El('score-att-');
+  var clinEl=_score360El('score-clin-');
+  var totEl=_score360El('score-total-');
 
   var attOk=attScore>=80, clinOk=clinScore>=75;
   if(attEl) attEl.innerHTML='<span style="font-weight:700;color:'+(attOk?'var(--green)':'var(--red)')+'">'+attScore+'</span><span style="color:var(--ink3);font-size:11px;"> / 100 '+(attOk?'✓':'✗')+'</span>';
