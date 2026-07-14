@@ -1368,7 +1368,9 @@ APP.courseTopics=['洗手技術','無菌操作','動脈血液氣體分析判讀'
 APP.courseSpeakers=['陳正美','卓瓊美','黃培琦','傅偉菱'];
 // 班級統整 PDF 表頭「學期」(管理員手動填；留空則自動推算)。本機留底，伺服器有值時以伺服器為準。
 APP.cohortTerm='';
+APP.cohortTermAt=0;
 try{ var _ctLS=localStorage.getItem('cohort_term'); if(_ctLS) APP.cohortTerm=_ctLS; }catch(e){}
+try{ var _ctAt=localStorage.getItem('cohort_term_at'); if(_ctAt) APP.cohortTermAt=(+_ctAt)||0; }catch(e){}
 
 // 實習類別選項（基本資料 / F04 / 管理員後台 共用，確保字串一致可正確對應）
 const INTERN_CATEGORIES=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
@@ -16089,7 +16091,12 @@ window.addEventListener('load', () => {
 const CONFIG_SHEET='_系統設定';
 
 async function saveConfigToSheets(){
-  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,cohortTerm:APP.cohortTerm||'',studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
+  // ★ FIX: 送出前先同步 localStorage 上最新的 cohortTerm，避免「開很久沒重整的舊分頁」把舊學期整包推回伺服器
+  try{
+    var _lsT=localStorage.getItem('cohort_term'), _lsA=+(localStorage.getItem('cohort_term_at')||0);
+    if(_lsA>(+(APP.cohortTermAt||0))){ APP.cohortTerm=_lsT||''; APP.cohortTermAt=_lsA; }
+  }catch(e){}
+  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,cohortTerm:APP.cohortTerm||'',cohortTermAt:APP.cohortTermAt||0,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
   const configStr = JSON.stringify(config);
 
   // 【安全】只有管理員才把完整 config 存進 localStorage（含所有學生明文密碼）
@@ -16179,7 +16186,16 @@ function applyConfig(cfg){
   if(cfg.examPIN) APP.examPIN=cfg.examPIN;
   if(cfg.courseTopics?.length>0) APP.courseTopics=cfg.courseTopics;
   if(cfg.courseSpeakers?.length>0) APP.courseSpeakers=cfg.courseSpeakers;
-  if(typeof cfg.cohortTerm==='string' && cfg.cohortTerm) { APP.cohortTerm=cfg.cohortTerm; try{ localStorage.setItem('cohort_term', cfg.cohortTerm); }catch(e){} }
+  // ★ FIX: 帶時間戳記比較，避免伺服器上的「舊值」蓋掉剛存的新值
+  if(typeof cfg.cohortTerm==='string'){
+    var _srvAt=+(cfg.cohortTermAt||0), _locAt=+(APP.cohortTermAt||0);
+    if(_srvAt>=_locAt){
+      APP.cohortTerm=cfg.cohortTerm; APP.cohortTermAt=_srvAt;
+      try{ localStorage.setItem('cohort_term', cfg.cohortTerm); localStorage.setItem('cohort_term_at', String(_srvAt)); }catch(e){}
+    }else{
+      console.warn('[cohortTerm] 伺服器值較舊('+_srvAt+')，保留本機值('+_locAt+')：', APP.cohortTerm);
+    }
+  }
   if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
   if(cfg.teacherOrder && cfg.teacherOrder.length>0) APP.teacherOrder=cfg.teacherOrder;
 }
@@ -17230,13 +17246,31 @@ async function updateTeacherPwd(card){
   refreshTeacherTable();
   saveConfigToSheets();
 }
-function saveCohortTerm(){
+async function saveCohortTerm(){
   var el=document.getElementById('cohort-term-input');
   var v=el?(el.value||'').trim():'';
   APP.cohortTerm=v;
-  try{ localStorage.setItem('cohort_term', v); }catch(e){}
-  if(typeof saveConfigToSheets==='function'){ try{ saveConfigToSheets(); }catch(e){} }
-  if(typeof toast==='function') toast(v?'✓ 班級學期已儲存（將顯示於班級統整 PDF 表頭）':'✓ 已清空，PDF 將自動推算學期');
+  APP.cohortTermAt=Date.now();
+  try{
+    localStorage.setItem('cohort_term', v);
+    localStorage.setItem('cohort_term_at', String(APP.cohortTermAt));
+  }catch(e){}
+  if(typeof saveConfigToSheets==='function'){ try{ await saveConfigToSheets(); }catch(e){} }
+  // ★ FIX: 原本 toast 一律報成功；現在回頭跟伺服器對答案，沒寫進去就明講
+  try{
+    var r=await fetch(GAS_URL+'?t='+Date.now(),{cache:'no-cache'});
+    var d=await r.json();
+    var srv=(d&&d.config)?((JSON.parse(d.config).cohortTerm)||''):null;
+    if(srv===v){
+      toast(v?'✓ 班級學期已儲存，並確認同步到伺服器':'✓ 已清空，伺服器已同步（PDF 將自動推算）');
+    }else if(srv===null){
+      toast('⚠ 讀不到伺服器設定，無法確認是否寫入', false);
+    }else{
+      toast('⚠ 伺服器未寫入！目前伺服器上仍是「'+(srv||'(空白)')+'」。請檢查 GAS saveConfig 是否有保留 cohortTerm 欄位。', false);
+    }
+  }catch(e){
+    toast('⚠ 無法驗證伺服器是否寫入：'+(e.message||e), false);
+  }
 }
 function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();saveConfigToSheets();document.getElementById('new-topic').value='';}}
 function delTopic(i){APP.courseTopics.splice(i,1);refreshTopicList();saveConfigToSheets();}
