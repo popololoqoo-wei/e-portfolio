@@ -16091,73 +16091,32 @@ window.addEventListener('load', () => {
 const CONFIG_SHEET='_系統設定';
 
 async function saveConfigToSheets(){
-  // ★ FIX: 送出前先同步 localStorage 上最新的 cohortTerm，避免「開很久沒重整的舊分頁」把舊學期整包推回伺服器
+  // ★ FIX v19.2: 舊版用 iframe form POST(form-urlencoded)送出,GAS v19 的 doPost 只吃 JSON
+  //   且沒帶 sessionToken → saveConfig 從來沒成功過。改走 callBackend。
   try{
     var _lsT=localStorage.getItem('cohort_term'), _lsA=+(localStorage.getItem('cohort_term_at')||0);
     if(_lsA>(+(APP.cohortTermAt||0))){ APP.cohortTerm=_lsT||''; APP.cohortTermAt=_lsA; }
   }catch(e){}
-  const config={students:APP.students,teachers:APP.teachers,adminPwd:APP.adminPwd,teacherPIN:APP.teacherPIN,examPIN:APP.examPIN,courseTopics:APP.courseTopics,courseSpeakers:APP.courseSpeakers,cohortTerm:APP.cohortTerm||'',cohortTermAt:APP.cohortTermAt||0,studentOrder:APP.studentOrder||[],teacherOrder:APP.teacherOrder||[]};
+
+  const config={
+    students:APP.students, teachers:APP.teachers, adminPwd:APP.adminPwd,
+    teacherPIN:APP.teacherPIN, examPIN:APP.examPIN,
+    courseTopics:APP.courseTopics, courseSpeakers:APP.courseSpeakers,
+    cohortTerm:APP.cohortTerm||'', cohortTermAt:APP.cohortTermAt||0,
+    studentOrder:APP.studentOrder||[], teacherOrder:APP.teacherOrder||[]
+  };
   const configStr = JSON.stringify(config);
 
-  // 【安全】只有管理員才把完整 config 存進 localStorage（含所有學生明文密碼）
-  // 學生 / 老師登入時，localStorage 不存任何別人的帳號資料
-  // 這樣下一位使用同一台電腦的學生無法從 F12 看到別人的密碼
-  if(APP.currentRole==='admin'){
-    localStorage.setItem('app_config', configStr);
-  } else {
-    // 學生/老師：localStorage 中清掉舊的 app_config（如果之前管理員登入留下殘餘）
-    try{ localStorage.removeItem('app_config'); }catch(e){}
+  if(APP.currentRole==='admin'){ localStorage.setItem('app_config', configStr); }
+  else { try{ localStorage.removeItem('app_config'); }catch(e){} }
+
+  const res = await callBackend('saveConfig', {config: configStr});
+  if(res && res.ok){
+    toast('設定已儲存並同步至 Google Sheets ✓');
+  }else{
+    toast('⚠ 伺服器儲存失敗：'+((res&&res.error)||'未知錯誤')+'（僅存於本機）', false);
   }
-
-  try {
-    // 每次建立全新的 iframe，避免重複使用問題
-    const iframeId = '_gas_iframe_' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = iframeId;
-    iframe.id = iframeId;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = GAS_URL;
-    form.target = iframeId;
-    form.style.display = 'none';
-
-    const inputConfig = document.createElement('input');
-    inputConfig.type = 'hidden';
-    inputConfig.name = 'config';
-    inputConfig.value = configStr;
-    form.appendChild(inputConfig);
-
-    const inputAction = document.createElement('input');
-    inputAction.type = 'hidden';
-    inputAction.name = 'action';
-    inputAction.value = 'saveConfig';
-    form.appendChild(inputAction);
-
-    // 【安全】帶上 WRITE_SECRET 通過 GAS 端身份驗證
-    if(typeof GAS_WRITE_SECRET!=='undefined' && GAS_WRITE_SECRET){
-      const inputSecret = document.createElement('input');
-      inputSecret.type = 'hidden';
-      inputSecret.name = 'secret';
-      inputSecret.value = GAS_WRITE_SECRET;
-      form.appendChild(inputSecret);
-    }
-
-    document.body.appendChild(form);
-    form.submit();
-
-    // 等待完成後清理
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    document.body.removeChild(form);
-    document.body.removeChild(iframe);
-
-    toast('設定已儲存並同步至所有裝置 ✓');
-  } catch(e) {
-    console.warn('GAS save error:', e);
-    toast('已儲存至本機');
-  }
+  return res;
 }
 
 async function loadConfigFromSheets(){
@@ -16186,14 +16145,12 @@ function applyConfig(cfg){
   if(cfg.examPIN) APP.examPIN=cfg.examPIN;
   if(cfg.courseTopics?.length>0) APP.courseTopics=cfg.courseTopics;
   if(cfg.courseSpeakers?.length>0) APP.courseSpeakers=cfg.courseSpeakers;
-  // ★ FIX: 帶時間戳記比較，避免伺服器上的「舊值」蓋掉剛存的新值
+  // ★ FIX v19.2: 只有伺服器版本較新才覆蓋,避免舊值蓋掉剛存的新值
   if(typeof cfg.cohortTerm==='string'){
     var _srvAt=+(cfg.cohortTermAt||0), _locAt=+(APP.cohortTermAt||0);
     if(_srvAt>=_locAt){
       APP.cohortTerm=cfg.cohortTerm; APP.cohortTermAt=_srvAt;
       try{ localStorage.setItem('cohort_term', cfg.cohortTerm); localStorage.setItem('cohort_term_at', String(_srvAt)); }catch(e){}
-    }else{
-      console.warn('[cohortTerm] 伺服器值較舊('+_srvAt+')，保留本機值('+_locAt+')：', APP.cohortTerm);
     }
   }
   if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
@@ -17255,21 +17212,16 @@ async function saveCohortTerm(){
     localStorage.setItem('cohort_term', v);
     localStorage.setItem('cohort_term_at', String(APP.cohortTermAt));
   }catch(e){}
-  if(typeof saveConfigToSheets==='function'){ try{ await saveConfigToSheets(); }catch(e){} }
-  // ★ FIX: 原本 toast 一律報成功；現在回頭跟伺服器對答案，沒寫進去就明講
-  try{
-    var r=await fetch(GAS_URL+'?t='+Date.now(),{cache:'no-cache'});
-    var d=await r.json();
-    var srv=(d&&d.config)?((JSON.parse(d.config).cohortTerm)||''):null;
-    if(srv===v){
-      toast(v?'✓ 班級學期已儲存，並確認同步到伺服器':'✓ 已清空，伺服器已同步（PDF 將自動推算）');
-    }else if(srv===null){
-      toast('⚠ 讀不到伺服器設定，無法確認是否寫入', false);
-    }else{
-      toast('⚠ 伺服器未寫入！目前伺服器上仍是「'+(srv||'(空白)')+'」。請檢查 GAS saveConfig 是否有保留 cohortTerm 欄位。', false);
-    }
-  }catch(e){
-    toast('⚠ 無法驗證伺服器是否寫入：'+(e.message||e), false);
+
+  // ★ FIX v19.2: 走專屬 setCohortTerm API,並用回傳值驗證伺服器真的寫進去了
+  var res = await callBackend('setCohortTerm', {term: v});
+  if(res && res.ok && res.cohortTerm === v){
+    if(res.cohortTermAt) { APP.cohortTermAt = +res.cohortTermAt || APP.cohortTermAt; try{ localStorage.setItem('cohort_term_at', String(APP.cohortTermAt)); }catch(e){} }
+    toast(v ? '✓ 班級學期已儲存並確認寫入 Google Sheets' : '✓ 已清空（PDF 將自動推算學期）');
+  }else if(res && res.error && String(res.error).indexOf('Unknown action')>=0){
+    toast('⚠ GAS 後端尚未更新（找不到 setCohortTerm）。請先貼上新版 GAS 並重新部署。', false);
+  }else{
+    toast('⚠ 伺服器未寫入：'+((res&&res.error)||'未知錯誤')+'。目前僅存於本機，其他裝置匯出會不同。', false);
   }
 }
 function addTopic(){const v=document.getElementById('new-topic').value.trim();if(v&&!APP.courseTopics.includes(v)){APP.courseTopics.push(v);refreshTopicList();saveConfigToSheets();document.getElementById('new-topic').value='';}}
