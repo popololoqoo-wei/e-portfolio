@@ -12854,22 +12854,23 @@ function buildEPA(f,d,canT,fkey,canS){
         // 其他：文字輸入框
         var othersVal=d[task.skey+'_others']||'';
         var othOC="APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"_others']=this.value";
-        var othChkOC="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['"+task.skey+"']||'[]');}catch(e){}if(this.checked){if(a.indexOf('其他')<0)a.push('其他');}else{a=a.filter(function(x){return x!=='其他';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"']=JSON.stringify(a);";
+        var othChkOC="setEPAScenario('"+fid+"','"+task.skey+"','其他',this.checked)";
         var othChk=saved.indexOf('其他')>=0?'checked':'';
         h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
         var othDis=(!canT)?' disabled':'';
         var othOpacity=(!canT)?'opacity:0.6;':'';
-        h+='<label class="check-item" style="'+othOpacity+'"><input type="checkbox" '+othChk+othDis+' data-fid="'+fid+'" data-key="'+task.skey+'_check" data-teacher="1" onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
+        h+='<label class="check-item" style="'+othOpacity+'"><input type="checkbox" '+othChk+othDis+' data-teacher="1" data-epa-sc="其他" data-epa-skey="'+task.skey+'" onchange="'+othChkOC+'" style="accent-color:var(--blue);"> 其他：</label>';
         h+='<input type="text" value="'+othersVal+'" placeholder="請說明（不限字數）" onchange="'+othOC+'"'+((!canT)?' disabled':'')+' data-fid="'+fid+'" data-key="'+task.skey+'_others" data-teacher="1" style="flex:1;min-width:150px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;background:'+((!canT)?'var(--cream)':'#fff')+';">';
         h+='</div>';
         return;
       }
       var chk=saved.indexOf(sc)>=0?'checked':'';
-      var oc="var a=[];try{a=JSON.parse((APP.formData['"+fid+"']||{})['"+task.skey+"']||'[]');}catch(e){}if(this.checked){if(a.indexOf('"+sc+"')<0)a.push('"+sc+"');}else{a=a.filter(function(x){return x!=='"+sc+"';});}APP.formData['"+fid+"']=APP.formData['"+fid+"']||{};APP.formData['"+fid+"']['"+task.skey+"']=JSON.stringify(a);";
-            var scDis=!canT?' disabled':'';
-      h+='<label class="check-item" style="'+((!canT)?'opacity:0.6;':'')+'"><input type="checkbox" '+chk+scDis+' data-teacher="1" onchange="'+oc+'" style="accent-color:var(--blue);"> '+sc+'</label>';
+      var oc="setEPAScenario('"+fid+"','"+task.skey+"','"+sc+"',this.checked)";
+      var scDis=!canT?' disabled':'';
+      h+='<label class="check-item" style="'+((!canT)?'opacity:0.6;':'')+'"><input type="checkbox" '+chk+scDis+' data-teacher="1" data-epa-sc="'+sc+'" data-epa-skey="'+task.skey+'" onchange="'+oc+'" style="accent-color:var(--blue);"> '+sc+'</label>';
     });
     h+='</div></div></div>';
+  }
 
   // 信賴等級
   h+='<div class="card"><div class="card-head"><div class="card-head-title">可信賴等級<span class="t-badge">老師評定</span></div></div><div class="card-body">';
@@ -12883,7 +12884,7 @@ function buildEPA(f,d,canT,fkey,canS){
     // 鎖定時用 data-locked（CSS 控制），始終綁定正確 onclick
     var lockedAttr=canT?'':' data-locked="1"';
     var ocEPA="setEPA('"+f.id+"','"+lv+"','"+fid+"')";
-    h+='<div class="epa-level'+( sel?' sel':'')+'""  data-teacher="1"'+lockedAttr+' id="'+f.id+'_lv'+lv+'" onclick="'+ocEPA+'" style="'+selStyle+'">';
+    h+='<div class="epa-level'+( sel?' sel':'')+'" data-teacher="1"'+lockedAttr+' id="'+f.id+'_lv'+lv+'" onclick="'+ocEPA+'" style="'+selStyle+'">';
     h+='<div style="width:24px;height:24px;border-radius:50%;border:2px solid '+(sel?'var(--blue)':'var(--border)')+';background:'+(sel?'var(--blue)':'#fff')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
     h+=sel?'<span style="color:#fff;font-size:12px;font-weight:700;">✓</span>':'';
     h+='</div>';
@@ -12904,6 +12905,48 @@ function buildEPA(f,d,canT,fkey,canS){
   return h;
 }
 
+/* ─── EPA 臨床情境：統一寫入（記憶體 + localStorage 草稿 + 刪除標記 + 自動儲存）───
+ * 修正:舊版 onchange 只寫 APP.formData(記憶體),沒有寫 form_drafts。
+ *      saveForm() 開頭會「用草稿無條件覆蓋記憶體」,於是第二次以後的更改
+ *      都會被上一次存下的舊草稿蓋回去 → 畫面看似點了卻不會更新/存不進去。
+ *      這裡比照 setEPA() 的做法,一次把四個地方都寫齊。 */
+function setEPAScenario(fid, skey, sc, checked){
+  var bareId = fid.indexOf('_')>=0 ? fid.split('_')[0] : fid;
+  var targetKey = (typeof getCanonicalKey==='function') ? getCanonicalKey(bareId) : fid;
+  if(!APP.formData[targetKey]) APP.formData[targetKey] = {};
+
+  var a = [];
+  try{
+    var raw = APP.formData[targetKey][skey];
+    a = Array.isArray(raw) ? raw.slice() : JSON.parse(raw || '[]');
+  }catch(e){ a = []; }
+  if(!Array.isArray(a)) a = [];
+
+  if(checked){
+    if(a.indexOf(sc) < 0) a.push(sc);
+  } else {
+    a = a.filter(function(x){ return x !== sc; });
+  }
+  var json = JSON.stringify(a);
+  APP.formData[targetKey][skey] = json;
+
+  // ★ 關鍵:同步寫入 localStorage 草稿,草稿才不會是舊的
+  try{
+    var drafts = JSON.parse(localStorage.getItem('form_drafts') || '{}');
+    if(!drafts[targetKey]) drafts[targetKey] = {};
+    drafts[targetKey][skey] = json;
+    localStorage.setItem('form_drafts', JSON.stringify(drafts));
+  }catch(e){}
+
+  // ★ 全部取消勾選時標記為已刪除,避免下次雲端同步把舊選項復活
+  if(a.length === 0){
+    if(typeof markFieldDeleted === 'function') markFieldDeleted(targetKey, skey);
+  } else {
+    if(typeof unmarkFieldDeleted === 'function') unmarkFieldDeleted(targetKey, skey);
+  }
+
+  // ★ 觸發自動儲存(舊版沒有 data-fid/data-key,全域 change 監聽抓不到 → 從不觸發)
+  if(typeof scheduleAutoSave === 'function') scheduleAutoSave(bareId);
 }
 
 function setEPA(fid,lv,fid2){
