@@ -8391,6 +8391,49 @@ function checkAndDownloadPDF(id){
   toast('⚠ 尚有必填欄位未完成：'+preview+more+'，全部填寫並雙方簽名後才可下載 PDF', false);
 }
 
+/* ═══════════ PDF「修改紀錄」壓縮排版 ═══════════
+ * 問題:原本每筆紀錄各佔一行,一份表單存個 6~10 次就會把版面撐到多一頁,
+ *      而且常常剛好被切在頁尾 → 產生一頁幾乎空白的 PDF。
+ * 作法:1) 只列最近 PDF_HISTORY_MAX 筆,其餘用「共 N 次」帶過
+ *      2) 同一段內以「｜」串接成流式文字,6 筆約只佔 1~2 行
+ *      3) 時間縮成 M/D HH:mm(去掉年份與秒數,對稽核已足夠)
+ *      4) page-break-inside:avoid,不讓這一區塊被切到下一頁
+ * 調整:PDF_HISTORY_MAX 設 0 → 完全不印修改紀錄(只留「共 N 次」);
+ *      設 999 → 全部印出(但仍是壓縮排版,比原本省很多行)。 */
+var PDF_HISTORY_MAX = 5;
+
+function _pdfHistTs(ts){
+  var dt = new Date(ts);
+  if(isNaN(dt.getTime())) return String(ts || '');
+  function p(n){ return (n < 10 ? '0' : '') + n; }
+  return (dt.getMonth() + 1) + '/' + dt.getDate() + ' ' + p(dt.getHours()) + ':' + p(dt.getMinutes());
+}
+
+function buildPDFHistory(logs, title){
+  logs = logs || [];
+  if(logs.length === 0) return '';
+  var max = (typeof PDF_HISTORY_MAX === 'number') ? PDF_HISTORY_MAX : 5;
+  var shown = max > 0 ? logs.slice(0, max) : [];
+  var first = logs[logs.length - 1];
+
+  var html = '<div style="border-top:1px solid #DDD;margin-top:12px;padding-top:6px;'
+           + 'page-break-inside:avoid;break-inside:avoid;font-size:8pt;color:#8A8A8A;line-height:1.65;">';
+  html += '<span style="font-weight:700;color:#666;">' + (title || '修改紀錄') + '</span>';
+  html += '<span style="margin-left:6px;">（共 ' + logs.length + ' 次'
+        + (shown.length && logs.length > shown.length ? '，僅列最近 ' + shown.length + ' 次' : '')
+        + '；首次 ' + _pdfHistTs(first.ts) + '）</span>';
+  if(shown.length){
+    html += '<span style="margin-left:8px;">'
+          + shown.map(function(l, i){
+              return '#' + (logs.length - i) + ' ' + _pdfHistTs(l.ts)
+                   + ' ' + (l.roleLabel || '') + '：' + (l.name || '');
+            }).join('　｜　')
+          + '</span>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function downloadPDF(id){
   const formKey=getFormKey(id);
   const f=findForm(id);
@@ -8493,16 +8536,8 @@ function downloadPDF(id){
   // ── 表單內容（依表單類型） ──
   html+=buildPDFContent(id,f,d,val,row,section,studentName,studentSchool);
   
-  // ── 修改紀錄 ──
-  if(logs.length>0){
-    html+='<div style="border-top:1px solid #DDD;margin-top:15px;padding-top:8px;">';
-    html+='<div style="font-size:9pt;font-weight:700;color:#666;margin-bottom:4px;">修改紀錄</div>';
-    logs.forEach(function(l,i){
-      var ts=new Date(l.ts).toLocaleString("zh-TW");
-      html+='<div style="font-size:9pt;color:#888;padding:2px 0;">#'+(logs.length-i)+'　'+ts+'　'+l.roleLabel+'：'+l.name+'</div>';
-    });
-    html+='</div>';
-  }
+  // ── 修改紀錄（壓縮成 1~2 行，避免多撐一頁）──
+  html+=buildPDFHistory(logs,'修改紀錄');
   
   html+='</body></html>';
   
@@ -17957,16 +17992,8 @@ function batchDownloadPDF(){
       allHtml+='</tr></table>';
     }
 
-    // 填寫歷史紀錄
-    if(uniqueLogs.length>0){
-      allHtml+='<div class="history">';
-      allHtml+='<b>填寫歷史紀錄</b>（共'+uniqueLogs.length+'筆）<br>';
-      uniqueLogs.forEach(function(l,i){
-        var ts=new Date(l.ts).toLocaleString('zh-TW');
-        allHtml+='<div class="history-row">#'+(uniqueLogs.length-i)+'&nbsp;&nbsp;'+ts+'&nbsp;&nbsp;'+l.roleLabel+'：'+l.name+'</div>';
-      });
-      allHtml+='</div>';
-    }
+    // 填寫歷史紀錄（壓縮排版）
+    allHtml+=buildPDFHistory(uniqueLogs,'填寫歷史紀錄');
     allHtml+='</div>'; // end form-page div
   });
 
