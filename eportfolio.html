@@ -1010,7 +1010,7 @@ input[type="date"]{
     <div class="topbar-left">
       <div>
         <div class="topbar-title">臺中榮總 — e-Portfolio</div>
-        <div class="topbar-sub">胸腔部 呼吸治療科 <span id="version-tag" style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="_versionTagClick()" title="點擊查看版本資訊（連點 5 下可叫出診斷工具）">v1.5.5 · 2026.05</span></div>
+        <div class="topbar-sub">胸腔部 呼吸治療科 <span id="version-tag" style="opacity:.7;font-size:10px;margin-left:6px;cursor:pointer;" onclick="_versionTagClick()" title="點擊查看版本資訊（連點 5 下可叫出診斷工具）">v1.6.0 · 2026.08</span></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -1375,6 +1375,155 @@ try{ var _ctAt=localStorage.getItem('cohort_term_at'); if(_ctAt) APP.cohortTermA
 // 實習類別選項（基本資料 / F04 / 管理員後台 共用，確保字串一致可正確對應）
 const INTERN_CATEGORIES=['基礎呼吸照護實習','重症呼吸照護實習','小兒呼吸照護實習','長期呼吸照護實習','綜合臨床實習'];
 
+/* ════════════════════════════════════════════════════════════════════
+   ★ v1.6 學期（梯次）分類系統
+   ────────────────────────────────────────────────────────────────────
+   目的：學生人數會逐年累積，全部擠在同一份名單會愈來愈難用。
+        因此替每位學生標記「所屬學期」，讓：
+          · 老師首頁的學生名單 → 依學期分組，可展開/收合
+          · 管理員後台         → 可指定 / 批次指定 / 篩選學期
+          · 班級統計           → 可切換學期，並提供各學期人數統計
+
+   資料存放策略（三層，確保後端未支援時也不會遺失）：
+     1) APP.students[sid].term        ← 後端若支援 term 欄位就會回填
+     2) APP.studentTerms {sid:term}   ← 本機 localStorage 留底
+     3) 設定檔 _系統設定（studentTerms + studentTermsAt 時間戳）
+        → 透過 saveConfigToSheets 同步，達成跨裝置共用
+   ════════════════════════════════════════════════════════════════════ */
+const TERM_UNASSIGNED='未分類';
+
+APP.studentTerms={};      // {sid: '114學年度第1學期'}
+APP.studentTermsAt=0;     // 最後異動時間戳（比對伺服器新舊用）
+APP.defaultNewTerm='';    // 後台「新增學生」預設帶入的學期
+APP.adminTermFilter='';   // 後台學生表格的學期篩選（''＝全部）
+APP.cohortFilterTerm='';  // 班級統計目前檢視的學期（''＝全部）
+try{ var _stLS=localStorage.getItem('student_terms'); if(_stLS) APP.studentTerms=JSON.parse(_stLS)||{}; }catch(e){}
+try{ var _stAt=localStorage.getItem('student_terms_at'); if(_stAt) APP.studentTermsAt=(+_stAt)||0; }catch(e){}
+try{ APP.defaultNewTerm=localStorage.getItem('default_new_term')||''; }catch(e){}
+
+function _saveStudentTermsLocal(stamp){
+  if(stamp!==false) APP.studentTermsAt=Date.now();
+  try{
+    localStorage.setItem('student_terms', JSON.stringify(APP.studentTerms||{}));
+    localStorage.setItem('student_terms_at', String(APP.studentTermsAt||0));
+  }catch(e){}
+}
+
+/* 依日期自動推算學期字串
+   台灣學年度規則：8 月起算新學年；8 月–翌年 1 月＝第1學期，2–7 月＝第2學期 */
+function deriveTermFromDate(dateStr){
+  if(!dateStr) return '';
+  var m=String(dateStr).match(/(\d{4})[\/-](\d{1,2})/);
+  if(!m) return '';
+  var y=+m[1], mo=+m[2];
+  if(!y||!mo||mo<1||mo>12) return '';
+  var ay=(mo>=8)?(y-1911):(y-1912);
+  var sem=(mo>=8||mo===1)?'第1學期':'第2學期';
+  return ay+'學年度'+sem;
+}
+
+/* 取得某學生所屬學期
+   優先序：本機/設定檔指定 > 帳號 term 欄位 > 依實習起始日推算 > 未分類 */
+function getStudentTerm(sid){
+  var t=(APP.studentTerms&&APP.studentTerms[sid])||'';
+  var acc=(APP.students&&APP.students[sid])||{};
+  if(!t) t=acc.term||'';
+  if(!t) t=deriveTermFromDate(acc.intern_start||'');
+  t=String(t||'').trim();
+  return t || TERM_UNASSIGNED;
+}
+/* 此學生的學期是「自動推算」還是「人工指定」（後台顯示小標籤用） */
+function isTermAutoDerived(sid){
+  var manual=(APP.studentTerms&&APP.studentTerms[sid])||((APP.students&&APP.students[sid]&&APP.students[sid].term)||'');
+  return !String(manual||'').trim();
+}
+
+/* 設定某學生的學期（僅更新記憶體 + 本機；送後端與同步由呼叫端負責） */
+function setStudentTermLocal(sid, term){
+  term=String(term==null?'':term).trim();
+  if(!APP.studentTerms) APP.studentTerms={};
+  if(term){ APP.studentTerms[sid]=term; }
+  else { delete APP.studentTerms[sid]; }
+  if(APP.students&&APP.students[sid]) APP.students[sid].term=term;
+  _saveStudentTermsLocal();
+}
+
+/* 學期排序鍵：學年度數字 ×10 + 學期序，數字越大＝越新。未分類永遠排最後 */
+function _termSortKey(t){
+  if(!t || t===TERM_UNASSIGNED) return -1e9;
+  var s=String(t);
+  var m=s.match(/(\d{2,4})\s*學年/);
+  var y=m?+m[1]:0;
+  if(!y){ var m2=s.match(/(\d{2,4})/); y=m2?+m2[1]:0; }
+  if(y>1911) y=y-1911;               // 若填西元年，換算成民國年比較
+  var sem=0;
+  if(/暑/.test(s)) sem=3;
+  else if(/第\s*2\s*學期|下學期/.test(s)) sem=2;
+  else if(/第\s*1\s*學期|上學期/.test(s)) sem=1;
+  return y*10+sem;
+}
+
+/* 目前所有學生用到的學期清單（新→舊，未分類墊底） */
+function listTerms(){
+  var seen={};
+  Object.keys(APP.students||{}).forEach(function(sid){ seen[getStudentTerm(sid)]=1; });
+  return Object.keys(seen).sort(function(a,b){
+    var d=_termSortKey(b)-_termSortKey(a);
+    return d!==0 ? d : String(a).localeCompare(String(b),'zh-Hant');
+  });
+}
+
+/* 把一組 sid 依學期分組 → [{term, sids:[...]}, ...]（新→舊） */
+function groupSidsByTerm(sids){
+  var map={};
+  (sids||[]).forEach(function(sid){
+    var t=getStudentTerm(sid);
+    if(!map[t]) map[t]=[];
+    map[t].push(sid);
+  });
+  return Object.keys(map).sort(function(a,b){
+    var d=_termSortKey(b)-_termSortKey(a);
+    return d!==0 ? d : String(a).localeCompare(String(b),'zh-Hant');
+  }).map(function(t){ return {term:t, sids:map[t]}; });
+}
+
+/* 最新（＝預設展開）的那個學期 */
+function latestTerm(){
+  var ts=listTerms().filter(function(t){return t!==TERM_UNASSIGNED;});
+  return ts.length?ts[0]:(listTerms()[0]||'');
+}
+
+/* 學期建議選項：現有學期 ∪ 依今日推算的本學期與前一學期 */
+function termSuggestions(){
+  var out=listTerms().filter(function(t){return t!==TERM_UNASSIGNED;});
+  var now=new Date();
+  var cur=deriveTermFromDate(now.getFullYear()+'/'+(now.getMonth()+1));
+  [cur].forEach(function(t){ if(t && out.indexOf(t)<0) out.unshift(t); });
+  return out;
+}
+function termDatalistHtml(id){
+  return '<datalist id="'+id+'">'+termSuggestions().map(function(t){
+    return '<option value="'+escAttr(t)+'"></option>';
+  }).join('')+'</datalist>';
+}
+
+/* 帳號清單重新載入後，把本機留底的學期回貼；同時把後端帶回的 term 收進本機 map */
+function reconcileStudentTerms(){
+  if(!APP.students) return;
+  if(!APP.studentTerms) APP.studentTerms={};
+  Object.keys(APP.students).forEach(function(sid){
+    var local=APP.studentTerms[sid];
+    var remote=APP.students[sid].term;
+    if(local) APP.students[sid].term=local;          // 本機指定優先（後端多半還沒有此欄位）
+    else if(remote) APP.studentTerms[sid]=remote;    // 後端有值 → 收進本機留底
+  });
+  // 清掉已刪除帳號的殘留
+  Object.keys(APP.studentTerms).forEach(function(sid){
+    if(!APP.students[sid]) delete APP.studentTerms[sid];
+  });
+  _saveStudentTermsLocal(false);
+}
+
 /* ═══════════ HELPERS ═══════════ */
 
 /* ─── 【資安修補 v18】alias for compatibility ─── 
@@ -1734,6 +1883,8 @@ async function loadAccountsFromBackend(){
   }
   if(data.studentOrder && data.studentOrder.length>0) APP.studentOrder = data.studentOrder;
   if(data.teacherOrder && data.teacherOrder.length>0) APP.teacherOrder = data.teacherOrder;
+  // ★ v1.6：APP.students 被整包覆蓋後，把本機留底的「學期」標記回貼
+  try{ reconcileStudentTerms(); }catch(e){ console.warn('reconcileStudentTerms failed', e); }
   
   console.log('[loadAccounts] 學生 ' + Object.keys(APP.students).length + 
               ' 位，老師 ' + Object.keys(APP.teachers).length + ' 位');
@@ -5949,17 +6100,41 @@ async function openForm(id){
   const noneCount=stuRows.filter(r=>r.status==='unevaluated').length;
 
   // 學生狀態卡片列表
-  const stuCards=stuRows.map(({sid,acc,status})=>{
+  const _stuCardHtml=({sid,acc,status})=>{
     const isActive=APP.currentStudentId===sid;
     const bg=isActive?'background:var(--ink);color:#fff;':'background:#fff;color:var(--ink);';
     const dotColor=status==='done'?'#639922':status==='student_only'?'#EF9F27':status==='teacher_only'?'#1A3A5C':'#B4B2A9';
     const statusLabel=status==='done'?'已完成':status==='student_only'?'待評分':status==='teacher_only'?'待學生填':'未填寫';
-    return `<div onclick="switchStudent('${sid}','${id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;${bg}border:1px solid ${isActive?'var(--ink)':'var(--border2)'};transition:all .15s;">
+    return `<div onclick="switchStudent('${escapeJsString(sid)}','${id}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);cursor:pointer;${bg}border:1px solid ${isActive?'var(--ink)':'var(--border2)'};transition:all .15s;">
       <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
       <span style="font-size:12px;font-weight:${isActive?'600':'400'};flex:1;">${esc(acc.name)}</span>
       <span style="font-size:10px;padding:1px 7px;border-radius:999px;background:${isActive?'rgba(255,255,255,.2)':'var(--cream)'};color:${isActive?'#fff':'var(--ink3)'};">${statusLabel}</span>
     </div>`;
-  }).join('');
+  };
+  // ★ v1.6：學生一多就依「學期」分組，預設只展開目前學生所在的梯次
+  const _termGroups=groupSidsByTerm(stuRows.map(r=>r.sid));
+  let stuCards;
+  if(_termGroups.length<=1){
+    stuCards=stuRows.map(_stuCardHtml).join('');
+  }else{
+    const _rowBySid={};
+    stuRows.forEach(r=>{ _rowBySid[r.sid]=r; });
+    const _curTerm=APP.currentStudentId?getStudentTerm(APP.currentStudentId):_termGroups[0].term;
+    stuCards=_termGroups.map(g=>{
+      const open=(g.term===_curTerm)?' open':'';
+      const doneN=g.sids.filter(s=>(_rowBySid[s]||{}).status==='done').length;
+      return `<details${open} style="border:1px solid var(--border2);border-radius:var(--r);background:#FCFCFB;">
+        <summary style="cursor:pointer;padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--ink2);display:flex;align-items:center;gap:8px;">
+          <span>🎓 ${esc(g.term)}</span>
+          <span style="font-size:10px;background:#2563EB;color:#fff;padding:1px 7px;border-radius:999px;">${g.sids.length} 位</span>
+          <span style="font-size:10px;color:var(--ink3);">已完成 ${doneN}/${g.sids.length}</span>
+        </summary>
+        <div style="display:flex;flex-direction:column;gap:5px;padding:6px 8px 8px;">
+          ${g.sids.map(s=>_stuCardHtml(_rowBySid[s])).join('')}
+        </div>
+      </details>`;
+    }).join('');
+  }
 
   studentBanner=`<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--r2);padding:1rem;margin-bottom:1rem;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
@@ -14927,15 +15102,21 @@ async function examPostUnlock(){
 function _cohColors(){ return ['#2563EB','#DC2626','#059669','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D']; }
 function _cohEsc(s){ return (typeof esc==='function') ? esc(String(s==null?'':s)) : String(s==null?'':s); }
 
-/* 取得全班學生清單 [{sid,name,school,intern_start,intern_end,intern_cat}] */
-function cohortStudentList(){
+/* 取得全班學生清單 [{sid,name,school,intern_start,intern_end,intern_cat,term}]
+   ★ v1.6：預設只回傳「目前檢視學期」(APP.cohortFilterTerm) 的學生；
+     傳入 allTerms=true 則不套用學期篩選（供「各學期人數統計」使用）。 */
+function cohortStudentList(allTerms){
   var order = (APP.studentOrder && APP.studentOrder.length) ? APP.studentOrder.slice()
             : Object.keys(APP.students||{});
+  Object.keys(APP.students||{}).forEach(function(sid){ if(order.indexOf(sid)<0) order.push(sid); });
+  var ft = allTerms ? '' : (APP.cohortFilterTerm||'');
   return order.filter(function(sid){ return APP.students && APP.students[sid]; })
+              .filter(function(sid){ return !ft || getStudentTerm(sid)===ft; })
               .map(function(sid){
                 var s = APP.students[sid] || {};
                 return { sid: sid, name: s.name || sid, school: s.school || '',
-                         intern_start: s.intern_start || '', intern_end: s.intern_end || '', intern_cat: s.intern_cat || '' };
+                         intern_start: s.intern_start || '', intern_end: s.intern_end || '', intern_cat: s.intern_cat || '',
+                         term: getStudentTerm(sid) };
               });
 }
 
@@ -15635,10 +15816,24 @@ async function renderCohortDashboard(){
   if(sb) sb.querySelectorAll('.sidebar-item').forEach(function(el){el.classList.remove('active');});
   var navOn=document.getElementById('cohort-nav-btn'); if(navOn)navOn.classList.add('active');
 
+  // ★ v1.6：首次進入時，預設只看「最新學期」，避免逐年累積後每次都要載入全部學生
+  if(APP.cohortFilterTerm===undefined || APP.cohortFilterTerm===null) APP.cohortFilterTerm='';
+  if(!APP._cohortTermInit){
+    APP._cohortTermInit=true;
+    var _allTerms=listTerms();
+    if(_allTerms.length>1){
+      var _lt=latestTerm();
+      if(_lt) APP.cohortFilterTerm=_lt;
+    }
+  }
+  // 若記住的學期已不存在（例如更名/刪除），退回「全部」
+  if(APP.cohortFilterTerm && listTerms().indexOf(APP.cohortFilterTerm)<0) APP.cohortFilterTerm='';
+
+  var _pending=cohortStudentList().length;
   mc.innerHTML='<div style="padding:3rem;text-align:center;color:var(--ink3);">'
     +'<div style="font-size:32px;margin-bottom:10px;">📊</div>'
-    +'<div style="font-size:14px;font-weight:600;">正在彙整全班資料…</div>'
-    +'<div style="font-size:12px;margin-top:6px;color:var(--ink3);">逐一從雲端載入每位學生的表單</div></div>';
+    +'<div style="font-size:14px;font-weight:600;">正在彙整'+(APP.cohortFilterTerm?_cohEsc(APP.cohortFilterTerm):'全班')+'資料…</div>'
+    +'<div style="font-size:12px;margin-top:6px;color:var(--ink3);">逐一從雲端載入每位學生的表單（'+_pending+' 位）</div></div>';
 
   var students;
   try{ students = await loadCohortData(); }
@@ -15647,7 +15842,12 @@ async function renderCohortDashboard(){
     return;
   }
   if(!students || !students.length){
-    mc.innerHTML='<div class="admin-section"><div style="padding:2rem;text-align:center;color:var(--ink3);">尚無學生資料。請先於「系統管理」新增學生帳號。</div></div>';
+    var _anyStu=Object.keys(APP.students||{}).length;
+    mc.innerHTML='<div class="admin-section">'
+      + (_anyStu ? cohortTermSwitcherHtml() : '')
+      + '<div style="padding:2rem;text-align:center;color:var(--ink3);">'
+      + (_anyStu ? ('「'+_cohEsc(APP.cohortFilterTerm||'')+'」目前沒有學生，請於上方切換其他學期。') : '尚無學生資料。請先於「系統管理」新增學生帳號。')
+      + '</div></div>';
     return;
   }
 
@@ -15657,7 +15857,14 @@ async function renderCohortDashboard(){
   html+='<div style="font-family:var(--ff-serif);font-size:18px;font-weight:600;">📊 班級學習統整</div>';
   html+='<div style="display:flex;gap:8px;"><button class="btn-update" onclick="renderCohortDashboard()">↻ 重新整理</button><button class="btn-primary" style="padding:8px 16px;" onclick="downloadCohortPDF()">🖨 匯出班級總表 PDF</button></div>';
   html+='</div>';
-  html+='<div style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">資料時間：'+new Date().toLocaleString('zh-TW')+'　·　共 '+students.length+' 位學生</div>';
+  // ★ v1.6 學期切換列
+  html+=cohortTermSwitcherHtml();
+  html+='<div style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">資料時間：'+new Date().toLocaleString('zh-TW')
+      +'　·　檢視範圍：'+(APP.cohortFilterTerm?_cohEsc(APP.cohortFilterTerm):'全部學期')
+      +'　·　共 '+students.length+' 位學生</div>';
+  // ★ v1.6 各學期人數統計（不需雲端資料，直接由帳號設定彙整）
+  html+='<div class="admin-card"><div class="admin-card-head">⓪ 各學期（梯次）人數統計</div>'
+      +'<div class="admin-card-body">'+cohortTermStatsHtml()+'</div></div>';
   secs.forEach(function(sec){
     html+='<div class="admin-card"><div class="admin-card-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
       +'<span>'+_cohEsc(sec.title)+'</span>'
@@ -15667,6 +15874,122 @@ async function renderCohortDashboard(){
   html+='</div>';
   mc.innerHTML=html;
   window.scrollTo(0,0);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ★ v1.6 班級統計：學期切換 + 各學期人數統計
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 切換目前檢視的學期 */
+function switchCohortTerm(term){
+  APP.cohortFilterTerm=String(term||'');
+  APP._cohortTermInit=true;
+  renderCohortDashboard();
+}
+
+/* 學期切換列（膠囊按鈕：全部 + 各學期，含人數） */
+function cohortTermSwitcherHtml(){
+  var groups=groupSidsByTerm(Object.keys(APP.students||{}));
+  var total=Object.keys(APP.students||{}).length;
+  if(!groups.length) return '';
+  var cur=APP.cohortFilterTerm||'';
+  function pill(label,val,count,active,warn){
+    var bg=active?(warn?'#B45309':'#1E40AF'):'#fff';
+    var col=active?'#fff':(warn?'#92400E':'#1E3A8A');
+    var bd=active?(warn?'#B45309':'#1E40AF'):(warn?'#FCD34D':'#BFDBFE');
+    return '<button type="button" onclick="switchCohortTerm(\''+escapeJsString(val)+'\')" '
+      +'style="padding:6px 14px;font-size:12px;font-weight:'+(active?'700':'500')+';background:'+bg+';color:'+col+';border:1px solid '+bd+';border-radius:999px;cursor:pointer;white-space:nowrap;">'
+      +_cohEsc(label)+' <span style="opacity:.8;font-size:11px;">('+count+')</span></button>';
+  }
+  var h='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--cream);border:1px solid var(--border2);border-radius:var(--r2);padding:10px 12px;margin-bottom:12px;">';
+  h+='<span style="font-size:12px;font-weight:600;color:var(--ink3);white-space:nowrap;">🎓 檢視學期：</span>';
+  h+=pill('全部學期','',total,!cur,false);
+  groups.forEach(function(g){
+    h+=pill(g.term, g.term, g.sids.length, cur===g.term, g.term===TERM_UNASSIGNED);
+  });
+  h+='<span style="font-size:11px;color:var(--ink3);flex-basis:100%;margin-top:2px;">💡 只載入所選學期的學生資料，學生人數多時速度會快很多；匯出的 PDF 也只包含此學期。</span>';
+  h+='</div>';
+  return h;
+}
+
+/* 各學期人數統計（長條圖 + 明細表；資料來自帳號設定，不需雲端載入） */
+function cohortTermStatsHtml(){
+  var all=cohortStudentList(true);
+  if(!all.length) return '<div style="font-size:12px;color:var(--ink3);">尚無學生資料。</div>';
+  var groups=groupSidsByTerm(all.map(function(s){return s.sid;}));
+  var max=Math.max.apply(null, groups.map(function(g){return g.sids.length;}));
+  var colors=_cohColors();
+
+  // ── 手繪 inline SVG 長條圖（與其他區塊一致，列印友善）──
+  var barW=54, gap=26, padL=44, padT=18, padB=54, chartH=170;
+  var w=Math.max(360, padL*2+groups.length*barW+(groups.length-1)*gap);
+  var h='<div style="font-size:12px;color:var(--ink3);margin-bottom:10px;line-height:1.6;">'
+    +'各學期（梯次）的學生人數分佈。學生逐年累積後，可用此表掌握每一梯次的規模，'
+    +'並於上方切換學期，單獨檢視該梯次的學習成效統計。</div>';
+  h+='<div style="overflow-x:auto;"><svg viewBox="0 0 '+w+' '+(chartH+padT+padB)+'" width="100%" style="max-width:'+w+'px;font-family:inherit;">';
+  // 基準線
+  h+='<line x1="'+(padL-8)+'" y1="'+(padT+chartH)+'" x2="'+(w-10)+'" y2="'+(padT+chartH)+'" stroke="#CBD5E1" stroke-width="1"/>';
+  // Y 軸刻度（0 / 半 / 最大）
+  [0,0.5,1].forEach(function(r){
+    var v=Math.round(max*r), y=padT+chartH-chartH*r;
+    h+='<line x1="'+(padL-8)+'" y1="'+y+'" x2="'+(w-10)+'" y2="'+y+'" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 3"/>';
+    h+='<text x="'+(padL-12)+'" y="'+(y+4)+'" font-size="10" fill="#94A3B8" text-anchor="end">'+v+'</text>';
+  });
+  groups.forEach(function(g,i){
+    var x=padL+i*(barW+gap);
+    var bh=Math.round(chartH*(g.sids.length/(max||1)));
+    if(bh<3) bh=3;
+    var y=padT+chartH-bh;
+    var col=(g.term===TERM_UNASSIGNED)?'#F59E0B':colors[i%colors.length];
+    h+='<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+bh+'" rx="4" fill="'+col+'" opacity="0.9"><title>'+_cohEsc(g.term)+'：'+g.sids.length+' 位</title></rect>';
+    h+='<text x="'+(x+barW/2)+'" y="'+(y-5)+'" font-size="12" font-weight="700" fill="#1E293B" text-anchor="middle">'+g.sids.length+'</text>';
+    // 標籤（過長就折兩行）
+    var lbl=String(g.term);
+    var l1=lbl.length>7?lbl.slice(0,7):lbl, l2=lbl.length>7?lbl.slice(7,15):'';
+    h+='<text x="'+(x+barW/2)+'" y="'+(padT+chartH+16)+'" font-size="10.5" fill="#475569" text-anchor="middle">'+_cohEsc(l1)+'</text>';
+    if(l2) h+='<text x="'+(x+barW/2)+'" y="'+(padT+chartH+29)+'" font-size="10.5" fill="#475569" text-anchor="middle">'+_cohEsc(l2)+'</text>';
+  });
+  h+='</svg></div>';
+
+  // ── 明細表 ──
+  h+='<div style="overflow-x:auto;margin-top:10px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  h+='<tr style="background:#EFF6FF;">'
+   + '<th style="padding:6px 8px;text-align:left;border:1px solid #BFDBFE;">學期（梯次）</th>'
+   + '<th style="padding:6px 8px;text-align:center;border:1px solid #BFDBFE;width:70px;">人數</th>'
+   + '<th style="padding:6px 8px;text-align:center;border:1px solid #BFDBFE;width:70px;">佔比</th>'
+   + '<th style="padding:6px 8px;text-align:left;border:1px solid #BFDBFE;">實習學校</th>'
+   + '<th style="padding:6px 8px;text-align:left;border:1px solid #BFDBFE;">實習類別</th>'
+   + '<th style="padding:6px 8px;text-align:left;border:1px solid #BFDBFE;">實習期間</th>'
+   + '<th style="padding:6px 8px;text-align:center;border:1px solid #BFDBFE;width:86px;">檢視</th></tr>';
+  groups.forEach(function(g){
+    var schools=[],cats=[],minD='',maxD='';
+    g.sids.forEach(function(sid){
+      var a=APP.students[sid]||{};
+      var sc=(a.school||'').trim(); if(sc&&schools.indexOf(sc)<0) schools.push(sc);
+      var ct=(a.intern_cat||'').trim(); if(ct&&cats.indexOf(ct)<0) cats.push(ct);
+      var st=_normalizeDateStr(a.intern_start||''), en=_normalizeDateStr(a.intern_end||'');
+      if(st&&(!minD||st<minD)) minD=st;
+      if(en&&(!maxD||en>maxD)) maxD=en;
+    });
+    var pct=Math.round(g.sids.length/all.length*100);
+    var isCur=(APP.cohortFilterTerm===g.term);
+    h+='<tr style="background:'+(isCur?'#F0F9FF':'#fff')+';">'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;font-weight:600;">'+(g.term===TERM_UNASSIGNED?'⚠ ':'')+_cohEsc(g.term)+(isCur?' <span style="font-size:10px;color:#1E40AF;">（檢視中）</span>':'')+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;text-align:center;font-weight:700;">'+g.sids.length+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;text-align:center;color:#64748b;">'+pct+'%</td>'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;color:#475569;">'+_cohEsc(schools.join('、')||'—')+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;color:#475569;">'+_cohEsc(cats.join('、')||'—')+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;color:#475569;white-space:nowrap;">'+_cohEsc((minD&&maxD)?(minD+' ～ '+maxD):(minD||maxD||'—'))+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #E2E8F0;text-align:center;">'
+        +'<button type="button" onclick="switchCohortTerm(\''+escapeJsString(g.term)+'\')" style="padding:3px 10px;font-size:11px;background:#EFF6FF;border:1px solid #93C5FD;color:#1E40AF;border-radius:5px;cursor:pointer;">單獨檢視</button></td>'
+      +'</tr>';
+  });
+  h+='<tr style="background:#F8FAFC;font-weight:700;">'
+   + '<td style="padding:6px 8px;border:1px solid #E2E8F0;">合計</td>'
+   + '<td style="padding:6px 8px;border:1px solid #E2E8F0;text-align:center;">'+all.length+'</td>'
+   + '<td colspan="5" style="padding:6px 8px;border:1px solid #E2E8F0;color:#64748b;font-weight:400;">共 '+groups.length+' 個學期梯次</td></tr>';
+  h+='</table></div>';
+  return h;
 }
 
 /* ═════════════════ 匯出班級總表 PDF ═════════════════ */
@@ -15729,8 +16052,17 @@ function downloadCohortPDF(sectionId){
     // 學期：管理員若在後台手動填了「班級學期」，優先採用；否則依最早起日自動推算
     //   (台灣學年度規則：8月起為新學年；8–翌年1月為第1學期，2–7月為第2學期)
     var termStr='';
+    // ★ v1.6：優先採用「目前檢視的學期」；若未篩選但全體同屬一個學期，也直接採用
+    var _viewTerm=(typeof APP!=='undefined' && APP.cohortFilterTerm)?String(APP.cohortFilterTerm).trim():'';
+    if(!_viewTerm){
+      var _ts=[];
+      students.forEach(function(s){ var t=s.term||''; if(t && t!==TERM_UNASSIGNED && _ts.indexOf(t)<0) _ts.push(t); });
+      if(_ts.length===1) _viewTerm=_ts[0];
+    }
     var _manualTerm=(typeof APP!=='undefined' && APP.cohortTerm)?String(APP.cohortTerm).trim():'';
-    if(_manualTerm){
+    if(_viewTerm && _viewTerm!==TERM_UNASSIGNED){
+      termStr=_viewTerm;
+    } else if(_manualTerm){
       termStr=_manualTerm;
     } else if(minD){
       var p=minD.split('/'), y=+p[0], mo=+p[1];
@@ -15959,6 +16291,35 @@ function renderAdmin(){
       </div>
     </div>
 
+    <!-- ★ v1.6 學期（梯次）管理 -->
+    <div class="admin-card">
+      <div class="admin-card-head">🎓 學期（梯次）管理</div>
+      <div class="admin-card-body">
+        <div style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:10px;">
+          替每位學生標記「所屬學期」後，老師首頁的學生名單會<b>自動依學期分組並可展開／收合</b>，班級統計也能<b>逐學期</b>檢視。<br>
+          未指定學期的學生，系統會依其「實習起始日」自動推算（8月–翌年1月＝第1學期，2–7月＝第2學期），推算結果會標示為
+          <span style="font-size:10px;background:#E0E7FF;color:#3730A3;padding:1px 6px;border-radius:8px;">自動</span>。
+        </div>
+        <div class="admin-row" style="align-items:center;flex-wrap:wrap;gap:6px;">
+          <span style="font-size:12px;white-space:nowrap;">新增學生時預設帶入：</span>
+          <input id="default-term-input" list="term-suggest-list2" placeholder="例如：114學年度第1學期" value="${escAttr(APP.defaultNewTerm||'')}" style="max-width:220px;">
+          ${termDatalistHtml('term-suggest-list2')}
+          <button class="btn-add" onclick="saveDefaultNewTerm()">儲存預設</button>
+        </div>
+        <div style="margin-top:12px;" id="term-overview-box">${adminTermOverviewHtml()}</div>
+        <div style="margin-top:12px;background:var(--cream);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);margin-bottom:6px;">✏️ 學期更名（整批改名，例如打錯字或統一格式）</div>
+          <div class="admin-row" style="gap:6px;flex-wrap:wrap;">
+            <select id="term-rename-from" style="max-width:220px;"><option value="">— 選擇要更名的學期 —</option>${listTerms().filter(function(t){return t!==TERM_UNASSIGNED;}).map(function(t){return '<option value="'+escAttr(t)+'">'+esc(t)+'</option>';}).join('')}</select>
+            <span style="font-size:12px;">→</span>
+            <input id="term-rename-to" placeholder="新的學期名稱" style="max-width:220px;">
+            <button class="btn-update" onclick="renameTerm()">套用更名</button>
+          </div>
+          <div style="font-size:10.5px;color:var(--ink3);margin-top:6px;">💡 若新名稱與既有學期相同，兩批學生會合併為同一組。</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Student Accounts -->
     <div class="admin-card">
       <div class="admin-card-head">學生帳號管理</div>
@@ -15975,6 +16336,13 @@ function renderAdmin(){
           <input id="ns-school" placeholder="學校">
           <input id="ns-expiry" type="date" title="帳號到期日(預設新增日 +90 天)" style="max-width:140px;">
           <button class="btn-add" onclick="addStudent()">＋ 新增</button>
+        </div>
+        <!-- ★ v1.6 學期（梯次）：決定此學生歸屬哪一份名單 -->
+        <div class="admin-row" style="margin-top:6px;align-items:center;flex-wrap:wrap;gap:6px;">
+          <span style="font-size:11px;color:var(--ink3);white-space:nowrap;">🎓 所屬學期（梯次）：</span>
+          <input id="ns-term" list="term-suggest-list" placeholder="例如：114學年度第1學期" value="${escAttr(APP.defaultNewTerm||'')}" style="max-width:220px;">
+          ${termDatalistHtml('term-suggest-list')}
+          <span style="font-size:11px;color:var(--ink3);">留空 → 依「實習起始日」自動推算</span>
         </div>
         <div class="admin-row" style="margin-top:6px;align-items:center;flex-wrap:wrap;gap:6px;">
           <span style="font-size:11px;color:var(--ink3);white-space:nowrap;">實習資料(選填，會自動帶入學生表單)：</span>
@@ -16012,12 +16380,27 @@ function renderAdmin(){
               <span style="color:#D1D5DB;margin:0 4px;">|</span>
               <button type="button" onclick="batchToggleAll(false)" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #D1D5DB;color:#6B7280;border-radius:4px;cursor:pointer;">清除選取</button>
             </div>
+            <!-- ★ v1.6 批次指定學期 -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:8px;margin-top:8px;border-top:1px dashed #E5E7EB;">
+              <span style="font-size:11px;color:#6B7280;font-weight:600;">🎓 批次指定學期:</span>
+              <input id="batch-set-term" list="term-suggest-list3" placeholder="例如:114學年度第1學期" style="padding:4px 8px;font-size:11px;border:1px solid #D1D5DB;border-radius:4px;min-width:190px;">
+              ${termDatalistHtml('term-suggest-list3')}
+              <button type="button" onclick="batchSetTerm()" style="padding:5px 10px;font-size:11px;background:#EEF2FF;border:1px solid #6366F1;color:#3730A3;border-radius:4px;cursor:pointer;font-weight:500;">套用此學期</button>
+              <button type="button" onclick="batchSetTerm(true)" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #D1D5DB;color:#6B7280;border-radius:4px;cursor:pointer;">清除學期(改回自動推算)</button>
+            </div>
             <div style="margin-top:8px;font-size:10.5px;color:#9CA3AF;line-height:1.6;">
               💡 「+90 天 / +180 天 / +1 年」會從<b>今天起算</b>(不是從原期限往後加)<br>
-              💡 例如今天 2026-05-08,選 +90 天 → 統一設為 2026-08-06
+              💡 例如今天 2026-05-08,選 +90 天 → 統一設為 2026-08-06<br>
+              💡 批次指定學期常用於「一次匯入一整梯學生後，全選 → 套用同一學期」
             </div>
           </div>
         </details>
+        <!-- ★ v1.6 依學期篩選表格內容 -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--ink3);white-space:nowrap;">🎓 只顯示學期：</span>
+          <select id="admin-term-filter" onchange="applyAdminTermFilter(this.value)" style="max-width:240px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:4px;"></select>
+          <span id="admin-term-filter-count" style="font-size:11px;color:var(--ink3);"></span>
+        </div>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table class="accounts-table" id="student-table"></table></div>
       </div>
     </div>
@@ -16180,6 +16563,9 @@ async function saveConfigToSheets(){
     teacherPIN:APP.teacherPIN, examPIN:APP.examPIN,
     courseTopics:APP.courseTopics, courseSpeakers:APP.courseSpeakers,
     cohortTerm:APP.cohortTerm||'', cohortTermAt:APP.cohortTermAt||0,
+    // ★ v1.6 學期分類：{sid:學期} 對照表 + 時間戳（跨裝置同步用）
+    studentTerms:APP.studentTerms||{}, studentTermsAt:APP.studentTermsAt||0,
+    defaultNewTerm:APP.defaultNewTerm||'',
     studentOrder:APP.studentOrder||[], teacherOrder:APP.teacherOrder||[]
   };
   const configStr = JSON.stringify(config);
@@ -16232,6 +16618,22 @@ function applyConfig(cfg){
   }
   if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
   if(cfg.teacherOrder && cfg.teacherOrder.length>0) APP.teacherOrder=cfg.teacherOrder;
+  // ★ v1.6 學期分類：只有伺服器版本較新才覆蓋，避免舊值蓋掉本機剛改的分類
+  if(cfg.studentTerms && typeof cfg.studentTerms==='object'){
+    var _srvTAt=+(cfg.studentTermsAt||0), _locTAt=+(APP.studentTermsAt||0);
+    if(_srvTAt>=_locTAt){
+      APP.studentTerms=cfg.studentTerms; APP.studentTermsAt=_srvTAt;
+      try{
+        localStorage.setItem('student_terms', JSON.stringify(APP.studentTerms));
+        localStorage.setItem('student_terms_at', String(_srvTAt));
+      }catch(e){}
+    }
+  }
+  if(typeof cfg.defaultNewTerm==='string' && cfg.defaultNewTerm){
+    APP.defaultNewTerm=cfg.defaultNewTerm;
+    try{ localStorage.setItem('default_new_term', APP.defaultNewTerm); }catch(e){}
+  }
+  try{ reconcileStudentTerms(); }catch(e){}
 }
 
 async function updatePIN(){
@@ -16844,6 +17246,8 @@ async function addStudent(){
   const internCat=clipInput(((document.getElementById('ns-cat')||{}).value||'').trim(), MAX_NAME_LENGTH);
   const internStart=((document.getElementById('ns-start')||{}).value||'').trim();
   const internEnd=((document.getElementById('ns-end')||{}).value||'').trim();
+  // ★ v1.6 所屬學期（留空 → 依實習起始日自動推算；再不行則歸入「未分類」）
+  const termVal=clipInput(((document.getElementById('ns-term')||{}).value||'').trim(), MAX_NAME_LENGTH);
   // ★ 防呆:讀取期限欄位,沒填則套用 90 天預設
   var expiryEl = document.getElementById('ns-expiry');
   var expiry = (expiryEl && expiryEl.value) ? expiryEl.value : computeDefaultExpiry(90);
@@ -16860,17 +17264,21 @@ async function addStudent(){
   // 【資安修補 v18.1】呼叫後端 API（密碼會在後端雜湊化）
   // 附帶實習資料三欄(intern_cat / intern_start / intern_end)；後端若尚未支援會自動忽略，
   // 待後端新增對應欄位後即會一併寫入 Google Sheets。
-  const result = await callBackend('addStudent', {sid, name, school, expiry, pwd:'123', intern_cat:internCat, intern_start:internStart, intern_end:internEnd});
+  const result = await callBackend('addStudent', {sid, name, school, expiry, pwd:'123', intern_cat:internCat, intern_start:internStart, intern_end:internEnd, term:termVal});
   if(!result.ok){ toast('⚠ '+(result.error||'新增失敗'),false); return; }
   // 後端成功 → 更新本地快取(同步保留 pwdPlain 讓表格 👁 圖示可顯示)
-  APP.students[sid]={name,school,pwd:'h2:(remote)',pwdPlain:'123',expiry,mustChangePwd:true,intern_cat:internCat,intern_start:internStart,intern_end:internEnd};
+  APP.students[sid]={name,school,pwd:'h2:(remote)',pwdPlain:'123',expiry,mustChangePwd:true,intern_cat:internCat,intern_start:internStart,intern_end:internEnd,term:termVal};
+  // ★ v1.6 學期留底 + 同步設定檔（後端尚未支援 term 欄位時的保險）
+  setStudentTermLocal(sid, termVal);
+  try{ saveConfigToSheets(); }catch(e){}
   refreshStudentTable();
+  try{ var _tob=document.getElementById('term-overview-box'); if(_tob) _tob.innerHTML=adminTermOverviewHtml(); }catch(e){}
   document.getElementById('ns-sid').value='';document.getElementById('ns-name').value='';document.getElementById('ns-school').value='';
   var _nc=document.getElementById('ns-cat'); if(_nc)_nc.value='';
   var _nst=document.getElementById('ns-start'); if(_nst)_nst.value='';
   var _nen=document.getElementById('ns-end'); if(_nen)_nen.value='';
   if(expiryEl) expiryEl.value='';
-  toast('✓ 已新增學生（預設密碼:123 · 期限至 '+expiry+')');
+  toast('✓ 已新增學生（預設密碼:123 · 期限至 '+expiry+' · 學期:'+esc(getStudentTerm(sid))+'）');
 }
 
 /* 【資安修補 v18.1】統一的後端呼叫 helper
@@ -17055,7 +17463,27 @@ function refreshStudentTable(){
   const tbl=document.getElementById('student-table');if(!tbl)return;
   // 取得排序後的學號順序
   var orderedSids = getStudentOrder();
-  var rows = '<tr><th style="width:32px;text-align:center;"><input type="checkbox" id="batch-th-checkbox" onchange="batchToggleAll(this.checked)" style="cursor:pointer;width:14px;height:14px;" title="全選"></th><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>實習資料</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
+  // ★ v1.6 學期篩選：重建下拉選單 + 過濾要顯示的學生
+  var _termFilter = APP.adminTermFilter || '';
+  try{
+    var _fsel = document.getElementById('admin-term-filter');
+    if(_fsel){
+      var _terms = listTerms();
+      var _cnt = {};
+      orderedSids.forEach(function(s){ var t=getStudentTerm(s); _cnt[t]=(_cnt[t]||0)+1; });
+      _fsel.innerHTML = '<option value="">全部學期（'+orderedSids.length+' 位）</option>'
+        + _terms.map(function(t){
+            return '<option value="'+escAttr(t)+'"'+(t===_termFilter?' selected':'')+'>'+esc(t)+'（'+(_cnt[t]||0)+' 位）</option>';
+          }).join('');
+      var _cntEl = document.getElementById('admin-term-filter-count');
+      if(_cntEl) _cntEl.textContent = _termFilter ? ('顯示「'+_termFilter+'」共 '+(_cnt[_termFilter]||0)+' 位') : ('共 '+_terms.length+' 個學期梯次');
+    }
+  }catch(e){}
+  if(_termFilter) orderedSids = orderedSids.filter(function(s){ return getStudentTerm(s)===_termFilter; });
+  var rows = '<tr><th style="width:32px;text-align:center;"><input type="checkbox" id="batch-th-checkbox" onchange="batchToggleAll(this.checked)" style="cursor:pointer;width:14px;height:14px;" title="全選"></th><th style="width:32px;"></th><th>學號</th><th>姓名</th><th>學校</th><th>🎓 學期</th><th>實習資料</th><th>密碼</th><th>帳號期限</th><th>操作</th></tr>';
+  if(!orderedSids.length){
+    rows += '<tr><td colspan="10" style="text-align:center;color:var(--ink3);font-size:12px;padding:14px;">此學期目前沒有學生</td></tr>';
+  }
   orderedSids.forEach(function(sid){
     var acc = APP.students[sid]; if(!acc) return;
     var expired = acc.expiry && new Date(acc.expiry) < new Date();
@@ -17084,6 +17512,18 @@ function refreshStudentTable(){
       '<td style="text-align:center;"><input type="checkbox" class="batch-row-checkbox" data-sid="'+escAttr(sid)+'" onchange="batchUpdateCount()" style="cursor:pointer;width:14px;height:14px;"></td>'+
       '<td style="text-align:center;color:var(--ink3);user-select:none;" title="拖曳排序">⋮⋮</td>'+
       '<td>'+esc(sid)+'</td><td>'+esc(acc.name)+selfReg+'</td><td>'+esc(acc.school||'—')+'</td>'+
+      // ★ v1.6 學期欄：可直接輸入/選擇，留空＝依實習起日自動推算
+      '<td style="min-width:180px;">'+
+        '<input id="si-term-'+escAttr(sid)+'" list="term-suggest-list" value="'+escAttr(isTermAutoDerived(sid)?'':getStudentTerm(sid))+'" '+
+          'placeholder="'+escAttr(getStudentTerm(sid))+'" title="留空則依實習起始日自動推算" '+
+          'onchange="updateStudentTerm(\''+escAttr(sid)+'\')" '+
+          'style="width:100%;padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:10.5px;">'+
+        '<div style="margin-top:3px;font-size:9.5px;">'+
+          (isTermAutoDerived(sid)
+            ? '<span style="background:#E0E7FF;color:#3730A3;padding:1px 6px;border-radius:8px;">自動</span> <span style="color:var(--ink3);">'+esc(getStudentTerm(sid))+'</span>'
+            : '<span style="background:#DCFCE7;color:#166534;padding:1px 6px;border-radius:8px;">已指定</span>')+
+        '</div>'+
+      '</td>'+
       '<td style="min-width:210px;">'+
         '<select id="si-cat-'+escAttr(sid)+'" onchange="updateStudentIntern(\''+escAttr(sid)+'\')" style="width:100%;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:10px;margin-bottom:3px;"><option value="">—實習類別—</option>'+
           INTERN_CATEGORIES.map(function(c){return '<option value="'+escAttr(c)+'" '+(acc.intern_cat===c?'selected':'')+'>'+esc(c)+'</option>';}).join('')+
@@ -17491,6 +17931,139 @@ async function updateStudentIntern(sid){
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   ★ v1.6 學期（梯次）— 管理員後台操作
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 單筆更新學生所屬學期（留空＝改回自動推算） */
+async function updateStudentTerm(sid){
+  var acc=APP.students[sid];
+  if(!acc) return;
+  var el=document.getElementById('si-term-'+sid);
+  var term=el?String(el.value||'').trim():'';
+  setStudentTermLocal(sid, term);
+  refreshStudentTable();
+  try{ var box=document.getElementById('term-overview-box'); if(box) box.innerHTML=adminTermOverviewHtml(); }catch(e){}
+  // 送後端（後端若尚未支援 term 欄位會忽略；本機 + 設定檔仍會保存）
+  try{ await callBackend('updateStudent', {sid:sid, name:acc.name, school:acc.school||'', term:term}); }catch(e){}
+  // 同步到 Google Sheets 設定檔 → 其他裝置/老師端也看得到分組
+  try{ saveConfigToSheets(); }catch(e){}
+  toast(term ? ('✓ 已將 '+esc(acc.name)+' 歸入「'+esc(term)+'」') : ('✓ 已清除指定，改為自動推算：'+esc(getStudentTerm(sid))));
+}
+
+/* 批次指定 / 清除學期 */
+async function batchSetTerm(clear){
+  var sids=_batchGetSelectedSids();
+  if(!sids.length){ toast('⚠ 請先勾選要批次處理的學生帳號'); return; }
+  var term='';
+  if(!clear){
+    var el=document.getElementById('batch-set-term');
+    term=el?String(el.value||'').trim():'';
+    if(!term){ toast('⚠ 請先輸入要套用的學期名稱'); return; }
+  }
+  var preview=sids.slice(0,5).map(function(s){ return '  · '+s+' ('+((APP.students[s]||{}).name||'')+')'; }).join('\n');
+  if(sids.length>5) preview+='\n  ... 等共 '+sids.length+' 位';
+  var msg=clear
+    ? ('將以下 '+sids.length+' 位學生的「指定學期」清除（改回依實習起始日自動推算）：\n\n'+preview+'\n\n是否確認?')
+    : ('將以下 '+sids.length+' 位學生歸入學期：\n\n'+term+'\n\n'+preview+'\n\n是否確認?');
+  if(!confirm(msg)) return;
+
+  sids.forEach(function(sid){ setStudentTermLocal(sid, clear?'':term); });
+  refreshStudentTable();
+  try{ var box=document.getElementById('term-overview-box'); if(box) box.innerHTML=adminTermOverviewHtml(); }catch(e){}
+  for(var i=0;i<sids.length;i++){
+    var acc=APP.students[sids[i]]; if(!acc) continue;
+    try{ await callBackend('updateStudent', {sid:sids[i], name:acc.name, school:acc.school||'', term:clear?'':term}); }catch(e){}
+  }
+  try{ saveConfigToSheets(); }catch(e){}
+  toast(clear ? ('✓ 已清除 '+sids.length+' 位學生的指定學期') : ('✓ 已將 '+sids.length+' 位學生歸入「'+esc(term)+'」'));
+}
+
+/* 學生表格的學期篩選 */
+function applyAdminTermFilter(term){
+  APP.adminTermFilter=String(term||'');
+  refreshStudentTable();
+}
+
+/* 儲存「新增學生」的預設學期 */
+function saveDefaultNewTerm(){
+  var el=document.getElementById('default-term-input');
+  var v=el?String(el.value||'').trim():'';
+  APP.defaultNewTerm=v;
+  try{ localStorage.setItem('default_new_term', v); }catch(e){}
+  var ns=document.getElementById('ns-term');
+  if(ns && !ns.value) ns.value=v;
+  try{ saveConfigToSheets(); }catch(e){}
+  toast(v?('✓ 新增學生時將預設帶入「'+esc(v)+'」'):'✓ 已清除預設學期');
+}
+
+/* 學期更名（整批） */
+async function renameTerm(){
+  var fromEl=document.getElementById('term-rename-from');
+  var toEl=document.getElementById('term-rename-to');
+  var from=fromEl?String(fromEl.value||'').trim():'';
+  var to=toEl?String(toEl.value||'').trim():'';
+  if(!from){ toast('⚠ 請先選擇要更名的學期'); return; }
+  if(!to){ toast('⚠ 請輸入新的學期名稱'); return; }
+  if(from===to){ toast('⚠ 新舊名稱相同'); return; }
+  var sids=Object.keys(APP.students||{}).filter(function(s){ return getStudentTerm(s)===from; });
+  if(!sids.length){ toast('⚠ 此學期目前沒有學生'); return; }
+  var exists=listTerms().indexOf(to)>=0;
+  if(!confirm('將「'+from+'」的 '+sids.length+' 位學生，改標記為「'+to+'」'+(exists?'\n\n⚠ 「'+to+'」已存在，兩批學生將合併為同一組。':'')+'\n\n是否確認?')) return;
+  sids.forEach(function(sid){ setStudentTermLocal(sid, to); });
+  if(APP.adminTermFilter===from) APP.adminTermFilter=to;
+  refreshStudentTable();
+  for(var i=0;i<sids.length;i++){
+    var acc=APP.students[sids[i]]; if(!acc) continue;
+    try{ await callBackend('updateStudent', {sid:sids[i], name:acc.name, school:acc.school||'', term:to}); }catch(e){}
+  }
+  try{ saveConfigToSheets(); }catch(e){}
+  toast('✓ 已將 '+sids.length+' 位學生改標記為「'+esc(to)+'」');
+  renderAdmin();
+}
+
+/* 後台「學期一覽」：每個學期的人數 / 學校 / 實習期間 / 實習類別 */
+function adminTermOverviewHtml(){
+  var order=Object.keys(APP.students||{});
+  if(!order.length) return '<div style="font-size:12px;color:var(--ink3);">尚無學生帳號。</div>';
+  var groups=groupSidsByTerm(order);
+  var max=Math.max.apply(null, groups.map(function(g){return g.sids.length;}));
+  var h='<div style="font-size:11px;font-weight:700;color:var(--ink3);margin-bottom:6px;">📊 各學期學生人數一覽（共 '+groups.length+' 個梯次 / '+order.length+' 位學生）</div>';
+  h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">';
+  h+='<tr style="background:var(--cream);"><th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border2);">學期（梯次）</th>'
+   + '<th style="padding:5px 8px;text-align:center;border-bottom:1px solid var(--border2);width:70px;">人數</th>'
+   + '<th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border2);width:34%;">人數分佈</th>'
+   + '<th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border2);">實習學校</th>'
+   + '<th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border2);">實習期間</th></tr>';
+  groups.forEach(function(g){
+    var schools=[], minD='', maxD='';
+    g.sids.forEach(function(sid){
+      var a=APP.students[sid]||{};
+      var sc=(a.school||'').trim(); if(sc&&schools.indexOf(sc)<0) schools.push(sc);
+      var st=_normalizeDateStr(a.intern_start||''), en=_normalizeDateStr(a.intern_end||'');
+      if(st&&(!minD||st<minD)) minD=st;
+      if(en&&(!maxD||en>maxD)) maxD=en;
+    });
+    var pct=Math.round(g.sids.length/(max||1)*100);
+    var isUn=(g.term===TERM_UNASSIGNED);
+    h+='<tr style="border-bottom:1px solid #F1F1EE;">'
+      +'<td style="padding:5px 8px;font-weight:600;color:'+(isUn?'#92400E':'#1E3A8A')+';">'+(isUn?'⚠ ':'')+esc(g.term)+'</td>'
+      +'<td style="padding:5px 8px;text-align:center;font-weight:700;">'+g.sids.length+'</td>'
+      +'<td style="padding:5px 8px;"><div style="background:#EEF2F7;border-radius:999px;height:9px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:'+(isUn?'#F59E0B':'#2563EB')+';"></div></div></td>'
+      +'<td style="padding:5px 8px;color:var(--ink3);">'+esc(schools.join('、')||'—')+'</td>'
+      +'<td style="padding:5px 8px;color:var(--ink3);white-space:nowrap;">'+esc((minD&&maxD)?(minD+' ～ '+maxD):(minD||maxD||'—'))+'</td>'
+      +'</tr>';
+  });
+  h+='</table></div>';
+  var unc=(groups.filter(function(g){return g.term===TERM_UNASSIGNED;})[0]||{sids:[]}).sids.length;
+  if(unc){
+    h+='<div style="margin-top:8px;font-size:11px;color:#92400E;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:7px 10px;line-height:1.6;">'
+      +'⚠ 有 <b>'+unc+'</b> 位學生無法判定學期（未指定學期，且未填實習起始日）。<br>'
+      +'建議在下方「學生帳號管理」勾選這些學生 → 使用「🎓 批次指定學期」一次歸類。</div>';
+  }
+  return h;
+}
+
 /* ── 一鍵套用「90 天後」到指定學生 ──
    用於「⚠ 永久有效」舊帳號的快速防呆補修 */
 async function applyDefaultExpiry(sid) {
@@ -17641,9 +18214,16 @@ async function editStudent(sid) {
       registeredAt: acc.registeredAt,
       intern_cat: acc.intern_cat||'',
       intern_start: acc.intern_start||'',
-      intern_end: acc.intern_end||''
+      intern_end: acc.intern_end||'',
+      term: acc.term||''
     };
     delete APP.students[sid];
+    // ★ v1.6 學期對照表也要跟著改學號，否則分組會遺失
+    if (APP.studentTerms && APP.studentTerms[sid]) {
+      APP.studentTerms[targetSid] = APP.studentTerms[sid];
+      delete APP.studentTerms[sid];
+      _saveStudentTermsLocal();
+    }
     if (APP.studentOrder && APP.studentOrder.indexOf(sid) >= 0) {
       APP.studentOrder = APP.studentOrder.map(function(s){ return s === sid ? targetSid : s; });
     }
@@ -17836,23 +18416,180 @@ function renderTeacherHome(){
     <h1>📋 臨床老師評分系統</h1>
     <div class="fh-meta">請從左側選擇學生，或點擊下方表單開始評分</div>
   </div>`;
-  // Show student list
-  html+='<div class="section-header"><h2>學生名單</h2></div>';
-  html+='<div class="form-grid">';
-  Object.entries(APP.students).forEach(function([sid,acc]){
-    html+=`<div class="form-card" onclick="selectStudent('${escapeAttr(sid)}')">
-      <div class="form-card-num" style="background:var(--blue);">👤</div>
-      <div class="form-card-name">${escapeHtml(acc.name)}</div>
-      <div class="form-card-sub">${escapeHtml(acc.school||'')}　學號：${escapeHtml(sid)}</div>
-      <div class="form-card-meta"><span style="font-size:11px;color:var(--blue);">點擊查看學習護照</span></div>
-    </div>`;
-  });
-  html+='</div>';
+  // ★ v1.6：學生名單改為「依學期分組 + 可展開/收合」
+  html+=teacherStudentListHtml();
   html+='</div>';
   mc.innerHTML=html;
   // ★ 進入首頁(沒有選定學生)時更新頂部 quick-nav
   //   此時 currentStudentId=null,getStatus 會用裸 id 查 → 應顯示為「無資料」狀態
   if(typeof updateQuickNav==='function') updateQuickNav();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ★ v1.6 老師首頁：依學期分組的學生名單（可展開／收合 + 搜尋）
+   ──────────────────────────────────────────────────────────────────
+   · 預設只展開「最新學期」，其餘收合，避免學生累積後名單過長
+   · 收合狀態存在 localStorage，下次進來維持老師習慣的檢視方式
+   · 搜尋時自動跨學期展開符合的卡片
+   ════════════════════════════════════════════════════════════════════ */
+function _termCollapseState(){
+  try{ return JSON.parse(localStorage.getItem('teacher_term_collapsed')||'{}')||{}; }
+  catch(e){ return {}; }
+}
+function _setTermCollapseState(map){
+  try{ localStorage.setItem('teacher_term_collapsed', JSON.stringify(map||{})); }catch(e){}
+}
+
+/* 產生老師首頁的學生名單（分組 + 摺疊） */
+function teacherStudentListHtml(){
+  var order=(APP.studentOrder&&APP.studentOrder.length)?APP.studentOrder.slice():Object.keys(APP.students||{});
+  order=order.filter(function(sid){ return APP.students&&APP.students[sid]; });
+  Object.keys(APP.students||{}).forEach(function(sid){ if(order.indexOf(sid)<0) order.push(sid); });
+
+  if(!order.length){
+    return '<div class="section-header"><h2>學生名單</h2></div>'
+      +'<div style="padding:1.5rem;text-align:center;color:var(--ink3);font-size:13px;background:var(--cream);border:1px dashed var(--border);border-radius:var(--r2);">'
+      +'目前尚無學生帳號，請洽管理員於「系統管理」新增。</div>';
+  }
+
+  var groups=groupSidsByTerm(order);
+  var collapsed=_termCollapseState();
+  var newest=latestTerm();
+
+  var html='<div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">'
+    +'<h2>學生名單</h2>'
+    +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+    +  '<input id="stu-search" type="search" placeholder="🔍 搜尋姓名 / 學號" oninput="filterTeacherStudents(this.value)" '
+    +    'style="padding:5px 10px;font-size:12px;border:1px solid var(--border);border-radius:999px;width:170px;">'
+    +  '<button type="button" onclick="expandAllTermGroups(true)" style="padding:5px 10px;font-size:11px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;border-radius:6px;cursor:pointer;">全部展開</button>'
+    +  '<button type="button" onclick="expandAllTermGroups(false)" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid var(--border);color:var(--ink3);border-radius:6px;cursor:pointer;">全部收合</button>'
+    +'</div></div>';
+
+  html+='<div style="font-size:11px;color:var(--ink3);margin:-4px 0 10px;">'
+    +'共 '+order.length+' 位學生 · '+groups.length+' 個學期梯次　｜　點學期標題可展開／收合</div>';
+
+  html+='<div id="term-groups">';
+  groups.forEach(function(g,gi){
+    // 預設：最新學期展開，其餘收合；老師手動調整過就依照記錄
+    var isCollapsed;
+    if(Object.prototype.hasOwnProperty.call(collapsed,g.term)) isCollapsed=!!collapsed[g.term];
+    else isCollapsed=(groups.length>1) && (g.term!==newest);
+
+    // 該學期的摘要資訊（學校 / 實習期間）
+    var schools=[], minD='', maxD='';
+    g.sids.forEach(function(sid){
+      var a=APP.students[sid]||{};
+      var sc=(a.school||'').trim();
+      if(sc&&schools.indexOf(sc)<0) schools.push(sc);
+      var st=_normalizeDateStr(a.intern_start||''), en=_normalizeDateStr(a.intern_end||'');
+      if(st&&(!minD||st<minD)) minD=st;
+      if(en&&(!maxD||en>maxD)) maxD=en;
+    });
+    var range=(minD&&maxD)?(minD+' ～ '+maxD):(minD||maxD||'');
+    var metaBits=[];
+    if(schools.length) metaBits.push(schools.join('、'));
+    if(range) metaBits.push('實習期間 '+range);
+
+    var isUn=(g.term===TERM_UNASSIGNED);
+    var headBg=isUn?'#FFFBEB':'linear-gradient(135deg,#EFF6FF 0%,#F8FAFF 100%)';
+    var headBorder=isUn?'#FCD34D':'#BFDBFE';
+    var headColor=isUn?'#92400E':'#1E3A8A';
+
+    html+='<div class="term-group" data-term="'+escapeAttr(g.term)+'" style="margin-bottom:12px;border:1px solid '+headBorder+';border-radius:var(--r2);overflow:hidden;">';
+    html+='<div class="term-group-head" onclick="toggleTermGroup('+gi+')" '
+      +'style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:'+headBg+';user-select:none;">'
+      +'<span id="term-caret-'+gi+'" style="font-size:11px;color:'+headColor+';width:12px;display:inline-block;transition:transform .15s;">'+(isCollapsed?'▶':'▼')+'</span>'
+      +'<span style="font-size:14px;font-weight:700;color:'+headColor+';">'+(isUn?'⚠ ':'🎓 ')+escapeHtml(g.term)+'</span>'
+      +'<span style="font-size:11px;font-weight:700;background:'+(isUn?'#F59E0B':'#2563EB')+';color:#fff;padding:1px 9px;border-radius:999px;">'+g.sids.length+' 位</span>'
+      +(metaBits.length?'<span style="font-size:11px;color:var(--ink3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(metaBits.join('　·　'))+'</span>':'<span style="flex:1;"></span>')
+      +'<span id="term-hint-'+gi+'" style="font-size:10px;color:var(--ink3);white-space:nowrap;">'+(isCollapsed?'點擊展開':'點擊收合')+'</span>'
+      +'</div>';
+    html+='<div class="term-group-body" id="term-body-'+gi+'" style="padding:12px;background:#fff;'+(isCollapsed?'display:none;':'')+'">';
+    html+='<div class="form-grid">';
+    g.sids.forEach(function(sid){
+      var acc=APP.students[sid]||{};
+      var hay=((acc.name||'')+' '+sid+' '+(acc.school||'')).toLowerCase();
+      html+='<div class="form-card stu-card" data-hay="'+escapeAttr(hay)+'" onclick="selectStudent(\''+escapeAttr(sid)+'\')">'
+        +'<div class="form-card-num" style="background:var(--blue);">👤</div>'
+        +'<div class="form-card-name">'+escapeHtml(acc.name||sid)+'</div>'
+        +'<div class="form-card-sub">'+escapeHtml(acc.school||'')+'　學號：'+escapeHtml(sid)+'</div>'
+        +'<div class="form-card-meta"><span style="font-size:11px;color:var(--blue);">點擊查看學習護照</span></div>'
+        +'</div>';
+    });
+    html+='</div></div></div>';
+  });
+  html+='</div>';
+  return html;
+}
+
+/* 展開／收合單一學期群組 */
+function toggleTermGroup(gi){
+  var body=document.getElementById('term-body-'+gi);
+  var caret=document.getElementById('term-caret-'+gi);
+  var hint=document.getElementById('term-hint-'+gi);
+  if(!body) return;
+  var willCollapse=(body.style.display!=='none');
+  body.style.display=willCollapse?'none':'';
+  if(caret) caret.textContent=willCollapse?'▶':'▼';
+  if(hint) hint.textContent=willCollapse?'點擊展開':'點擊收合';
+  // 記住老師的選擇
+  var wrap=body.closest ? body.closest('.term-group') : body.parentNode;
+  var term=wrap?wrap.getAttribute('data-term'):'';
+  if(term){
+    var st=_termCollapseState();
+    st[term]=willCollapse;
+    _setTermCollapseState(st);
+  }
+}
+
+/* 全部展開 / 全部收合 */
+function expandAllTermGroups(expand){
+  var st=_termCollapseState();
+  document.querySelectorAll('.term-group').forEach(function(wrap,i){
+    var idx=(wrap.querySelector('.term-group-body')||{}).id||'';
+    idx=idx.replace('term-body-','');
+    var body=document.getElementById('term-body-'+idx);
+    var caret=document.getElementById('term-caret-'+idx);
+    var hint=document.getElementById('term-hint-'+idx);
+    if(body) body.style.display=expand?'':'none';
+    if(caret) caret.textContent=expand?'▼':'▶';
+    if(hint) hint.textContent=expand?'點擊收合':'點擊展開';
+    var term=wrap.getAttribute('data-term');
+    if(term) st[term]=!expand;
+  });
+  _setTermCollapseState(st);
+}
+
+/* 跨學期搜尋學生（有符合者自動展開該學期） */
+function filterTeacherStudents(kw){
+  kw=String(kw||'').trim().toLowerCase();
+  document.querySelectorAll('.term-group').forEach(function(wrap){
+    var body=wrap.querySelector('.term-group-body');
+    var idx=(body&&body.id||'').replace('term-body-','');
+    var caret=document.getElementById('term-caret-'+idx);
+    var hint=document.getElementById('term-hint-'+idx);
+    var hits=0;
+    wrap.querySelectorAll('.stu-card').forEach(function(card){
+      var match=!kw || (card.getAttribute('data-hay')||'').indexOf(kw)>=0;
+      card.style.display=match?'':'none';
+      if(match) hits++;
+    });
+    if(!kw){
+      // 還原成使用者記錄的收合狀態
+      var st=_termCollapseState();
+      var term=wrap.getAttribute('data-term');
+      var isCollapsed=Object.prototype.hasOwnProperty.call(st,term)?!!st[term]:(term!==latestTerm());
+      wrap.style.display='';
+      if(body) body.style.display=isCollapsed?'none':'';
+      if(caret) caret.textContent=isCollapsed?'▶':'▼';
+      if(hint) hint.textContent=isCollapsed?'點擊展開':'點擊收合';
+    }else{
+      wrap.style.display=hits?'':'none';
+      if(body) body.style.display=hits?'':'none';
+      if(caret) caret.textContent='▼';
+      if(hint) hint.textContent='符合 '+hits+' 位';
+    }
+  });
 }
 
 
