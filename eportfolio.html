@@ -1442,10 +1442,21 @@ function isTermAutoDerived(sid){
 function setStudentTermLocal(sid, term){
   term=String(term==null?'':term).trim();
   if(!APP.studentTerms) APP.studentTerms={};
-  if(term){ APP.studentTerms[sid]=term; }
-  else { delete APP.studentTerms[sid]; }
+  // ★ FIX v1.6.1：清除時保留「空字串墓碑」而非 delete。
+  //   這樣「清除學期→改回自動推算」才能同步到其他裝置；
+  //   同時讓 applyConfig 能用逐筆合併（不再整包覆蓋）而不會漏掉清除動作。
+  APP.studentTerms[sid]=term;
   if(APP.students&&APP.students[sid]) APP.students[sid].term=term;
   _saveStudentTermsLocal();
+}
+
+/* ★ FIX v1.6.1：取得「人工指定」的學期（沒指定回傳空字串，不做自動推算）。
+   送後端 updateStudent 時使用，確保任何一次帳號編輯都不會把 term 欄洗掉。 */
+function _currentTermForSave(sid){
+  if(APP.studentTerms && Object.prototype.hasOwnProperty.call(APP.studentTerms, sid)){
+    return String(APP.studentTerms[sid]||'');
+  }
+  return String(((APP.students&&APP.students[sid])||{}).term||'');
 }
 
 /* 學期排序鍵：學年度數字 ×10 + 學期序，數字越大＝越新。未分類永遠排最後 */
@@ -1508,19 +1519,27 @@ function termDatalistHtml(id){
 }
 
 /* 帳號清單重新載入後，把本機留底的學期回貼；同時把後端帶回的 term 收進本機 map */
-function reconcileStudentTerms(){
+function reconcileStudentTerms(fullList){
   if(!APP.students) return;
   if(!APP.studentTerms) APP.studentTerms={};
   Object.keys(APP.students).forEach(function(sid){
-    var local=APP.studentTerms[sid];
+    var hasLocal=Object.prototype.hasOwnProperty.call(APP.studentTerms, sid);
+    var local=hasLocal?String(APP.studentTerms[sid]||''):'';
     var remote=APP.students[sid].term;
-    if(local) APP.students[sid].term=local;          // 本機指定優先（後端多半還沒有此欄位）
+    // ★ FIX v1.6.1：用 hasOwnProperty 判斷，'' 代表「管理員已明確清除」，
+    //   不可再被後端舊值救回來（舊版用 if(local) 會誤判成沒指定）。
+    if(hasLocal) APP.students[sid].term=local;       // 本機指定優先（後端多半還沒有此欄位）
     else if(remote) APP.studentTerms[sid]=remote;    // 後端有值 → 收進本機留底
   });
-  // 清掉已刪除帳號的殘留
-  Object.keys(APP.studentTerms).forEach(function(sid){
-    if(!APP.students[sid]) delete APP.studentTerms[sid];
-  });
+  // ★ FIX v1.6.1：孤兒清除改為「只在確定拿到完整名單時」才執行。
+  //   舊版無條件刪除，只要後端回傳部分名單（老師角色 / 權限過濾 / 暫時性錯誤），
+  //   不在名單裡的學生指定學期就會被刪光，再被 saveConfigToSheets 帶著新時間戳
+  //   推上雲端 → 所有裝置永久遺失，畫面退回「依實習起始日自動推算」。
+  if(fullList===true){
+    Object.keys(APP.studentTerms).forEach(function(sid){
+      if(!APP.students[sid]) delete APP.studentTerms[sid];
+    });
+  }
   _saveStudentTermsLocal(false);
 }
 
@@ -1884,7 +1903,10 @@ async function loadAccountsFromBackend(){
   if(data.studentOrder && data.studentOrder.length>0) APP.studentOrder = data.studentOrder;
   if(data.teacherOrder && data.teacherOrder.length>0) APP.teacherOrder = data.teacherOrder;
   // ★ v1.6：APP.students 被整包覆蓋後，把本機留底的「學期」標記回貼
-  try{ reconcileStudentTerms(); }catch(e){ console.warn('reconcileStudentTerms failed', e); }
+  // ★ FIX v1.6.1：只有「管理員 + 後端確實回了學生名單」時，才允許清除孤兒紀錄。
+  //   其他角色（老師 / 學生）拿到的可能是過濾後的部分名單，不可用來判定「這個帳號不存在」。
+  var _isFullList = (APP.currentRole==='admin') && !!(data.students && Object.keys(data.students).length>0);
+  try{ reconcileStudentTerms(_isFullList); }catch(e){ console.warn('reconcileStudentTerms failed', e); }
   
   console.log('[loadAccounts] 學生 ' + Object.keys(APP.students).length + 
               ' 位，老師 ' + Object.keys(APP.teachers).length + ' 位');
@@ -16558,6 +16580,20 @@ async function saveConfigToSheets(){
     if(_lsA>(+(APP.cohortTermAt||0))){ APP.cohortTerm=_lsT||''; APP.cohortTermAt=_lsA; }
   }catch(e){}
 
+  // ★ FIX v1.6.1 保險絲：若記憶體裡的學期對照表是空的，但 localStorage 還有留底，
+  //   代表這次是異常狀態（例如載入失敗後被清空），此時絕不可把空 map 推上雲端，
+  //   否則所有裝置的學期分組會一起被清掉。改為先從留底救回來。
+  try{
+    var _memCount=Object.keys(APP.studentTerms||{}).length;
+    if(_memCount===0){
+      var _bk=JSON.parse(localStorage.getItem('student_terms')||'{}');
+      if(_bk && Object.keys(_bk).length>0){
+        APP.studentTerms=_bk;
+        console.warn('[terms] 記憶體對照表為空，已自 localStorage 還原 '+Object.keys(_bk).length+' 筆');
+      }
+    }
+  }catch(e){}
+
   const config={
     students:APP.students, teachers:APP.teachers, adminPwd:APP.adminPwd,
     teacherPIN:APP.teacherPIN, examPIN:APP.examPIN,
@@ -16619,15 +16655,27 @@ function applyConfig(cfg){
   if(cfg.studentOrder && cfg.studentOrder.length>0) APP.studentOrder=cfg.studentOrder;
   if(cfg.teacherOrder && cfg.teacherOrder.length>0) APP.teacherOrder=cfg.teacherOrder;
   // ★ v1.6 學期分類：只有伺服器版本較新才覆蓋，避免舊值蓋掉本機剛改的分類
+  // ★ FIX v1.6.1：改為「逐筆合併」而非整包覆蓋。
+  //   舊版 APP.studentTerms=cfg.studentTerms 是整個 map 換掉，且比較基準是各裝置
+  //   自己的 Date.now()（時鐘不同步就會誤判），只要雲端那份是舊的 / 缺人，
+  //   剛指定好的學期就會在下一次載入設定時被整批打回自動推算。
+  //   新版：伺服器較新 → 逐筆採用（含 '' 清除墓碑）；伺服器較舊 → 只補本機沒有的 sid，
+  //   任何情況都不會刪掉本機已有的指定。
   if(cfg.studentTerms && typeof cfg.studentTerms==='object'){
     var _srvTAt=+(cfg.studentTermsAt||0), _locTAt=+(APP.studentTermsAt||0);
-    if(_srvTAt>=_locTAt){
-      APP.studentTerms=cfg.studentTerms; APP.studentTermsAt=_srvTAt;
-      try{
-        localStorage.setItem('student_terms', JSON.stringify(APP.studentTerms));
-        localStorage.setItem('student_terms_at', String(_srvTAt));
-      }catch(e){}
-    }
+    var _srvNewer=(_srvTAt>=_locTAt);
+    if(!APP.studentTerms) APP.studentTerms={};
+    Object.keys(cfg.studentTerms).forEach(function(sid){
+      var sv=String(cfg.studentTerms[sid]==null?'':cfg.studentTerms[sid]).trim();
+      var hasLocal=Object.prototype.hasOwnProperty.call(APP.studentTerms, sid);
+      if(_srvNewer){ APP.studentTerms[sid]=sv; }
+      else if(!hasLocal && sv){ APP.studentTerms[sid]=sv; }
+    });
+    APP.studentTermsAt=Math.max(_srvTAt,_locTAt);
+    try{
+      localStorage.setItem('student_terms', JSON.stringify(APP.studentTerms));
+      localStorage.setItem('student_terms_at', String(APP.studentTermsAt));
+    }catch(e){}
   }
   if(typeof cfg.defaultNewTerm==='string' && cfg.defaultNewTerm){
     APP.defaultNewTerm=cfg.defaultNewTerm;
@@ -17902,7 +17950,14 @@ async function updateStudentExpiry(sid, date) {
   var acc = APP.students[sid];
   if (!acc) return;
   acc.expiry = date;
-  var result = await callBackend('updateStudent', {sid:sid, name:acc.name, school:acc.school||'', expiry:date});
+  // ★ FIX v1.6.1：後端 updateStudent 若採「依傳入欄位重寫整列」，
+  //   只送 expiry 會把 term / 實習三欄洗成空白 → 學期分組隔天就跑掉。
+  //   一律把現有值一起帶上。
+  var result = await callBackend('updateStudent', {
+    sid:sid, name:acc.name, school:acc.school||'', expiry:date,
+    intern_cat:acc.intern_cat||'', intern_start:acc.intern_start||'', intern_end:acc.intern_end||'',
+    term:_currentTermForSave(sid)
+  });
   if(!result || !result.ok){ toast('⚠ 帳號期限已暫存本機，但後端未確認（可能需更新後端版本）', false); }
   else { toast('✓ 帳號期限已更新'); }
 }
@@ -17923,7 +17978,12 @@ async function updateStudentIntern(sid){
   // 先更新本機快取(畫面即時反映)
   acc.intern_cat=cat; acc.intern_start=start; acc.intern_end=end;
   // 送後端(附帶現有 name/school，避免被清空)
-  var result = await callBackend('updateStudent', {sid:sid, name:acc.name, school:acc.school||'', intern_cat:cat, intern_start:start, intern_end:end});
+  // ★ FIX v1.6.1：一併帶上 term / expiry，避免後端重寫整列時把學期洗掉。
+  var result = await callBackend('updateStudent', {
+    sid:sid, name:acc.name, school:acc.school||'',
+    intern_cat:cat, intern_start:start, intern_end:end,
+    expiry:acc.expiry||'', term:_currentTermForSave(sid)
+  });
   if(!result || !result.ok){
     toast('⚠ 實習資料已暫存本機，但後端未確認（可能需先更新後端欄位）', false);
   }else{
@@ -17945,7 +18005,8 @@ async function updateStudentTerm(sid){
   refreshStudentTable();
   try{ var box=document.getElementById('term-overview-box'); if(box) box.innerHTML=adminTermOverviewHtml(); }catch(e){}
   // 送後端（後端若尚未支援 term 欄位會忽略；本機 + 設定檔仍會保存）
-  try{ await callBackend('updateStudent', {sid:sid, name:acc.name, school:acc.school||'', term:term}); }catch(e){}
+  try{ await callBackend('updateStudent', {sid:sid, name:acc.name, school:acc.school||'', term:term,
+    intern_cat:acc.intern_cat||'', intern_start:acc.intern_start||'', intern_end:acc.intern_end||'', expiry:acc.expiry||''}); }catch(e){}
   // 同步到 Google Sheets 設定檔 → 其他裝置/老師端也看得到分組
   try{ saveConfigToSheets(); }catch(e){}
   toast(term ? ('✓ 已將 '+esc(acc.name)+' 歸入「'+esc(term)+'」') : ('✓ 已清除指定，改為自動推算：'+esc(getStudentTerm(sid))));
@@ -17973,7 +18034,8 @@ async function batchSetTerm(clear){
   try{ var box=document.getElementById('term-overview-box'); if(box) box.innerHTML=adminTermOverviewHtml(); }catch(e){}
   for(var i=0;i<sids.length;i++){
     var acc=APP.students[sids[i]]; if(!acc) continue;
-    try{ await callBackend('updateStudent', {sid:sids[i], name:acc.name, school:acc.school||'', term:clear?'':term}); }catch(e){}
+    try{ await callBackend('updateStudent', {sid:sids[i], name:acc.name, school:acc.school||'', term:clear?'':term,
+      intern_cat:acc.intern_cat||'', intern_start:acc.intern_start||'', intern_end:acc.intern_end||'', expiry:acc.expiry||''}); }catch(e){}
   }
   try{ saveConfigToSheets(); }catch(e){}
   toast(clear ? ('✓ 已清除 '+sids.length+' 位學生的指定學期') : ('✓ 已將 '+sids.length+' 位學生歸入「'+esc(term)+'」'));
@@ -18015,7 +18077,8 @@ async function renameTerm(){
   refreshStudentTable();
   for(var i=0;i<sids.length;i++){
     var acc=APP.students[sids[i]]; if(!acc) continue;
-    try{ await callBackend('updateStudent', {sid:sids[i], name:acc.name, school:acc.school||'', term:to}); }catch(e){}
+    try{ await callBackend('updateStudent', {sid:sids[i], name:acc.name, school:acc.school||'', term:to,
+      intern_cat:acc.intern_cat||'', intern_start:acc.intern_start||'', intern_end:acc.intern_end||'', expiry:acc.expiry||''}); }catch(e){}
   }
   try{ saveConfigToSheets(); }catch(e){}
   toast('✓ 已將 '+sids.length+' 位學生改標記為「'+esc(to)+'」');
