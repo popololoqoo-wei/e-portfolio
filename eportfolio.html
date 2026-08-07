@@ -6,7 +6,22 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="2026-08-06-v19.4-critical-fixes">
+<meta name="version" content="2026-08-08-v19.5-delete-fix">
+<!-- ═══════════════ v19.5 修補（前端）═══════════════
+  ★ FIX【清空的欄位刪不掉】F13 書面個案報告評分表、F14 個案報告 PPT 評分表，
+     以及所有文字框／文字區塊，刪掉內容後切換表單再回來，舊值會復活。
+     根因：saveDraftField 把清空寫成 ''，但沒登記「刪除墓碑」；
+     而 saveFormToSheets 的合併策略是「雲端為底、本次非空值才覆蓋」，
+     '' 永遠覆蓋不掉雲端舊值，且合併結果會回寫記憶體 → 舊值當場復活。
+     修法：saveDraftField 清空時改為 delete + markFieldDeleted()，重新填值時
+     unmarkFieldDeleted()；openForm / saveForm 的「非空值補位」合併後
+     一律再套用一次墓碑清單。
+  ★ 墓碑在雲端回報寫入成功後即撤銷（原本固定活 24 小時），
+     避免它誤刪別台裝置後來填回的值。
+  ★ 老師端「學生欄位」由原本的「點擊跳確認框」升級為「唯讀」：
+     文字類用 readonly（可讀可選取可捲動）、選項類用 disabled、
+     學生評分按鈕不可點。管理員不受影響，維持完整編輯權限。
+──────────────────────────────────────────────────── -->
 <!-- ═══════════════ v19.4 修補摘要（前端）═══════════════
   ★ FIX 1【致命】自助註冊後呼叫不存在的 setSessionToken() → 改為 saveSession()
        症狀：註冊完看似登入成功，但沒有 session token，之後所有表單都存不進雲端。
@@ -6143,6 +6158,16 @@ async function openForm(id){
         }
       });
     }catch(e){}
+    /* ★ FIX v19.5：mergeNonEmpty 是「空的就補」，會讓使用者剛清空的欄位
+       被裸 id / 舊草稿的舊值補回來 —— 這就是「刪掉分數、切走再回來又出現」
+       的其中一條路徑。合併完後把已登記刪除的 key 再清一次。 */
+    try{
+      if(typeof getDeletedKeysFor==='function'){
+        getDeletedKeysFor(formKey).forEach(function(k){
+          delete APP.formData[formKey][k];
+        });
+      }
+    }catch(e){}
     // 合併 historyLog（這個沒有「空值覆蓋」問題，照舊去重合併即可）
     if(!APP.historyLog[formKey])APP.historyLog[formKey]=[];
     keysToMerge.forEach(function(k){
@@ -7063,12 +7088,17 @@ function enableRadioToggleClear(){
   });
 }
 
-/* ═══════════ 老師端:防誤改學生欄位(B 方案 — 點擊提醒)═══════════
- * 設計理念:老師看到的學生欄位「外觀正常、可看清楚內容」,
- * 但點擊要編輯時會跳 confirm:「您要修改學生填的欄位嗎?」
- * 按確定 → 該欄位這次可編輯;按取消 → 該欄位仍維持唯讀
+/* ═══════════ 老師端:學生欄位唯讀(v19.5 由 B 方案「點擊提醒」升級)═══════════
+ * v19.4 以前:老師點學生欄位會跳 confirm,按確定就能改。
+ * v19.5 起  :直接唯讀,老師看得到內容但改不了。
  *
- * 對稱於 lockTeacherFields:學生不能改老師區、老師也不該誤改學生區 */
+ * 為什麼要升級:v19.5 修好了「清空的欄位刪不掉」——在那之前,老師就算把學生
+ * 填的內容刪光也存不進雲端(等於有個意外的保護網);修好之後刪除會真的生效,
+ * 所以必須把「老師能不能改學生欄位」這件事講清楚。
+ *
+ * ⚠ 只對 currentRole==='teacher' 生效。管理員維持完整編輯權限,
+ *   需要代為修正資料時請用管理員帳號。
+ * 對稱於 lockTeacherFields:學生不能改老師區、老師也不能改學生區。 */
 function lockStudentFields(){
   // 【權限】只有老師生效(學生/管理員不需此保護)
   if(APP.currentRole!=='teacher') return;
@@ -7105,6 +7135,9 @@ function lockStudentFields(){
   //   一律視為老師欄位,絕對不掛守護(避免老師被自己該填的欄位擋下來)
   function isExplicitTeacherElement(el){
     if(el.getAttribute('data-teacher')==='1') return true;
+    // ★ FIX v19.5：renderForm 會預先替所有「明確的老師元素」蓋上這個標記，
+    //   一併認可，確保老師欄位絕不會被誤鎖成唯讀。
+    if(el.getAttribute('data-student-confirmed')==='1') return true;
     var k = el.getAttribute('data-key') || el.getAttribute('data-rkey') || '';
     if(k && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(k)) return true;
     return false;
@@ -7125,31 +7158,46 @@ function lockStudentFields(){
     // ★ radio / checkbox 需要特別處理:
     //   (1) 視覺提示要套在外層 label(因為 radio 本身的 border-left 看不出來)
     //   (2) 攔截要同時掛 mousedown + click,因為點 label 時可能繞過 mousedown
+    /* ★★★ FIX v19.5：改為「唯讀」(原本是 B 方案：點擊跳 confirm) ★★★
+       原因：v19.5 修好「清空欄位存不掉」之後，老師若真的把學生欄位清空，
+       這次會真的同步刪除雲端資料。既然老師本來就不該改學生填的內容，
+       乾脆從源頭擋掉，比事後跳確認框更安全。
+       ── 文字類用 readonly：內容看得到、選得到、可捲動（個案報告很長）
+       ── 選項類用 disabled：readonly 對 select / radio / checkbox 無效
+       ── disabled 的欄位不會被 saveForm 的 DOM 蒐集掃到，也就不可能產生
+          刪除墓碑，學生資料因此雙重保險。
+       ⚠ 管理員不受影響（函式開頭已限定 currentRole==='teacher' 才執行）。 */
     var isRadioOrCheckbox = (el.type==='radio' || el.type==='checkbox');
-    if(isRadioOrCheckbox){
-      // 視覺提示:給外層 label 加底色與左邊條
+    var isSelectOrDate = (el.tagName==='SELECT' || el.type==='date');
+    var _roTip = '🔒 此欄位由學生填寫，老師端唯讀';
+
+    if(isRadioOrCheckbox || isSelectOrDate){
+      // readonly 對這幾種控制項無效 → 用 disabled
+      el.disabled = true;
+      el.title = _roTip;
       var parentLabel = el.closest('label');
       if(parentLabel && !parentLabel.hasAttribute('data-student-label-styled')){
         parentLabel.setAttribute('data-student-label-styled','1');
         parentLabel.style.borderLeft = '3px solid #3B82F6';
-        parentLabel.style.background = 'rgba(59,130,246,0.08)';
+        parentLabel.style.background = 'rgba(59,130,246,0.06)';
         parentLabel.style.paddingLeft = '6px';
         parentLabel.style.borderRadius = '4px';
-        parentLabel.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
+        parentLabel.title = _roTip;
       }
-      el.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
-      // radio/checkbox:三種事件都要監聽,確保「點 label 文字」也能攔到
-      el.addEventListener('mousedown', _studentFieldGuardHandler, true);
-      el.addEventListener('click', _studentFieldGuardHandler, true);
-      el.addEventListener('keydown', _studentFieldGuardKeyHandler, true);
+      if(isSelectOrDate){
+        el.style.borderLeft = '3px solid #3B82F6';
+        el.style.background = 'var(--cream)';
+      }
     } else {
-      // text/date/textarea/select:邊框視覺提示就夠了
+      // text / number / textarea：用 readonly，老師仍可選取複製內容
+      el.readOnly = true;
+      el.title = _roTip;
       el.style.borderLeft = '3px solid #3B82F6';
-      el.title = '⚠ 此欄位由學生填寫,點擊將跳出確認對話框';
-      // 攔截 focus/click — 第一次互動時跳 confirm,確認後才放行
-      el.addEventListener('mousedown', _studentFieldGuardHandler, true);
-      el.addEventListener('keydown', _studentFieldGuardKeyHandler, true);
-      el.addEventListener('focus', _studentFieldGuardFocusHandler, true);
+      el.style.background = 'var(--cream)';
+      el.style.cursor = 'default';
+      // readonly 仍可 focus；點下去給個提示，避免老師以為系統壞了
+      el.addEventListener('focus', _studentFieldReadOnlyHint, true);
+      el.addEventListener('click', _studentFieldReadOnlyHint, true);
     }
   });
 
@@ -7159,12 +7207,34 @@ function lockStudentFields(){
     if(btn.getAttribute('data-teacher')==='1') return; // 同時有 teacher 標記 → 視為老師欄位,跳過
     var rkey = btn.getAttribute('data-rkey') || btn.getAttribute('data-key') || '';
     if(rkey && typeof isTeacherFieldKey==='function' && isTeacherFieldKey(rkey)) return; // 白名單豁免
+    if(btn.getAttribute('data-student-confirmed')==='1') return;  // ★ FIX v19.5 保險
     if(btn.getAttribute('data-student-guarded')==='1') return;
     btn.setAttribute('data-student-guarded','1');
+    /* ★ FIX v19.5：改為完全不可點（原本是點擊跳 confirm）。
+       不用 disabled 屬性，是為了保留原本的選中／未選中配色，
+       老師仍看得出學生選了哪一格。 */
     btn.style.borderLeft = '3px solid #3B82F6';
-    btn.title = '⚠ 此為學生填寫的欄位,點擊將跳出確認對話框';
-    btn.addEventListener('click', _studentFieldGuardHandler, true);
+    btn.style.cursor = 'not-allowed';
+    btn.style.opacity = '0.85';
+    btn.title = '🔒 此為學生填寫的欄位，老師端唯讀';
+    btn.addEventListener('click', _studentFieldReadOnlyBlock, true);
+    btn.addEventListener('mousedown', _studentFieldReadOnlyBlock, true);
   });
+}
+
+/* ★ FIX v19.5：老師點到唯讀的學生欄位時給個提示，避免以為系統壞掉 */
+var _studentRoHintAt = 0;
+function _studentFieldReadOnlyHint(){
+  var now = Date.now();
+  if(now - _studentRoHintAt < 2500) return;   // 防抖，避免連續跳
+  _studentRoHintAt = now;
+  try{ toast('🔒 此欄位由學生填寫，老師端為唯讀'); }catch(e){}
+}
+function _studentFieldReadOnlyBlock(ev){
+  ev.preventDefault();
+  ev.stopPropagation();
+  if(typeof ev.stopImmediatePropagation==='function') ev.stopImmediatePropagation();
+  _studentFieldReadOnlyHint();
 }
 
 /* mousedown / click 守護:阻止互動 → 跳 confirm → 確認後解除該元素守護 */
@@ -7680,6 +7750,20 @@ function saveForm(id, silent){
       }
     });
   }catch(e){}
+
+  /* ★ FIX v19.5：上面兩段合併都是「target 為空就補值」，
+     使用者剛剛清空的欄位在 formKey 是空的，會被裸 id / 舊草稿的舊值補回來。
+     這裡把「已登記刪除」的 key 再清一次，確保清空動作不會在存檔途中被撤銷。 */
+  function _purgeDeletedKeys(){
+    if(typeof getDeletedKeysFor!=='function') return;
+    try{
+      getDeletedKeysFor(formKey).forEach(function(k){
+        if(APP.formData[formKey]) delete APP.formData[formKey][k];
+        if(id!==formKey && APP.formData[id]) delete APP.formData[id][k];
+      });
+    }catch(e){}
+  }
+  _purgeDeletedKeys();
   // 收集所有可見欄位（用 id 或 formKey 都接受）
   document.querySelectorAll('[data-fid][data-key]').forEach(function(el){
     if(!el.disabled){
@@ -7726,6 +7810,7 @@ function saveForm(id, silent){
   });
   // 同時儲存到 localStorage 草稿
   try{
+    _purgeDeletedKeys();   // ★ FIX v19.5：快照前再清一次，草稿才不會留下已刪的欄位
     var draftSave=JSON.parse(localStorage.getItem('form_drafts')||'{}');
     draftSave[formKey]=Object.assign({},APP.formData[formKey]);
     localStorage.setItem('form_drafts',JSON.stringify(draftSave));
@@ -7747,6 +7832,7 @@ function saveForm(id, silent){
     });
     // ★ 整理完後乾脆清掉裸 id,避免後續再次被掃進來
     if(id!==formKey) delete APP.formData[id];
+    _purgeDeletedKeys();   // ★ FIX v19.5：裸 id 補值後再清一次
   }
 
   // ★★★ 老師端必填欄位檢查:儲存前若有缺漏,跳出警示讓老師選擇 ★★★
@@ -7855,6 +7941,10 @@ async function saveFormToSheets(id){
   // ★ 只用 formKey 的資料上雲;不再 merge 裸 id(裸 id 是跨學生共用空間,
   //   可能含上一位被檢視學生的污染殘留,merge 進來會把錯誤資料推到雲端)
   let mergedData=Object.assign({},APP.formData[formKey]||{});
+  /* ★ FIX v19.5：記下這次上傳「實際套用了哪些刪除墓碑」，
+     待雲端回報寫入成功後就撤掉它們 —— 墓碑的任務只是「撐到雲端確認刪除為止」，
+     留著超過這段時間，反而可能把別台裝置後來填回的值再刪一次。 */
+  var _appliedTombstones = [];
 
   // ★★★【防覆蓋修補 v1.6:送出前先抓雲端現有資料再合併】★★★
   //   根因:任何一方(尤其老師端)儲存時,APP.formData[formKey] 可能只含自己這方的欄位
@@ -7882,7 +7972,8 @@ async function saveFormToSheets(id){
         });
         // 3) 尊重本機「再點清除」明確刪除的欄位
         if(typeof getDeletedKeysFor === 'function'){
-          getDeletedKeysFor(formKey).forEach(function(k){ delete _m[k]; });
+          _appliedTombstones = getDeletedKeysFor(formKey).slice();
+          _appliedTombstones.forEach(function(k){ delete _m[k]; });
         }
         mergedData = _m;
         // 同步回寫記憶體,讓畫面也保有合併後的完整資料(避免緊接著的同步又把畫面清空)
@@ -7941,6 +8032,12 @@ async function saveFormToSheets(id){
           toast('⚠ 登入逾時，請重新登入', false);
           clearSession();
         }
+        return;   // 失敗 → 墓碑保留，下次再試
+      }
+      /* ★ FIX v19.5：雲端已確認收下（刪除的欄位不在 payload 裡了），
+         墓碑任務完成即撤銷，避免它在接下來 24 小時內誤刪別台裝置填回的值。 */
+      if(_appliedTombstones.length && typeof unmarkFieldDeleted==='function'){
+        _appliedTombstones.forEach(function(k){ unmarkFieldDeleted(formKey, k); });
       }
     }).catch(e=>console.warn('saveFormToSheets error:',e));
   }catch(e){console.warn('saveFormToSheets error:',e);}
@@ -11649,12 +11746,41 @@ function saveDraftField(fid, key, val){
     targetKey = canonical;
   }
   if(!APP.formData[targetKey]) APP.formData[targetKey] = {};
-  APP.formData[targetKey][key] = val;
+
+  /* ★★★ FIX v19.5【清空的欄位刪不掉】★★★
+     ── 病因 ──────────────────────────────────────────────────────
+     舊版把清空的欄位寫成空字串 '' 就結束了，沒有登記「刪除墓碑」。
+     但 saveFormToSheets 為了防止兩方互相洗資料，採「雲端為底、本次非空值
+     才覆蓋」的合併策略：
+         1) 先鋪上雲端所有既有欄位
+         2) 再用本次的「非空值」覆蓋   ← '' 在這一步被跳過
+         3) 只刪掉列在墓碑清單裡的 key ← 空字串沒登記，所以刪不到
+     結果雲端的舊分數原封不動地存活，而且第 3 步之後還會
+     `APP.formData[formKey] = _m` 回寫記憶體 → 連本機記憶體的舊值都一起復活。
+     這就是「刪掉分數、跳去別張表單再回來，分數又出現」的原因。
+
+     墓碑機制本來就存在（setRating 的「再點一次＝清除」用得好好的），
+     只是走 saveDraftField 這條路的欄位從來沒登記過。這裡補上，
+     F13／F14 的分數輸入格、以及所有文字框／文字區塊一併治好。 */
+  var isCleared = (val === '' || val === null || val === undefined);
+  if(isCleared){
+    delete APP.formData[targetKey][key];
+    if(typeof markFieldDeleted==='function') markFieldDeleted(targetKey, key);
+  }else{
+    APP.formData[targetKey][key] = val;
+    // 使用者重新填值 → 一定要把墓碑撤掉，否則下次同步又被清掉
+    if(typeof unmarkFieldDeleted==='function') unmarkFieldDeleted(targetKey, key);
+  }
+
   // 立即存 localStorage（同樣只寫 targetKey）
   try{
     var drafts = JSON.parse(localStorage.getItem('form_drafts')||'{}');
     if(!drafts[targetKey]) drafts[targetKey] = {};
-    drafts[targetKey][key] = val;
+    if(isCleared){
+      delete drafts[targetKey][key];
+    }else{
+      drafts[targetKey][key] = val;
+    }
     localStorage.setItem('form_drafts', JSON.stringify(drafts));
   }catch(e){}
   // ★ 觸發自動儲存
