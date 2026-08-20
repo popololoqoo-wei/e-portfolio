@@ -5047,7 +5047,7 @@ const REQUIRED_STUDENT_FIELDS = {
     'f14_sc_0','f14_sc_1','f14_sc_2','f14_sc_3','f14_sc_4','f14_sc_5',
     'f14_sc_6','f14_sc_7','f14_sc_8','f14_sc_9','f14_sc_10','f14_sc_11',
     's_fb','t_fb','s_sign','s_sign_date','t_sign','t_sign_date'],
-  // DOPS：每張的評核項目數量不同（D01=21、D02=19、D03=18、D04=34）
+  // DOPS：每張的評核項目數量不同（D01=21、D02=19、D03=20、D04=34）
   D01: ['s_name','school','s_date','intern_cat','complexity']
     .concat(Array.from({length:21},function(_,i){return 'D01_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
@@ -5055,7 +5055,7 @@ const REQUIRED_STUDENT_FIELDS = {
     .concat(Array.from({length:19},function(_,i){return 'D02_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
   D03: ['s_name','school','s_date','intern_cat','complexity']
-    .concat(Array.from({length:18},function(_,i){return 'D03_i'+(i+1);}))
+    .concat(Array.from({length:20},function(_,i){return 'D03_i'+(i+1);}))
     .concat(['score_grade','result','s_feeling','t_fb','s_sign','s_sign_date','t_sign','t_sign_date']),
   D04: ['s_name','school','s_date','intern_cat','complexity']
     .concat(Array.from({length:34},function(_,i){return 'D04_i'+(i+1);}))
@@ -6717,10 +6717,10 @@ var TEACHER_PROGRESS_OVERRIDE = {
         'D02_i8','D02_i9','D02_i10','D02_i11','D02_i12','D02_i13','D02_i14',
         'D02_i15','D02_i16','D02_i17','D02_i18','D02_i19',
         'score_grade','result','t_fb','t_sign','t_sign_date'],
-  // D03 DOPS:呼吸器技術操作 — 老師端 23 欄 (18 評分 + 5)
+  // D03 DOPS:呼吸器技術操作 — 老師端 25 欄 (20 評分 + 5)
   D03: ['D03_i1','D03_i2','D03_i3','D03_i4','D03_i5','D03_i6','D03_i7',
         'D03_i8','D03_i9','D03_i10','D03_i11','D03_i12','D03_i13','D03_i14',
-        'D03_i15','D03_i16','D03_i17','D03_i18',
+        'D03_i15','D03_i16','D03_i17','D03_i18','D03_i19','D03_i20',
         'score_grade','result','t_fb','t_sign','t_sign_date'],
   // D04 DOPS:呼吸器脫離測量 — 老師端 39 欄 (34 評分 + 5)
   D04: ['D04_i1','D04_i2','D04_i3','D04_i4','D04_i5','D04_i6','D04_i7',
@@ -9961,7 +9961,7 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
         g.items.forEach(function(itText){
           // 階層縮排（PDF 用較窄 14px）
           function _lvl(line){
-            var m = String(line).trim().match(/^(\d+)(\.\d+)?(\.\d+)?/);
+            var m = String(line).trim().match(/^(\d+)([.\-]\d+)?([.\-]\d+)?/);
             if(!m) return 0;
             if(m[3]) return 2;
             if(m[2]) return 1;
@@ -9977,8 +9977,13 @@ function buildPDFContent(id,f,d,val,row,section,studentName,studentSchool,chk){
           dopsItemIdx++;
           var itKey=id+'_i'+dopsItemIdx;
           var sel=d[itKey];
+          var _pdfLastLv = 0;
           var pdfLines = String(itText).split('\n').map(function(ln){
-            var pad = _lvl(ln) * 14;
+            var hasNum = /^\d+(?:[.\-]\d+)*\.?[ \u3000]*\S/.test(String(ln));
+            var lv;
+            if(hasNum){ lv = _lvl(ln); _pdfLastLv = lv; }
+            else { lv = _pdfLastLv + 1; }
+            var pad = lv * 14;
             if(pad === 0) return ln;
             return '<span style="display:inline-block;padding-left:'+pad+'px;">'+ln+'</span>';
           });
@@ -13030,16 +13035,18 @@ const DOPS_DATA={
     extra:'呼吸器機型：□PB840  □Servo系列(I/C/U/AIR)  □Drager系列(V/VN)  □Hamilton-G5  □其他',
     groups:[
       {hd:'呼吸器使用前',items:[
-        '1. 確認醫囑與適應症',
+        '1. 確認醫囑/目的與適應症\n目的：改善氣體交換、降低呼吸做功、改善肺容積、保護氣道、穩定胸壁結構等。\n適應症：急性呼吸衰竭(給予高濃度氧氣後，動脈血氧仍無法改善，PaO2 < 60 mmHg 或 SpO2 < 90%)、慢性肺部疾病急性惡化(通氣不足導致二氧化碳堆積與呼吸性酸中毒，PaCO2 > 50 mmHg 且 pH < 7.30)、神經肌肉與胸廓疾病、中樞神經系統異常、手術與麻醉需要等。',
         '2. 確認病人(兩種方式)',
         '3. 技術執行前洗手、戴口罩、隔離衣(隔離病人)',
-        '4. 備物：呼吸器、呼吸器管路及附屬配件、自動加水器/MR850、無菌蒸餾水、吐氣端短軟管、細菌過濾器、吐氣端蓄水瓶、氧氣分析儀、測試肺、酒精棉片',
+        '4. 準備備物\n4-1. PB840：呼吸器、呼吸器管路及附屬配件(重複管)、自動加水器/MR850、無菌蒸餾水、840細菌過濾器、吐氣端蓄水瓶、60cm引流管、廢水瓶、測試肺、酒精棉片、Heater wire/Heater probe',
+        '4-2. Servo系列：呼吸器、呼吸器管路(簡易管)及附屬配件(Exp.cassette)、吐氣端短軟管、細菌過濾器、測試肺、人工鼻',
         '5. 正確操作組裝管路',
-        '6. 呼吸器功能測試',
-        '7. 呼吸器初步設定',
+        '6. 呼吸器功能測試(設定Volume control下(Vt:500/RR:16/PEEP:5/Ti:0.9-1.0/FiO2:100%)，連接測試肺，其Vte與設定值誤差須10%內)\n※PB840注意Exp須更換成HME',
+        '7-1. 呼吸器初步設定(以PBW:6-8ml/Kg)',
+        '7-2. 警報設定\nHigh/Low pres.limit：PIP±10-15cmH2O\nHigh/Low VT limit：VT±50%VT set\nHigh/Low MV limit：MV±50%MV set\nHigh RR：40/bpm\nLow PEEP：PEEP-3cmH2O\nApnea time：20-30 sec',
       ]},
       {hd:'呼吸器使用中',items:[
-        '8. 監測：聽診呼吸音、病人呼吸型態是否和呼吸器同步、生命徵象及ABG',
+        '8. 監測：聽診呼吸音、呼吸型態(胸腹起伏一致、是否使用呼吸輔助肌)、呼吸器同步性、生命徵象、ABG',
         '9. 呼吸器障礙排除\n9.1 先檢查病人',
         '9.2 依照呼吸器警報發生原因(管路積水、分泌物增加、漏氣)，調整呼吸器設定、改善病人呼吸的狀況、恢復警報或更換異常呼吸器',
         '10. 病人使用之呼吸器面板，每日需使用漂白水布',
@@ -13050,8 +13057,8 @@ const DOPS_DATA={
         '13. 管路及附屬配件依分類處理',
         '14. 呼吸器面板及呼吸器表面以漂白水布擦拭',
         '15. 泡消\n15.1 Exp. cassette 75% 酒精浸泡30分鐘，烘乾即可。(servo系列)',
-        '15.2 細菌過濾器高溫殺菌消毒',
-        '15.3 管路以巴斯德消毒',
+        '15.2 細菌過濾器高溫殺菌消毒(100度)',
+        '15.3 重複性管路以巴斯德消毒(75度，30分鐘)',
       ]},
     ]
   },
@@ -13116,10 +13123,10 @@ function buildDOPS(f,d,canT,fkey,canS){
     g.items.forEach(item=>{
       // 階層縮排輔助：分析編號層級
       function _calcLevel(line){
-        var m = String(line).trim().match(/^(\d+)(\.\d+)?(\.\d+)?/);
+        var m = String(line).trim().match(/^(\d+)([.\-]\d+)?([.\-]\d+)?/);
         if(!m) return 0;
         if(m[3]) return 2;       // 7.4.1 → 三級
-        if(m[2]) return 1;       // 9.1   → 二級
+        if(m[2]) return 1;       // 9.1 / 4-1 → 二級
         return 0;                // 9.    → 主項
       }
       // 純標題 item（如 {h:'7. 技術執行步驟'}）：只顯示文字，不評分、不消耗 itemIdx
@@ -13133,20 +13140,23 @@ function buildDOPS(f,d,canT,fkey,canS){
       var key=f.id+'_i'+(++itemIdx);
       // 一般 item：依編號層級縮排 + 懸掛縮排（換行時對齊編號後的第一個字）
       var lines = String(item).split('\n');
+      var _lastLv = 0;   // 記住上一個「有編號」行的層級，供無編號續行沿用
       var renderedLines = lines.map(function(ln){
-        var lv = _calcLevel(ln);
-        var pad = lv * 18;
-        // 拆出開頭編號（如 4. / 7.1 / 7.4.1）與其後文字，讓編號獨立一欄、
+        // 拆出開頭編號（如 4. / 7.1 / 4-1. / 7.4.1）與其後文字，讓編號獨立一欄、
         // 文字另成一欄；文字換行時自然對齊到編號後的第一個字（懸掛縮排）。
-        var m = String(ln).match(/^(\d+(?:\.\d+)*\.?)[ \u3000]*([\s\S]*)$/);
+        var m = String(ln).match(/^(\d+(?:[.\-]\d+)*\.?)[ \u3000]*([\s\S]*)$/);
         if(m && m[2] !== ''){
+          var lv = _calcLevel(ln);
+          _lastLv = lv;
+          var pad = lv * 18;
           return '<span style="display:flex;align-items:flex-start;padding-left:'+pad+'px;">'
                +   '<span style="flex:0 0 auto;white-space:nowrap;padding-right:.35em;">'+m[1]+'</span>'
                +   '<span style="flex:1 1 auto;min-width:0;overflow-wrap:break-word;">'+m[2]+'</span>'
                + '</span>';
         }
-        // 無法解析編號者：整行為一個區塊，保留原本的階層縮排
-        return '<span style="display:block;padding-left:'+pad+'px;">'+ln+'</span>';
+        // 無編號的說明／續行（如「目的：…」「High RR：40/bpm」）：比上一行再縮一級
+        var pad2 = (_lastLv + 1) * 18;
+        return '<span style="display:block;padding-left:'+pad2+'px;">'+ln+'</span>';
       });
       var itemDisplay = renderedLines.join('');
       h+='<tr><td class="item-cell">'+itemDisplay+'</td>';
